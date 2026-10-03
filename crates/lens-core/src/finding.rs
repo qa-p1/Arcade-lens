@@ -34,6 +34,7 @@ impl Finding {
     pub fn summary(&self) -> String {
         let text = match &self.value {
             Value::Secret(s) => s.masked.clone(),
+            Value::Error(e) => e.headline.clone(),
             v => v.as_text().map(|t| t.into_owned()).unwrap_or_else(|| format!("{v:?}")),
         };
         let first_line = text.lines().next().unwrap_or_default();

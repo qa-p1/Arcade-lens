@@ -10,6 +10,7 @@ use lens_core::chain::Chain;
 use lens_core::usage::UsageStore;
 use lens_core::Settings;
 
+#[derive(Clone, Debug)]
 pub struct Paths {
     pub config: PathBuf,
     pub data: PathBuf,
@@ -41,6 +42,15 @@ impl Paths {
     }
     pub fn collections(&self) -> PathBuf {
         self.data.join("collections")
+    }
+    pub fn plugins(&self) -> PathBuf {
+        self.config.join("plugins")
+    }
+    pub fn history(&self) -> PathBuf {
+        self.data.join("history")
+    }
+    pub fn endpoint(&self) -> PathBuf {
+        self.data.join("instance")
     }
 }
 

@@ -306,7 +306,7 @@ pub fn register(r: &mut PluginRegistrar) {
             .icon("copy")
             .group(G::Copy)
             .accepts(e.clone())
-            .priority(80)
+            .priority(88)
             .key('c')
             .effects(COPY)
             .run(move |i, cx| copy(cx, &err(i)?.raw, "error")),
@@ -316,7 +316,7 @@ pub fn register(r: &mut PluginRegistrar) {
             .icon("search")
             .group(G::Search)
             .accepts(e.clone())
-            .priority(90)
+            .priority(84)
             .key('w')
             .effects(SEARCH)
             .requires(F::OPEN_URI)

@@ -57,15 +57,18 @@ pub struct PaletteEntry {
 
 #[derive(Debug, Clone, Default)]
 pub struct Palette {
-    /// The handful of actions shown immediately. `primary[0]` is the Enter default.
+    /// The handful of actions shown immediately.
     pub primary: Vec<PaletteEntry>,
+    /// Index into `primary` of the Enter default (the best-ranked entry; it
+    /// is not necessarily first, so late results never reorder the row).
+    pub default_index: usize,
     /// Every applicable action, best first (the `•••` list).
     pub all: Vec<PaletteEntry>,
 }
 
 impl Palette {
     pub fn default_entry(&self) -> Option<&PaletteEntry> {
-        self.primary.first()
+        self.primary.get(self.default_index).or(self.primary.first())
     }
 
     pub fn by_key(&self, key: char) -> Option<&PaletteEntry> {
@@ -120,7 +123,17 @@ pub fn build_palette(input: &PaletteInput) -> Palette {
 
     let mut entries = Vec::new();
     for f in findings {
-        let spec = specificity(&f.capability) * f.confidence;
+        // A URL that *is* the selection is what the user meant; a URL inside a
+        // paragraph is incidental. Scale specificity by how much of the parent
+        // text the finding covers.
+        let coverage = match (&f.span, f.derived_from.and_then(|p| findings.iter().find(|x| x.id == p))) {
+            (Some(span), Some(parent)) => parent.value.as_text().map_or(1.0, |t| {
+                let total = t.trim().len().max(1) as f32;
+                (span.len() as f32 / total).min(1.0)
+            }),
+            _ => 1.0,
+        };
+        let spec = specificity(&f.capability) * f.confidence * (0.4 + 0.6 * coverage);
         for a in registry.actions() {
             let d = a.descriptor();
             if !d.in_palette
@@ -220,30 +233,48 @@ pub fn build_palette(input: &PaletteInput) -> Palette {
         primary.push(e.clone());
     }
 
-    let mut palette = Palette { primary, all: entries };
+    let mut palette = Palette { primary, default_index: 0, all: entries };
     assign_keys(&mut palette, settings, registry);
     palette
 }
 
-/// Keeps entries the user can already see in place while progressive results
-/// arrive. Call with `settled = false` during the brief initial window in
-/// which free reordering is acceptable, and `true` afterwards.
+/// Margin by which a late-arriving action must outrank a visible one to
+/// replace it.
+const REPLACE_MARGIN: f32 = 12.0;
+
+/// Merges a newly ranked palette into what the user already sees without
+/// reordering it. During the brief initial window (`settled == false`) the
+/// row is simply replaced. Afterwards:
+///
+/// * visible entries keep their positions;
+/// * entries that are no longer applicable free their slot;
+/// * better actions arriving later (e.g. after OCR) fill free slots, or
+///   replace the weakest visible entry *in place* if they clearly outrank it;
+/// * the Enter default follows the best-ranked entry wherever it sits.
 pub fn stabilize(previous: &[PaletteEntry], mut next: Palette, settled: bool, settings: &Settings, registry: &Registry) -> Palette {
     if !settled || previous.is_empty() {
         return next;
     }
     let n = settings.primary_action_count.max(1);
     let same = |a: &PaletteEntry, b: &PaletteEntry| a.target == b.target && a.finding == b.finding;
-    let mut primary: Vec<PaletteEntry> = previous.iter().filter_map(|p| next.all.iter().find(|e| same(e, p)).cloned()).collect();
-    for e in &next.primary {
-        if primary.len() >= n {
-            break;
-        }
-        if !primary.iter().any(|p| same(p, e) || p.target == e.target) {
-            primary.push(e.clone());
+    // Refresh surviving entries (scores, previews) but keep their slots.
+    let mut slots: Vec<Option<PaletteEntry>> = previous.iter().map(|p| next.all.iter().find(|e| same(e, p)).cloned()).collect();
+    slots.truncate(n);
+    let incoming: Vec<PaletteEntry> = next.primary.iter().filter(|e| !slots.iter().flatten().any(|s| same(s, e) || s.target == e.target)).cloned().collect();
+    for e in incoming {
+        if let Some(free) = slots.iter().position(Option::is_none) {
+            slots[free] = Some(e);
+        } else if slots.len() < n {
+            slots.push(Some(e));
+        } else if let Some((weakest, score)) = slots.iter().enumerate().filter_map(|(i, s)| s.as_ref().map(|s| (i, s.score))).min_by(|a, b| a.1.total_cmp(&b.1))
+        {
+            if e.score > score + REPLACE_MARGIN {
+                slots[weakest] = Some(e);
+            }
         }
     }
-    next.primary = primary;
+    next.primary = slots.into_iter().flatten().collect();
+    next.default_index = next.primary.iter().enumerate().max_by(|a, b| a.1.score.total_cmp(&b.1.score).then(b.0.cmp(&a.0))).map_or(0, |(i, _)| i);
     assign_keys(&mut next, settings, registry);
     next
 }

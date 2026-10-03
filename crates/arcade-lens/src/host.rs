@@ -17,6 +17,9 @@ pub struct DesktopHost {
     settings: Settings,
     collections: PathBuf,
     features: HostFeatures,
+    /// Long-lived processes own the clipboard themselves; short-lived CLI
+    /// runs hand it to wl-copy/xclip so it survives process exit.
+    long_lived: bool,
 }
 
 fn which(cmd: &str) -> Option<PathBuf> {
@@ -92,9 +95,14 @@ impl DesktopHost {
         if settings.browser.as_deref().is_some_and(|b| private_flag(b).is_some()) {
             f |= HostFeatures::PRIVATE_BROWSING;
         }
-        let host = Self { settings, collections, features: f };
+        let host = Self { settings, collections, features: f, long_lived: false };
         let features = if host.terminal_program().is_some() { f | HostFeatures::TERMINAL } else { f };
         Self { features, ..host }
+    }
+
+    pub fn long_lived(mut self) -> Self {
+        self.long_lived = true;
+        self
     }
 
     fn terminal_program(&self) -> Option<(String, Vec<String>)> {
@@ -132,7 +140,7 @@ impl DesktopHost {
     /// On Linux the clipboard belongs to a running process; a short-lived CLI
     /// would lose it on exit, so hand it to wl-copy/xclip when available.
     fn linux_clipboard(&self, mime: &str, bytes: &[u8]) -> Option<Result<()>> {
-        if !cfg!(target_os = "linux") {
+        if !cfg!(target_os = "linux") || self.long_lived {
             return None;
         }
         if std::env::var_os("WAYLAND_DISPLAY").is_some() && which("wl-copy").is_some() {
@@ -295,8 +303,7 @@ impl Host for DesktopHost {
     }
 
     fn download(&self, url: &str) -> Result<PathBuf> {
-        let mut resp = ureq::get(url).call().map_err(|e| LensError::Failed(format!("download: {e}")))?;
-        let bytes = resp.body_mut().with_config().limit(512 * 1024 * 1024).read_to_vec().map_err(|e| LensError::Failed(format!("download: {e}")))?;
+        let bytes = crate::net::get_bytes(url, 512 * 1024 * 1024).map_err(|e| LensError::Failed(format!("download: {e}")))?;
         let name =
             url.split(['?', '#']).next().and_then(|u| u.rsplit('/').find(|s| !s.is_empty())).filter(|n| !n.contains(':')).unwrap_or("download").to_string();
         let dir = directories::UserDirs::new().and_then(|u| u.download_dir().map(Path::to_path_buf)).unwrap_or_else(home);

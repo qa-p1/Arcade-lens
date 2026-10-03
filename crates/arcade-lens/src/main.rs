@@ -5,7 +5,9 @@
 //! recognizer and action can be exercised, scripted and tested headlessly.
 
 mod config;
+mod gui;
 mod host;
+mod net;
 
 use std::io::{BufRead, IsTerminal, Write};
 use std::path::PathBuf;
@@ -110,6 +112,23 @@ enum Cmd {
     },
     /// Forget learned action preferences.
     ResetUsage,
+    /// Run Arcade Lens in the background: global shortcut, pins, settings.
+    Start,
+    /// Open the selection overlay now (in the running instance, or standalone).
+    Capture,
+    /// Open the settings window.
+    Settings,
+    /// Pin an image file on screen.
+    Pin { image: PathBuf },
+    /// Stop the background instance.
+    Quit,
+    /// Start Arcade Lens when you log in.
+    Autostart {
+        #[arg(value_parser = ["enable", "disable", "status"])]
+        action: String,
+    },
+    /// Add Arcade Lens to the desktop's applications menu (Linux).
+    InstallLauncher,
 }
 
 #[derive(Subcommand)]
@@ -484,6 +503,15 @@ fn run_action(input: Input, action: String, finding: Option<u32>, yes: bool, cho
     Ok(())
 }
 
+/// Sends a command to the running instance, or runs a standalone one.
+fn remote_or_local(command: &str, trigger: gui::Trigger) -> AnyResult {
+    let paths = Paths::discover();
+    if lens_platform::ipc::send(&paths.endpoint(), command).is_ok() {
+        return Ok(());
+    }
+    gui::run(gui::Launch { one_shot: true, initial: Some(trigger), daemon: false })
+}
+
 fn run(cli: Cli) -> AnyResult {
     match cli.command {
         Cmd::Analyze { input, all, json, timeline } => analyze(input, all, json, timeline),
@@ -555,6 +583,41 @@ fn run(cli: Cli) -> AnyResult {
             }
             Ok(())
         }
+        Cmd::Start => {
+            let paths = Paths::discover();
+            if lens_platform::ipc::send(&paths.endpoint(), "ping").is_ok() {
+                println!("Arcade Lens is already running.");
+                return Ok(());
+            }
+            gui::run(gui::Launch { one_shot: false, initial: None, daemon: true })
+        }
+        Cmd::Capture => remote_or_local("capture", gui::Trigger::Capture),
+        Cmd::Settings => remote_or_local("settings", gui::Trigger::Settings),
+        Cmd::Pin { image } => {
+            let abs = std::fs::canonicalize(&image).map_err(|e| format!("{}: {e}", image.display()))?;
+            remote_or_local(&format!("pin {}", abs.display()), gui::Trigger::Pin(abs))
+        }
+        Cmd::Quit => {
+            let paths = Paths::discover();
+            lens_platform::ipc::send(&paths.endpoint(), "quit").map(|_| ()).map_err(|_| "Arcade Lens is not running".to_string())
+        }
+        Cmd::Autostart { action } => {
+            let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+            match action.as_str() {
+                "enable" => lens_platform::autostart::enable(&exe).map_err(|e| e.to_string())?,
+                "disable" => lens_platform::autostart::disable().map_err(|e| e.to_string())?,
+                _ => {}
+            }
+            println!("Start at login: {}", if lens_platform::autostart::is_enabled() { "on" } else { "off" });
+            Ok(())
+        }
+        Cmd::InstallLauncher => {
+            let exe = std::env::current_exe().map_err(|e| e.to_string())?;
+            for p in lens_platform::autostart::install_launcher(&exe).map_err(|e| e.to_string())? {
+                println!("Wrote {}", p.display());
+            }
+            Ok(())
+        }
         Cmd::ResetUsage => {
             let paths = Paths::discover();
             config::save_usage(&paths, &Default::default()).map_err(|e| e.to_string())?;
@@ -564,37 +627,21 @@ fn run(cli: Cli) -> AnyResult {
     }
 }
 
-#[cfg(feature = "ocrs")]
 fn models(command: ModelCmd) -> AnyResult {
-    use lens_recognizers::ocr::ocrs_engine::*;
     let paths = Paths::discover();
     let dir = paths.models();
     match command {
         ModelCmd::Status => {
-            println!("{}: {}", dir.display(), if OcrsEngine::models_present(&dir) { "installed" } else { "not installed" });
+            let (_, status) = gui::runtime::ocr_engine(&paths);
+            println!("OCR engine: {status}\nModels: {}", dir.display());
         }
         ModelCmd::Download => {
-            std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
-            for (url, file) in [(DETECTION_MODEL_URL, DETECTION_MODEL_FILE), (RECOGNITION_MODEL_URL, RECOGNITION_MODEL_FILE)] {
-                print!("Downloading {file}… ");
-                std::io::stdout().flush().ok();
-                let mut resp = ureq::get(url).call().map_err(|e| e.to_string())?;
-                let bytes = resp.body_mut().with_config().limit(200 * 1024 * 1024).read_to_vec().map_err(|e| e.to_string())?;
-                let tmp = dir.join(format!("{file}.part"));
-                std::fs::write(&tmp, &bytes).map_err(|e| e.to_string())?;
-                std::fs::rename(&tmp, dir.join(file)).map_err(|e| e.to_string())?;
-                println!("{:.1} MB", bytes.len() as f64 / 1e6);
-            }
-            OcrsEngine::load(&dir).map_err(|e| format!("downloaded models failed to load: {e}"))?;
+            println!("Downloading OCR models (~12 MB)…");
+            net::download_models(&dir)?;
             println!("OCR ready.");
         }
     }
     Ok(())
-}
-
-#[cfg(not(feature = "ocrs"))]
-fn models(_: ModelCmd) -> AnyResult {
-    Err("this build has no portable OCR engine (enable the `ocrs` feature)".into())
 }
 
 #[cfg(test)]

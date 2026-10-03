@@ -139,10 +139,10 @@ impl Signals {
         self.width as u64 * self.height as u64
     }
 
-    /// Nearly a single flat color. Sparse text on a solid background (a dark
-    /// terminal is often >90% one color) is *not* uniform: it has edges.
+    /// Nearly a single flat color. Decided by edges, not color share alone:
+    /// a page of sparse text is >98% background but full of sharp edges.
     pub fn is_uniform(&self) -> bool {
-        self.dominant_fraction >= 0.98 || (self.dominant_fraction >= 0.9 && self.edge_density < 0.005)
+        self.dominant_fraction >= 0.9 && self.edge_density < 0.0005
     }
 
     /// Small enough that the user is probably pointing at a color or icon.
@@ -173,6 +173,15 @@ mod tests {
         let s = Signals::compute(&img);
         assert!(s.dominant_fraction > 0.9 && s.dominant_fraction < 0.98, "{}", s.dominant_fraction);
         assert!(!s.is_uniform());
+    }
+
+    #[test]
+    fn sparse_text_on_white_is_not_uniform() {
+        // ~99% white with a few short glyph-like strokes.
+        let img = RgbaImage::from_fn(600, 200, |x, y| if y % 50 == 25 && x % 40 < 6 { Rgba([20, 20, 20, 255]) } else { Rgba([254, 254, 254, 255]) });
+        let s = Signals::compute(&img);
+        assert!(s.dominant_fraction > 0.98);
+        assert!(!s.is_uniform(), "{s:?}");
     }
 
     #[test]

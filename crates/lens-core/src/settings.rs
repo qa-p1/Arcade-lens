@@ -31,6 +31,8 @@ pub struct Settings {
     /// ISO 4217 code used as the default currency-conversion target.
     pub home_currency: Option<String>,
     pub privacy: Privacy,
+    /// Third-party plugins the user has explicitly enabled (by id).
+    pub enabled_plugins: Vec<String>,
 }
 
 impl Default for Settings {
@@ -52,6 +54,7 @@ impl Default for Settings {
             date_order: DateOrder::DayFirst,
             home_currency: None,
             privacy: Privacy::default(),
+            enabled_plugins: Vec::new(),
         }
     }
 }

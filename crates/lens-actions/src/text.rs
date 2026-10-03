@@ -124,7 +124,7 @@ pub fn register(r: &mut PluginRegistrar) {
             .group(G::Copy)
             .accepts(t.clone())
             .passthrough()
-            .priority(85)
+            .priority(90)
             .key('t')
             .effects(COPY)
             .run(|i, cx| copy(cx, &text_of(i)?, "text")),

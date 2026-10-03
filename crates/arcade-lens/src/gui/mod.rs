@@ -432,6 +432,8 @@ impl eframe::App for LensApp {
         if self.focus_pending && self.root_visible {
             use raw_window_handle::{HasWindowHandle, RawWindowHandle};
             if let Ok(h) = frame.window_handle() {
+                // `c_ulong` is 64-bit on Linux but 32-bit on Windows.
+                #[allow(clippy::unnecessary_cast)]
                 let raw = match h.as_raw() {
                     RawWindowHandle::Xlib(x) => lens_platform::raw_window_handle_shim::Raw::X11(x.window as u32),
                     RawWindowHandle::Xcb(x) => lens_platform::raw_window_handle_shim::Raw::X11(x.window.get()),

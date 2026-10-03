@@ -42,6 +42,9 @@ bitflags! {
         const DOWNLOAD         = 1 << 21;
         /// Local user collections (saved palettes, notes).
         const PERSIST          = 1 << 22;
+        const PRINT            = 1 << 23;
+        /// Windows can be moved between virtual desktops.
+        const WORKSPACES       = 1 << 24;
     }
 }
 
@@ -126,6 +129,10 @@ pub trait Host: Send + Sync {
     fn persist(&self, _collection: &str, _entry: serde_json::Value) -> Result<()> {
         Err(unsupported("saved collections"))
     }
+    /// Sends a file to the default printer.
+    fn print(&self, _path: &Path) -> Result<()> {
+        Err(unsupported("printing"))
+    }
     /// Enters Measure mode starting from `rect`.
     fn measure(&self, _rect: Rect) -> Result<()> {
         Err(unsupported("measure mode"))
@@ -155,6 +162,7 @@ pub enum HostCall {
     Download(String),
     Persist { collection: String, entry: serde_json::Value },
     Measure(Rect),
+    Print(PathBuf),
     Notify(String),
 }
 
@@ -210,6 +218,10 @@ impl Host for RecordingHost {
     }
     fn measure(&self, rect: Rect) -> Result<()> {
         self.record(HostCall::Measure(rect));
+        Ok(())
+    }
+    fn print(&self, path: &Path) -> Result<()> {
+        self.record(HostCall::Print(path.into()));
         Ok(())
     }
     fn set_clipboard_image(&self, image: &RgbaImage) -> Result<()> {

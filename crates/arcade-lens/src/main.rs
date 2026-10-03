@@ -129,6 +129,23 @@ enum Cmd {
     },
     /// Add Arcade Lens to the desktop's applications menu (Linux).
     InstallLauncher,
+    /// Manage plugins.
+    Plugins {
+        #[command(subcommand)]
+        command: PluginCmd,
+    },
+}
+
+#[derive(Subcommand)]
+enum PluginCmd {
+    /// Installed plugins and their status.
+    List,
+    /// Copy a plugin directory into the plugins folder (it stays disabled).
+    Install { dir: PathBuf },
+    /// Allow a plugin to run.
+    Enable { id: String },
+    /// Stop using a plugin.
+    Disable { id: String },
 }
 
 #[derive(Subcommand)]
@@ -153,6 +170,12 @@ enum ConfigCmd {
 }
 
 fn main() -> ExitCode {
+    // Behave like other CLI tools when piped into `head`: exit quietly on EPIPE.
+    #[cfg(unix)]
+    // SAFETY: restoring the default disposition of SIGPIPE before any threads start.
+    unsafe {
+        libc::signal(libc::SIGPIPE, libc::SIG_DFL);
+    }
     let cli = Cli::parse();
     match run(cli) {
         Ok(()) => ExitCode::SUCCESS,
@@ -234,7 +257,12 @@ fn session(input: Option<&Input>) -> AnyResult<Session> {
         settings.disabled_recognizers.extend(["core.color", "core.palette", "core.inspect", "core.image-kind", "core.codes"].map(String::from));
     }
     let (ocr, ocr_status) = input.map(|i| ocr_engine(i, &paths)).unwrap_or((None, "off".into()));
-    let registry = lens_actions::standard_registry(ocr).map_err(|e| e.to_string())?;
+    let mut registry = lens_actions::standard_registry(ocr).map_err(|e| e.to_string())?;
+    for p in lens_plugins::load_enabled(&mut registry, &paths.plugins(), &settings.enabled_plugins) {
+        if let Some(e) = p.error {
+            eprintln!("plugin {}: {e}", p.id);
+        }
+    }
     let engine = Engine::new(Arc::new(registry), Arc::new(LocalEnvironment), Arc::new(settings.clone()));
     Ok(Session { paths, settings, engine, ocr_status })
 }
@@ -618,6 +646,7 @@ fn run(cli: Cli) -> AnyResult {
             }
             Ok(())
         }
+        Cmd::Plugins { command } => plugins(command),
         Cmd::ResetUsage => {
             let paths = Paths::discover();
             config::save_usage(&paths, &Default::default()).map_err(|e| e.to_string())?;
@@ -625,6 +654,62 @@ fn run(cli: Cli) -> AnyResult {
             Ok(())
         }
     }
+}
+
+fn plugins(command: PluginCmd) -> AnyResult {
+    let paths = Paths::discover();
+    let dir = paths.plugins();
+    let mut settings = config::load_settings(&paths)?;
+    match command {
+        PluginCmd::List => {
+            let found = lens_plugins::discover(&dir);
+            if found.is_empty() {
+                println!("No plugins in {}", dir.display());
+            }
+            for (path, m) in found {
+                match m {
+                    Ok(m) => {
+                        let on = settings.enabled_plugins.contains(&m.plugin.id);
+                        println!("{} {:<28} {:<24} permissions: {}", if on { "●" } else { "○" }, m.plugin.id, m.plugin.name, m.plugin.permissions.join(", "));
+                    }
+                    Err(e) => println!("! {}: {e}", path.display()),
+                }
+            }
+        }
+        PluginCmd::Install { dir: src } => {
+            let m = lens_plugins::Manifest::load(&src)?;
+            let dest = dir.join(&m.plugin.id);
+            std::fs::create_dir_all(&dest).map_err(|e| e.to_string())?;
+            for e in std::fs::read_dir(&src).map_err(|e| e.to_string())?.flatten() {
+                if e.path().is_file() {
+                    std::fs::copy(e.path(), dest.join(e.file_name())).map_err(|e| e.to_string())?;
+                }
+            }
+            println!(
+                "Installed {} to {}.\nIt can: {}.\nEnable it with `arcade-lens plugins enable {}`.",
+                m.plugin.name,
+                dest.display(),
+                m.plugin.permissions.join(", "),
+                m.plugin.id
+            );
+        }
+        PluginCmd::Enable { id } => {
+            if !lens_plugins::discover(&dir).iter().any(|(_, m)| m.as_ref().is_ok_and(|m| m.plugin.id == id)) {
+                return Err(format!("no installed plugin {id}"));
+            }
+            if !settings.enabled_plugins.contains(&id) {
+                settings.enabled_plugins.push(id.clone());
+            }
+            config::save_settings(&paths, &settings).map_err(|e| e.to_string())?;
+            println!("Enabled {id}. Restart Arcade Lens (arcade-lens quit && arcade-lens start) to load it.");
+        }
+        PluginCmd::Disable { id } => {
+            settings.enabled_plugins.retain(|p| p != &id);
+            config::save_settings(&paths, &settings).map_err(|e| e.to_string())?;
+            println!("Disabled {id}.");
+        }
+    }
+    Ok(())
 }
 
 fn models(command: ModelCmd) -> AnyResult {

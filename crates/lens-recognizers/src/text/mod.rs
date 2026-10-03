@@ -9,6 +9,7 @@ pub mod address;
 pub mod code;
 pub mod command;
 pub mod contact;
+pub mod context;
 pub mod datetime;
 pub mod error;
 pub mod geo;
@@ -88,6 +89,9 @@ pub fn recognizers() -> Vec<TextRecognizer> {
         TextRecognizer::new("core.text.code", vec![CODE], Cheap, code::detect),
         TextRecognizer::new("core.text.error", vec![ERROR], Cheap, error::detect),
         TextRecognizer::new("core.text.table", vec![TABLE], Cheap, table::detect),
+        TextRecognizer::new("core.text.git-commit", vec![GIT_COMMIT], Trivial, context::git_commits),
+        TextRecognizer::new("core.text.document", vec![DOCUMENT], Trivial, context::document),
+        TextRecognizer::new("core.text.subtitle", vec![SUBTITLE], Trivial, context::subtitle),
     ]
 }
 

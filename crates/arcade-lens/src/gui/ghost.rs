@@ -55,6 +55,9 @@ impl GuiHost {
         if which("kdeconnect-cli") {
             f |= HostFeatures::SEND_TO_DEVICE;
         }
+        if lens_platform::workspace_count() > 1 {
+            f |= HostFeatures::WORKSPACES;
+        }
         if cfg!(target_os = "linux") && which("gdbus") {
             f |= HostFeatures::QUICK_LOOK;
         }
@@ -119,6 +122,9 @@ impl Host for GuiHost {
     }
     fn persist(&self, collection: &str, entry: serde_json::Value) -> Result<()> {
         self.desktop.persist(collection, entry)
+    }
+    fn print(&self, path: &Path) -> Result<()> {
+        self.desktop.print(path)
     }
     fn pin(&self, image: Arc<RgbaImage>, origin: Option<Rect>) -> Result<()> {
         self.ui(UiCommand::Pin { image, origin })

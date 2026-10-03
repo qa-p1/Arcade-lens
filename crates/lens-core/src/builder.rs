@@ -9,6 +9,7 @@ use crate::host::HostFeatures;
 use crate::settings::Settings;
 
 type AppliesFn = Box<dyn Fn(&Finding, HostFeatures) -> bool + Send + Sync>;
+type EnabledFn = Box<dyn Fn(&Settings) -> bool + Send + Sync>;
 type TextFn = Box<dyn Fn(&Item, &Settings) -> Option<String> + Send + Sync>;
 type ConfirmFn = Box<dyn Fn(&Item, &Settings) -> Option<ConfirmRequest> + Send + Sync>;
 type ChoicesFn = Box<dyn Fn(&Item, &Settings) -> Vec<Choice> + Send + Sync>;
@@ -17,6 +18,7 @@ type RunFn = Box<dyn Fn(&Item, &ActionContext) -> Result<ActionOutcome> + Send +
 pub struct FnAction {
     descriptor: ActionDescriptor,
     applies: Option<AppliesFn>,
+    enabled: Option<EnabledFn>,
     preview: Option<TextFn>,
     confirm: Option<ConfirmFn>,
     choices: Option<ChoicesFn>,
@@ -30,6 +32,10 @@ impl Action for FnAction {
 
     fn applies(&self, input: &Finding, host: HostFeatures) -> bool {
         self.applies.as_ref().is_none_or(|f| f(input, host))
+    }
+
+    fn enabled(&self, settings: &Settings) -> bool {
+        self.enabled.as_ref().is_none_or(|f| f(settings))
     }
 
     fn preview(&self, input: &Item, settings: &Settings) -> Option<String> {
@@ -62,6 +68,7 @@ impl Action for FnAction {
 pub struct ActionBuilder {
     d: ActionDescriptor,
     applies: Option<AppliesFn>,
+    enabled: Option<EnabledFn>,
     preview: Option<TextFn>,
     confirm: Option<ConfirmFn>,
     choices: Option<ChoicesFn>,
@@ -85,6 +92,7 @@ pub fn action(id: impl Into<String>, label: impl Into<String>) -> ActionBuilder 
             params: Vec::new(),
         },
         applies: None,
+        enabled: None,
         preview: None,
         confirm: None,
         choices: None,
@@ -144,6 +152,10 @@ impl ActionBuilder {
         self.applies = Some(Box::new(f));
         self
     }
+    pub fn enabled_when(mut self, f: impl Fn(&Settings) -> bool + Send + Sync + 'static) -> Self {
+        self.enabled = Some(Box::new(f));
+        self
+    }
     pub fn preview(mut self, f: impl Fn(&Item, &Settings) -> Option<String> + Send + Sync + 'static) -> Self {
         self.preview = Some(Box::new(f));
         self
@@ -157,6 +169,14 @@ impl ActionBuilder {
         self
     }
     pub fn run(self, f: impl Fn(&Item, &ActionContext) -> Result<ActionOutcome> + Send + Sync + 'static) -> FnAction {
-        FnAction { descriptor: self.d, applies: self.applies, preview: self.preview, confirm: self.confirm, choices: self.choices, run: Box::new(f) }
+        FnAction {
+            descriptor: self.d,
+            applies: self.applies,
+            enabled: self.enabled,
+            preview: self.preview,
+            confirm: self.confirm,
+            choices: self.choices,
+            run: Box::new(f),
+        }
     }
 }

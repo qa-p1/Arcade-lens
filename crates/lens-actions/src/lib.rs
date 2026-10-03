@@ -6,6 +6,7 @@
 
 pub mod data;
 pub mod dev;
+pub mod extra;
 pub mod text;
 pub mod util;
 pub mod visual;
@@ -25,6 +26,7 @@ pub fn register_builtins(r: &mut PluginRegistrar) {
     web::register(r);
     data::register(r);
     dev::register(r);
+    extra::register(r);
 }
 
 /// A registry with every built-in recognizer and action, registered as the

@@ -32,6 +32,9 @@ tiny-skia = "0.11"
 ab_glyph = "0.2"
 chrono.workspace = true
 
+[target.'cfg(unix)'.dependencies]
+libc = "0.2"
+
 # rustls/ring on Linux; the OS TLS stack (and certificate store) elsewhere.
 [target.'cfg(target_os = "linux")'.dependencies]
 ureq = "3"

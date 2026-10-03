@@ -169,10 +169,9 @@ impl Pin {
                 self.set_zoom(&ctx, 1.0);
                 ui.close();
             }
-            if self.source.is_some() && lens_platform::live_capture_supported()
-                && ui.checkbox(&mut self.live, "Live").changed() {
-                    self.last_live = Instant::now() - Duration::from_secs(1);
-                }
+            if self.source.is_some() && lens_platform::live_capture_supported() && ui.checkbox(&mut self.live, "Live").changed() {
+                self.last_live = Instant::now() - Duration::from_secs(1);
+            }
             ui.separator();
             if ui.button("Close").clicked() {
                 self.closed = true;

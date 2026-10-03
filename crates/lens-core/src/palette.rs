@@ -140,6 +140,7 @@ pub fn build_palette(input: &PaletteInput) -> Palette {
                 || !d.accepts.contains(&f.capability)
                 || !host.contains(d.requires)
                 || settings.disabled_actions.contains(&d.id)
+                || !a.enabled(settings)
                 || !a.applies(f, host)
             {
                 continue;

@@ -92,6 +92,9 @@ impl DesktopHost {
         if cfg!(target_os = "macos") {
             f |= HostFeatures::QUICK_LOOK;
         }
+        if cfg!(windows) || which("lp").is_some() {
+            f |= HostFeatures::PRINT;
+        }
         if settings.browser.as_deref().is_some_and(|b| private_flag(b).is_some()) {
             f |= HostFeatures::PRIVATE_BROWSING;
         }
@@ -308,6 +311,15 @@ impl Host for DesktopHost {
             url.split(['?', '#']).next().and_then(|u| u.rsplit('/').find(|s| !s.is_empty())).filter(|n| !n.contains(':')).unwrap_or("download").to_string();
         let dir = directories::UserDirs::new().and_then(|u| u.download_dir().map(Path::to_path_buf)).unwrap_or_else(home);
         self.save_file(SaveRequest { suggested_name: name, bytes, directory: Some(dir), mime: "application/octet-stream".into() })
+    }
+
+    fn print(&self, path: &Path) -> Result<()> {
+        if cfg!(windows) {
+            let script = format!("Start-Process -FilePath '{}' -Verb Print", path.display().to_string().replace('\'', "''"));
+            return spawn("powershell", &["-NoProfile", "-Command", &script]);
+        }
+        let status = Command::new("lp").arg(path).stdout(Stdio::null()).stderr(Stdio::null()).status()?;
+        status.success().then_some(()).ok_or_else(|| LensError::Failed("the print system rejected the job".into()))
     }
 
     fn persist(&self, collection: &str, entry: serde_json::Value) -> Result<()> {

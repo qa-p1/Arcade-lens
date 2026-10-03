@@ -82,6 +82,11 @@ pub mod caps {
     pub const QUANTITY: Capability = Capability::new("quantity");
     pub const COORDINATES: Capability = Capability::new("coordinates");
 
+    pub const GIT_COMMIT: Capability = Capability::new("git-commit");
+    pub const DOCUMENT: Capability = Capability::new("document");
+    pub const SUBTITLE: Capability = Capability::new("subtitle");
+    pub const MEDIA_FRAME: Capability = Capability::new("media-frame");
+
     // Produced by actions
     pub const FILE: Capability = Capability::new("file");
 }
@@ -121,6 +126,10 @@ impl CapabilityGraph {
             g.add(textual, TEXT);
         }
         g.add(COMMAND, CODE);
+        g.add(DOCUMENT, TEXT);
+        g.add(SUBTITLE, TEXT);
+        g.add(GIT_COMMIT, URL);
+        g.add(MEDIA_FRAME, IMAGE);
         g
     }
 

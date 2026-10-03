@@ -1,7 +1,7 @@
 //! Out-of-process plugins for Arcade Lens.
 //!
 //! A plugin is a directory with a `plugin.toml` manifest and an executable
-//! that speaks newline-delimited JSON over stdin/stdout (see PROTOCOL.md).
+//! that speaks newline-delimited JSON over stdin/stdout (see docs/PLUGINS.md).
 //!
 //! Security model:
 //! * Plugins are discovered but **disabled until the user enables them**.

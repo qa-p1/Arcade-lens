@@ -549,20 +549,25 @@ impl Overlay {
             super::panels::show(self, &ctx, env, screen, r);
         }
         if let Some(t) = &self.toast {
-            let anchor = self
-                .sel
-                .as_ref()
-                .filter(|s| s.mon == mon)
-                .map(|s| rect_pt(&s.rect))
-                .map_or(screen.center(), |r| Pos2::new(r.center().x, (r.max.y + 24.0).min(screen.max.y - 30.0)));
+            // Above the selection, clear of the palette next to it; otherwise inside the
+            // selection's top edge, and for a small selection at the screen top, past the palette.
+            let (anchor, pivot) = match self.sel.as_ref().filter(|s| s.mon == mon).map(|s| rect_pt(&s.rect)) {
+                Some(r) if r.min.y - screen.min.y > 70.0 => (Pos2::new(r.center().x, r.min.y - 30.0), Align2::CENTER_BOTTOM),
+                Some(r) if r.height() > 60.0 => (Pos2::new(r.center().x, r.min.y + 12.0), Align2::CENTER_TOP),
+                Some(r) => (Pos2::new(r.center().x, (r.max.y + 100.0).min(screen.max.y - 30.0)), Align2::CENTER_TOP),
+                None => (screen.center(), Align2::CENTER_CENTER),
+            };
             let color = match t.kind {
                 ToastKind::Success => SUCCESS,
                 ToastKind::Error => DANGER,
                 ToastKind::Info => TEXT,
             };
             let text = t.text.clone();
-            egui::Area::new(egui::Id::new("lens-toast")).order(egui::Order::Tooltip).pivot(Align2::CENTER_TOP).fixed_pos(anchor).show(&ctx, |ui| {
+            egui::Area::new(egui::Id::new("lens-toast")).order(egui::Order::Tooltip).pivot(pivot).fixed_pos(anchor).constrain_to(screen).show(&ctx, |ui| {
                 theme::panel_frame().show(ui, |ui| {
+                    // Short messages stay on one line; long errors wrap at a readable width.
+                    let galley_width = ui.fonts_mut(|f| f.layout_no_wrap(text.clone(), egui::FontId::proportional(13.5), color).size().x);
+                    ui.set_width(galley_width.min(420.0));
                     ui.add(egui::Label::new(egui::RichText::new(text).color(color).size(13.5)).wrap());
                 });
             });

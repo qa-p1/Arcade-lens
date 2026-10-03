@@ -1,0 +1,39 @@
+# Example third-party plugin: recognizes ISBNs and looks books up.
+[plugin]
+id = "dev.example.isbn"
+name = "ISBN lookup"
+version = "1.0.0"
+api_version = 1
+description = "Recognizes ISBN-10/13 numbers (checksum-verified) in text and barcodes."
+executable = "isbn.py"
+# read-text: Lens sends text findings to this plugin (never pixels).
+permissions = ["read-text", "clipboard", "network", "launch-apps"]
+
+[[capabilities]]
+name = "dev.example.isbn"
+parent = "text"
+
+[[recognizers]]
+id = "dev.example.isbn.detect"
+consumes = ["text", "barcode"]
+produces = ["dev.example.isbn"]
+cost = "trivial"
+
+[[actions]]
+id = "dev.example.isbn.lookup"
+label = "Look Up Book"
+accepts = ["dev.example.isbn"]
+priority = 85
+key = "b"
+group = "search"
+effects = ["network", "launch-apps"]
+requires = ["open-uri"]
+
+[[actions]]
+id = "dev.example.isbn.copy"
+label = "Copy ISBN"
+accepts = ["dev.example.isbn"]
+produces = "same"
+priority = 80
+group = "copy"
+effects = ["clipboard"]

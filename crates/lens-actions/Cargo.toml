@@ -11,6 +11,7 @@ lens-recognizers.workspace = true
 image = { workspace = true, features = ["ico"] }
 serde_json.workspace = true
 chrono.workspace = true
+regex.workspace = true
 qrcode = { version = "0.14", default-features = false, features = ["image"] }
 
 [dev-dependencies]

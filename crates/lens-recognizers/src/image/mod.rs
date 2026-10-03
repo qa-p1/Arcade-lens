@@ -5,6 +5,7 @@ pub mod codes;
 pub mod color;
 pub mod inspect;
 pub mod kind;
+pub mod media;
 pub mod window;
 
 use lens_core::registry::PluginRegistrar;
@@ -16,4 +17,5 @@ pub fn register(r: &mut PluginRegistrar) {
     r.recognizer(kind::ImageKindRecognizer);
     r.recognizer(window::WindowRecognizer);
     r.recognizer(codes::CodeRecognizer);
+    r.recognizer(media::MediaFrameRecognizer);
 }

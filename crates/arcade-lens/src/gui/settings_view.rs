@@ -255,9 +255,9 @@ impl SettingsView {
             ui.label(RichText::new(&self.rt.ocr_name).color(ACCENT_SOFT));
             if self.rt.ocr_name.contains("not installed")
                 && ui.add_enabled(!self.models_busy, egui::Button::new(if self.models_busy { "Downloading…" } else { "Download OCR models (12 MB)" })).clicked()
-                {
-                    out.push(SettingsRequest::DownloadModels);
-                }
+            {
+                out.push(SettingsRequest::DownloadModels);
+            }
         });
         ui.horizontal(|ui| {
             ui.add_sized([150.0, 20.0], egui::Label::new("Start at login"));

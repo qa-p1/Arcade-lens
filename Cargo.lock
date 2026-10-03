@@ -215,6 +215,7 @@ dependencies = [
  "lens-platform",
  "lens-plugins",
  "lens-recognizers",
+ "libc",
  "qrcode",
  "raw-window-handle",
  "serde",
@@ -2306,6 +2307,7 @@ dependencies = [
  "lens-core",
  "lens-recognizers",
  "qrcode",
+ "regex",
  "serde_json",
 ]
 

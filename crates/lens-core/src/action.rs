@@ -219,6 +219,11 @@ pub trait Action: Send + Sync {
         true
     }
 
+    /// Whether the action is enabled by configuration (e.g. a provider is set).
+    fn enabled(&self, _settings: &Settings) -> bool {
+        true
+    }
+
     /// What will leave the machine or be executed, shown before running
     /// External and Dangerous actions (e.g. the cleaned search query).
     fn preview(&self, _input: &Item, _settings: &Settings) -> Option<String> {

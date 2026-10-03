@@ -27,9 +27,33 @@ organized and why.
 | Crate | Responsibility |
 |---|---|
 | `lens-core` | Data model, capability graph, progressive engine, plugin registry, ranking, safety policy, chains, settings. No UI, no OS calls. |
-| `lens-recognizers` | Built-in recognizers: OCR integration, ~15 structured-text recognizers, colors/palettes, UI inspection, image/icon, window matching, QR/barcodes. |
-| `lens-actions` | ~140 built-in actions and the default chains. |
-| `arcade-lens` | The application: desktop `Host`, configuration, CLI harness. The overlay shell lands here next. |
+| `lens-recognizers` | The 25 built-in recognizers: OCR integration (ocrs, or a platform engine), structured text, context (git commits, documents, subtitles), colors/palettes, UI inspection, image kind, windows, media frames, QR/barcodes. |
+| `lens-actions` | The 156 built-in actions and the default chains. |
+| `lens-platform` | OS services: monitor enumeration and capture, cursor, window list and window commands, keyboard focus, global shortcut, single-instance IPC, autostart, native OCR engines. |
+| `lens-plugins` | Out-of-process plugins: manifests, discovery, the JSON-lines protocol, and proxy recognizers/actions with permission enforcement. See [PLUGINS.md](PLUGINS.md). |
+| `arcade-lens` | The application: the egui/eframe overlay, palette, pins, annotate, measure and settings windows; the desktop `Host`; configuration; the CLI. |
+
+## Process model
+
+`arcade-lens start` runs one long-lived process:
+
+* The **root window is the overlay**. While idle it is hidden (on X11 an
+  override-redirect 1×1 window off screen), so an idle Lens draws nothing
+  and does not repaint.
+* On the shortcut (`global-hotkey`) or an IPC request, every monitor is
+  captured **before** anything is shown. The overlay then displays the frozen
+  image, so the capture never contains Lens itself. Other monitors get their
+  own overlay viewports.
+* Pins, annotate editors, settings and the recording indicator are separate
+  viewports sharing `Arc<Mutex<AppState>>`. They outlive the overlay.
+* Keyboard focus is requested natively (`lens_platform::focus_native`),
+  since an override-redirect window gets no focus from the window manager.
+* A second invocation (`capture`, `pin`, `settings`, `quit`) connects to the
+  running instance over loopback TCP. It authenticates with a random token
+  stored in a 0600 file. With no instance running, the command runs
+  standalone.
+* Recognition runs on the engine's thread pool. The UI polls the analysis
+  stream each frame and only repaints while work is outstanding.
 
 ## Core concepts
 
@@ -117,23 +141,33 @@ Additional rules enforced in core, not left to individual actions:
   actions return `NeedsChoice` instead of guessing.
 * **Plugin permissions.** A plugin manifest declares the maximum `Effects`
   its actions may have; actions exceeding them are rejected at registration,
-  and ids must be namespaced under the plugin id.
+  and ids must be namespaced under the plugin id. Out-of-process plugins
+  also declare data permissions (`read-text`, `read-pixels`) that bound what
+  Lens sends them, and they can only *request* effects, which Lens performs
+  when the action declared them. See [PLUGINS.md](PLUGINS.md).
 
 ### Ranking
 `build_palette` scores every (action, finding) pair:
 
 ```
 score = action priority
-      + 40 × specificity(capability) × confidence     # url ≫ text ≫ region
+      + 40 × specificity(capability) × confidence
+           × (0.4 + 0.6 × coverage)                    # url ≫ text ≫ region
+
       + learned usage boost (≤ 25, decaying, local)
       + 40 if the user pinned the action as preferred
 ```
 
-The top N (default 5) distinct actions become the primary row (at most two
-per group so the row isn't five "Copy" variants); everything else is the
+`coverage` is the share of its parent text a finding spans. A URL that *is*
+the selection outranks one buried in a paragraph. The top N (default 5)
+distinct actions become the primary row, with at most two per group and two
+per finding, so the row isn't five "Copy" variants or five actions on one
+email address; everything else is the
 `•••` list. Keys are assigned per (action, finding), primary entries first,
 honoring user overrides. `stabilize` keeps already-visible entries in place
-while late results arrive, so the palette doesn't jump.
+while late results arrive. A newcomer replaces a slot only if it beats it by
+a clear margin, and it takes that slot rather than reshuffling the row, so
+the palette doesn't jump. `default_index` marks the Enter action.
 
 ### Usage learning
 `UsageStore` keeps a decaying counter per (capability, action) — no content,
@@ -153,7 +187,7 @@ the selection has a finding they can start from.
 `Host` is the platform service boundary actions call: clipboard, open
 URI/path (with modes: default, reveal, editor, terminal, Quick Look), terminal,
 save (never overwrites), pin, annotate, share, send to device, window
-commands, download, local collections, measure mode. Unsupported services
+commands, workspaces, download, local collections, measure mode, print. Unsupported services
 are absent from `HostFeatures`, so actions needing them simply don't appear.
 
 ## Privacy
@@ -168,18 +202,28 @@ are absent from `HostFeatures`, so actions needing them simply don't appear.
   (search, maps, WHOIS, currency rates via search), with configurable
   provider templates and a visible preview of what is sent.
 
-## Platform plan
+## Platform layer
 
-Shared logic stays in the crates above. Platform adapters implement:
+Shared logic stays in the crates above. `lens-platform` implements:
 
-| Area | Windows | macOS | Linux X11 | Linux Wayland |
+| Area | Linux X11 | Linux Wayland | Windows | macOS |
 |---|---|---|---|---|
-| Capture | Windows.Graphics.Capture / DXGI duplication | ScreenCaptureKit | XShm / XComposite | `xdg-desktop-portal` Screenshot |
-| Global shortcut | RegisterHotKey | Carbon/CGEventTap | XGrabKey | portal GlobalShortcuts (or compositor binding) |
-| Overlay | layered topmost windows per monitor | NSPanel per screen | override-redirect windows | layer-shell (wlroots/KDE) or portal-frozen fullscreen |
-| OCR | Windows.Media.Ocr | Vision | ocrs | ocrs |
-| Windows list | EnumWindows + DWM bounds | CGWindowList | _NET_CLIENT_LIST | compositor-specific / unavailable |
+| Monitors & capture | RandR + `GetImage`, scale from `Xft.dpi` | `xdg-desktop-portal` Screenshot (ashpd) | xcap | xcap |
+| Global shortcut | `global-hotkey` (XGrabKey) | none; bind `arcade-lens capture` in the compositor | `global-hotkey` (RegisterHotKey) | `global-hotkey` (Carbon) |
+| Overlay | override-redirect viewports | portal image, fullscreen viewport | topmost viewports | topmost viewports |
+| OCR | ocrs | ocrs | Windows.Media.Ocr | Vision |
+| Window list | EWMH `_NET_CLIENT_LIST` | unavailable | xcap | xcap |
+| Window commands | EWMH client messages | — | Win32 | — (needs Accessibility) |
 
 Wayland deliberately prevents global capture and global hotkeys without
-user-granted portals; there the "freeze" is the portal screenshot itself,
-and the activation shortcut is bound through the portal or the compositor.
+user-granted portals. There, the "freeze" is the portal screenshot itself,
+and the activation shortcut is bound through the compositor.
+
+Every backend reports what it supports through `HostFeatures`, and actions
+whose requirements aren't met don't appear. A missing capability never
+produces a broken button.
+
+**Verification status.** Linux X11 is exercised end to end under Xvfb. The
+Windows and macOS backends compile and pass clippy for
+`x86_64-pc-windows-msvc` and `aarch64-apple-darwin`, and CI builds and tests
+on all three OSes, but they have not been run interactively.

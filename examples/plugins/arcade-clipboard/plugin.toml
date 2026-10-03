@@ -1,0 +1,20 @@
+# Arcade Clipboard integration. Shipped with Arcade Clipboard; listed here as
+# the reference for the stable integration interface.
+[plugin]
+id = "dev.arcade.clipboard"
+name = "Arcade Clipboard"
+version = "1.0.0"
+api_version = 1
+description = "Send selections to your Mesh Clipboard (requires Arcade Clipboard)."
+executable = "integration.py"
+args = ["arcade-clipboard", "send"]
+permissions = ["read-text", "sends-to-device"]
+
+[[actions]]
+id = "dev.arcade.clipboard.send"
+label = "Send to Mesh Clipboard"
+accepts = ["text", "url", "code", "command", "email", "phone", "address", "path", "color", "table"]
+priority = 60
+key = "m"
+group = "share"
+effects = ["sends-to-device"]

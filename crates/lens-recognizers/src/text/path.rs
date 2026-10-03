@@ -30,8 +30,35 @@ static QUOTED_WINDOWS: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#""([A-Za-
 static LINE_COL: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^:(\d+)(?::(\d+))?").unwrap());
 
 const UNIX_ROOTS: &[&str] = &[
-    "home", "usr", "etc", "var", "tmp", "opt", "bin", "sbin", "lib", "lib64", "dev", "proc", "sys", "mnt", "media", "srv", "root", "run", "boot",
-    "nix", "snap", "Users", "Applications", "Library", "System", "Volumes", "private", "workspace", "workspaces",
+    "home",
+    "usr",
+    "etc",
+    "var",
+    "tmp",
+    "opt",
+    "bin",
+    "sbin",
+    "lib",
+    "lib64",
+    "dev",
+    "proc",
+    "sys",
+    "mnt",
+    "media",
+    "srv",
+    "root",
+    "run",
+    "boot",
+    "nix",
+    "snap",
+    "Users",
+    "Applications",
+    "Library",
+    "System",
+    "Volumes",
+    "private",
+    "workspace",
+    "workspaces",
 ];
 
 pub fn find(text: &str, cx: &RecognizeContext) -> Vec<(Range<usize>, PathValue, Option<String>)> {

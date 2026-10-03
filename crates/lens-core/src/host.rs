@@ -38,6 +38,10 @@ bitflags! {
         const RECORD_WINDOW    = 1 << 17;
         const MEASURE          = 1 << 18;
         const IMAGE_EDITOR     = 1 << 19;
+        const CLIPBOARD_READ   = 1 << 20;
+        const DOWNLOAD         = 1 << 21;
+        /// Local user collections (saved palettes, notes).
+        const PERSIST          = 1 << 22;
     }
 }
 
@@ -111,6 +115,21 @@ pub trait Host: Send + Sync {
     fn window_command(&self, _window: &WindowInfo, _command: WindowCommand) -> Result<()> {
         Err(unsupported("window control"))
     }
+    fn clipboard_text(&self) -> Result<String> {
+        Err(unsupported("reading the clipboard"))
+    }
+    /// Downloads `url` into the downloads folder; returns the saved path.
+    fn download(&self, _url: &str) -> Result<PathBuf> {
+        Err(unsupported("downloads"))
+    }
+    /// Appends an entry to a local, user-visible collection such as `palettes`.
+    fn persist(&self, _collection: &str, _entry: serde_json::Value) -> Result<()> {
+        Err(unsupported("saved collections"))
+    }
+    /// Enters Measure mode starting from `rect`.
+    fn measure(&self, _rect: Rect) -> Result<()> {
+        Err(unsupported("measure mode"))
+    }
     fn notify(&self, _message: &str) {}
 }
 
@@ -133,6 +152,9 @@ pub enum HostCall {
     ShareImage,
     SendToDevice { text: Option<String>, image: bool },
     Window { window: String, command: WindowCommand },
+    Download(String),
+    Persist { collection: String, entry: serde_json::Value },
+    Measure(Rect),
     Notify(String),
 }
 
@@ -141,11 +163,12 @@ pub enum HostCall {
 pub struct RecordingHost {
     features: HostFeatures,
     calls: Mutex<Vec<HostCall>>,
+    clipboard: Mutex<Option<String>>,
 }
 
 impl RecordingHost {
     pub fn new(features: HostFeatures) -> Self {
-        Self { features, calls: Mutex::new(Vec::new()) }
+        Self { features, calls: Mutex::new(Vec::new()), clipboard: Mutex::new(None) }
     }
 
     pub fn all() -> Self {
@@ -170,7 +193,23 @@ impl Host for RecordingHost {
         self.features
     }
     fn set_clipboard_text(&self, text: &str) -> Result<()> {
+        *self.clipboard.lock().unwrap() = Some(text.into());
         self.record(HostCall::ClipboardText(text.into()));
+        Ok(())
+    }
+    fn clipboard_text(&self) -> Result<String> {
+        self.clipboard.lock().unwrap().clone().ok_or_else(|| LensError::InvalidInput("clipboard is empty".into()))
+    }
+    fn download(&self, url: &str) -> Result<PathBuf> {
+        self.record(HostCall::Download(url.into()));
+        Ok(PathBuf::from("/dry-run/download"))
+    }
+    fn persist(&self, collection: &str, entry: serde_json::Value) -> Result<()> {
+        self.record(HostCall::Persist { collection: collection.into(), entry });
+        Ok(())
+    }
+    fn measure(&self, rect: Rect) -> Result<()> {
+        self.record(HostCall::Measure(rect));
         Ok(())
     }
     fn set_clipboard_image(&self, image: &RgbaImage) -> Result<()> {

@@ -85,14 +85,7 @@ impl Engine {
         report
     }
 
-    fn coordinate(
-        &self,
-        selection: Arc<Selection>,
-        cancel: CancelToken,
-        tx: Sender<Msg>,
-        rx: Receiver<Msg>,
-        emit: &mut dyn FnMut(AnalysisEvent),
-    ) {
+    fn coordinate(&self, selection: Arc<Selection>, cancel: CancelToken, tx: Sender<Msg>, rx: Receiver<Msg>, emit: &mut dyn FnMut(AnalysisEvent)) {
         let started = Instant::now();
         let signals = Arc::new(Signals::compute(&selection.image));
         let cx = RecognizeContext {

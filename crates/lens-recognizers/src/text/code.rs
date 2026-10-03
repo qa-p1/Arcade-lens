@@ -74,18 +74,68 @@ struct Lang {
 
 static LANGS: LazyLock<Vec<(&'static str, Vec<Regex>)>> = LazyLock::new(|| {
     let langs = [
-        Lang { name: "Rust", patterns: &[r"\bfn\s+\w+", r"\blet\s+mut\b", r"\bimpl\b", r"\bpub\s+(fn|struct|enum|mod)\b", r"\buse\s+\w+(::\w+)+", r"\w+!\(", r"&str\b", r"\bSome\(|\bOk\(|\bErr\(", r"->\s*\w+", r"::<"] },
-        Lang { name: "Python", patterns: &[r"(?m)^\s*def\s+\w+\(.*\):\s*$", r"(?m)^\s*(from\s+\S+\s+)?import\s+\w+", r"\bself\.", r"(?m)^\s*(if|elif|for|while|with|try|except|class)\b.*:\s*$", r"\bNone\b|\bTrue\b|\bFalse\b", r"\bprint\("] },
-        Lang { name: "JavaScript", patterns: &[r"\b(const|let|var)\s+\w+\s*=", r"=>", r"\bfunction\s*\w*\(", r"console\.\w+\(", r"\brequire\(", r"\bexport\s+(default|const|function)", r"===|!=="] },
-        Lang { name: "TypeScript", patterns: &[r"\binterface\s+\w+", r":\s*(string|number|boolean|any|void)\b", r"\btype\s+\w+\s*=", r"<\w+>\(", r"\bimport\s+.*\bfrom\s+['\x22]"] },
-        Lang { name: "Java", patterns: &[r"\bpublic\s+(static\s+)?(class|void|final)\b", r"System\.out\.print", r"\bprivate\s+\w+", r"\bnew\s+\w+\(", r"@Override"] },
-        Lang { name: "C#", patterns: &[r"\busing\s+System", r"\bnamespace\s+\w+", r"\bpublic\s+(async\s+)?\w+\s+\w+\(", r"Console\.Write", r"\bvar\s+\w+\s*="] },
-        Lang { name: "C/C++", patterns: &[r"#include\s*[<\x22]", r"\bint\s+main\s*\(", r"\bprintf\(", r"std::", r"->\w+", r"\b(nullptr|NULL)\b", r"\bsizeof\("] },
+        Lang {
+            name: "Rust",
+            patterns: &[
+                r"\bfn\s+\w+",
+                r"\blet\s+mut\b",
+                r"\bimpl\b",
+                r"\bpub\s+(fn|struct|enum|mod)\b",
+                r"\buse\s+\w+(::\w+)+",
+                r"\w+!\(",
+                r"&str\b",
+                r"\bSome\(|\bOk\(|\bErr\(",
+                r"->\s*\w+",
+                r"::<",
+            ],
+        },
+        Lang {
+            name: "Python",
+            patterns: &[
+                r"(?m)^\s*def\s+\w+\(.*\):\s*$",
+                r"(?m)^\s*(from\s+\S+\s+)?import\s+\w+",
+                r"\bself\.",
+                r"(?m)^\s*(if|elif|for|while|with|try|except|class)\b.*:\s*$",
+                r"\bNone\b|\bTrue\b|\bFalse\b",
+                r"\bprint\(",
+            ],
+        },
+        Lang {
+            name: "JavaScript",
+            patterns: &[
+                r"\b(const|let|var)\s+\w+\s*=",
+                r"=>",
+                r"\bfunction\s*\w*\(",
+                r"console\.\w+\(",
+                r"\brequire\(",
+                r"\bexport\s+(default|const|function)",
+                r"===|!==",
+            ],
+        },
+        Lang {
+            name: "TypeScript",
+            patterns: &[r"\binterface\s+\w+", r":\s*(string|number|boolean|any|void)\b", r"\btype\s+\w+\s*=", r"<\w+>\(", r"\bimport\s+.*\bfrom\s+['\x22]"],
+        },
+        Lang {
+            name: "Java",
+            patterns: &[r"\bpublic\s+(static\s+)?(class|void|final)\b", r"System\.out\.print", r"\bprivate\s+\w+", r"\bnew\s+\w+\(", r"@Override"],
+        },
+        Lang {
+            name: "C#",
+            patterns: &[r"\busing\s+System", r"\bnamespace\s+\w+", r"\bpublic\s+(async\s+)?\w+\s+\w+\(", r"Console\.Write", r"\bvar\s+\w+\s*="],
+        },
+        Lang {
+            name: "C/C++",
+            patterns: &[r"#include\s*[<\x22]", r"\bint\s+main\s*\(", r"\bprintf\(", r"std::", r"->\w+", r"\b(nullptr|NULL)\b", r"\bsizeof\("],
+        },
         Lang { name: "Go", patterns: &[r"\bfunc\s+(\(\w+\s+\*?\w+\)\s*)?\w+\(", r"\bpackage\s+\w+", r":=", r"\bfmt\.\w+", r"\berr\s*!=\s*nil"] },
         Lang { name: "Shell", patterns: &[r"(?m)^#!/bin/(ba)?sh", r"\$\{?\w+\}?", r"(?m)^\s*(if|then|fi|done|esac)\b", r"\becho\s", r"\|\s*grep\b"] },
         Lang { name: "HTML", patterns: &[r"<(div|span|html|body|head|script|a|p|ul|li)\b[^>]*>", r"</\w+>", r"<!DOCTYPE"] },
         Lang { name: "CSS", patterns: &[r"(?m)^\s*[.#]?[\w-]+\s*\{", r"(?m)^\s*[\w-]+\s*:\s*[^;]+;\s*$", r"@media\b", r"\b\d+(px|rem|em)\b"] },
-        Lang { name: "SQL", patterns: &[r"(?i)\bselect\b.+\bfrom\b", r"(?i)\binsert\s+into\b", r"(?i)\bcreate\s+table\b", r"(?i)\bwhere\b", r"(?i)\bjoin\b.+\bon\b"] },
+        Lang {
+            name: "SQL",
+            patterns: &[r"(?i)\bselect\b.+\bfrom\b", r"(?i)\binsert\s+into\b", r"(?i)\bcreate\s+table\b", r"(?i)\bwhere\b", r"(?i)\bjoin\b.+\bon\b"],
+        },
         Lang { name: "JSON", patterns: &[r#"^\s*[\{\[]"#, r#""\w+"\s*:\s*"#, r#"\}\s*,?\s*$"#] },
         Lang { name: "YAML", patterns: &[r"(?m)^\s*[\w-]+:\s+\S", r"(?m)^\s*-\s+\w", r"(?m)^---\s*$"] },
         Lang { name: "Ruby", patterns: &[r"(?m)^\s*def\s+\w+\s*$", r"(?m)^\s*end\s*$", r"\bputs\s", r"\battr_\w+", r"do\s*\|\w+\|"] },

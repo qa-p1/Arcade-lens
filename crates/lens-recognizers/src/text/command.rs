@@ -14,39 +14,240 @@ use regex::Regex;
 use super::TextInput;
 
 /// Unmistakable prompts: `$ `, `user@host:~$ `, `PS C:\> `, `❯ `, `(venv) $ `.
-static PROMPT: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"^\s*(?:PS [A-Za-z]:\\[^>]*>\s?|[\w.\-]+@[\w.\-]+(?::[^$#\s]*)?\s?[$#]\s?|[$❯➜]\s+|\(\w[\w.\-]*\)\s*[$#]\s)").unwrap()
-});
+static PROMPT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^\s*(?:PS [A-Za-z]:\\[^>]*>\s?|[\w.\-]+@[\w.\-]+(?::[^$#\s]*)?\s?[$#]\s?|[$❯➜]\s+|\(\w[\w.\-]*\)\s*[$#]\s)").unwrap());
 /// Prompts that are also markdown/comment syntax (`# `, `> `, `% `): stripped,
 /// but the line still has to look like a command.
 static WEAK_PROMPT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"^\s*[#%>»]\s+").unwrap());
-static SUBSHELL_DOWNLOAD: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r#"(?:bash|sh|zsh)\s+(?:-c\s+)?["'<]*\s*(?:<\(|\$\()\s*(?:curl|wget)"#).unwrap());
+static SUBSHELL_DOWNLOAD: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"(?:bash|sh|zsh)\s+(?:-c\s+)?["'<]*\s*(?:<\(|\$\()\s*(?:curl|wget)"#).unwrap());
 static INVOKE_EXPRESSION: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)\b(?:iex|invoke-expression)\b").unwrap());
 static ENV_ASSIGN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"^[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|'[^']*'|\S*)$"#).unwrap());
 
 const COMMANDS: &[&str] = &[
-    "sudo", "doas", "su", "pkexec", "git", "gh", "npm", "npx", "pnpm", "yarn", "bun", "deno", "node", "cargo", "rustup", "rustc", "go", "python", "python3",
-    "pip", "pip3", "pipx", "uv", "poetry", "conda", "ruby", "gem", "bundle", "java", "javac", "mvn", "gradle", "dotnet", "make", "cmake", "ninja", "gcc",
-    "g++", "clang", "apt", "apt-get", "dpkg", "dnf", "yum", "rpm", "pacman", "yay", "paru", "zypper", "apk", "brew", "port", "snap", "flatpak", "nix",
-    "nix-env", "choco", "winget", "scoop", "docker", "podman", "kubectl", "helm", "terraform", "ansible", "ssh", "scp", "rsync", "sftp", "curl", "wget",
-    "ls", "cd", "pwd", "cat", "less", "head", "tail", "grep", "rg", "find", "fd", "sed", "awk", "sort", "uniq", "wc", "cut", "tr", "xargs", "tee", "echo",
-    "printf", "touch", "mkdir", "rmdir", "rm", "cp", "mv", "ln", "chmod", "chown", "chgrp", "tar", "zip", "unzip", "gzip", "gunzip", "7z", "dd", "mount",
-    "umount", "mkfs", "fdisk", "parted", "lsblk", "df", "du", "free", "top", "htop", "ps", "kill", "killall", "pkill", "systemctl", "journalctl",
-    "service", "crontab", "ping", "traceroute", "dig", "nslookup", "host", "whois", "ip", "ifconfig", "netstat", "ss", "nc", "nmap", "openssl", "gpg",
-    "ssh-keygen", "export", "source", "alias", "which", "whereis", "man", "code", "vim", "nvim", "nano", "emacs", "tmux", "screen", "bash", "sh", "zsh",
-    "fish", "pwsh", "powershell", "Get-ChildItem", "Set-Location", "Remove-Item", "Invoke-WebRequest", "iwr", "irm", "iex", "Start-Process", "flutter",
-    "dart", "adb", "fastboot", "xcodebuild", "swift", "ffmpeg", "convert", "magick", "jq", "yq", "psql", "mysql", "sqlite3", "redis-cli", "mongosh",
+    "sudo",
+    "doas",
+    "su",
+    "pkexec",
+    "git",
+    "gh",
+    "npm",
+    "npx",
+    "pnpm",
+    "yarn",
+    "bun",
+    "deno",
+    "node",
+    "cargo",
+    "rustup",
+    "rustc",
+    "go",
+    "python",
+    "python3",
+    "pip",
+    "pip3",
+    "pipx",
+    "uv",
+    "poetry",
+    "conda",
+    "ruby",
+    "gem",
+    "bundle",
+    "java",
+    "javac",
+    "mvn",
+    "gradle",
+    "dotnet",
+    "make",
+    "cmake",
+    "ninja",
+    "gcc",
+    "g++",
+    "clang",
+    "apt",
+    "apt-get",
+    "dpkg",
+    "dnf",
+    "yum",
+    "rpm",
+    "pacman",
+    "yay",
+    "paru",
+    "zypper",
+    "apk",
+    "brew",
+    "port",
+    "snap",
+    "flatpak",
+    "nix",
+    "nix-env",
+    "choco",
+    "winget",
+    "scoop",
+    "docker",
+    "podman",
+    "kubectl",
+    "helm",
+    "terraform",
+    "ansible",
+    "ssh",
+    "scp",
+    "rsync",
+    "sftp",
+    "curl",
+    "wget",
+    "ls",
+    "cd",
+    "pwd",
+    "cat",
+    "less",
+    "head",
+    "tail",
+    "grep",
+    "rg",
+    "find",
+    "fd",
+    "sed",
+    "awk",
+    "sort",
+    "uniq",
+    "wc",
+    "cut",
+    "tr",
+    "xargs",
+    "tee",
+    "echo",
+    "printf",
+    "touch",
+    "mkdir",
+    "rmdir",
+    "rm",
+    "cp",
+    "mv",
+    "ln",
+    "chmod",
+    "chown",
+    "chgrp",
+    "tar",
+    "zip",
+    "unzip",
+    "gzip",
+    "gunzip",
+    "7z",
+    "dd",
+    "mount",
+    "umount",
+    "mkfs",
+    "fdisk",
+    "parted",
+    "lsblk",
+    "df",
+    "du",
+    "free",
+    "top",
+    "htop",
+    "ps",
+    "kill",
+    "killall",
+    "pkill",
+    "systemctl",
+    "journalctl",
+    "service",
+    "crontab",
+    "ping",
+    "traceroute",
+    "dig",
+    "nslookup",
+    "host",
+    "whois",
+    "ip",
+    "ifconfig",
+    "netstat",
+    "ss",
+    "nc",
+    "nmap",
+    "openssl",
+    "gpg",
+    "ssh-keygen",
+    "export",
+    "source",
+    "alias",
+    "which",
+    "whereis",
+    "man",
+    "code",
+    "vim",
+    "nvim",
+    "nano",
+    "emacs",
+    "tmux",
+    "screen",
+    "bash",
+    "sh",
+    "zsh",
+    "fish",
+    "pwsh",
+    "powershell",
+    "Get-ChildItem",
+    "Set-Location",
+    "Remove-Item",
+    "Invoke-WebRequest",
+    "iwr",
+    "irm",
+    "iex",
+    "Start-Process",
+    "flutter",
+    "dart",
+    "adb",
+    "fastboot",
+    "xcodebuild",
+    "swift",
+    "ffmpeg",
+    "convert",
+    "magick",
+    "jq",
+    "yq",
+    "psql",
+    "mysql",
+    "sqlite3",
+    "redis-cli",
+    "mongosh",
 ];
 /// Commands that are also English words; they need command-like arguments.
-const WORDY: &[&str] = &["make", "find", "man", "top", "free", "kill", "sort", "cut", "less", "head", "tail", "host", "source", "screen", "export", "convert", "echo", "touch", "go", "code"];
-const STOPWORDS: &[&str] = &["the", "a", "an", "to", "and", "you", "is", "of", "that", "this", "with", "for", "your", "it", "be", "are", "will", "can", "sure"];
-const INTERPRETERS: &[&str] = &["sh", "bash", "zsh", "fish", "dash", "ksh", "python", "python3", "perl", "ruby", "node", "php", "iex", "invoke-expression", "pwsh", "powershell"];
-const PACKAGE_MANAGERS: &[&str] = &[
-    "apt", "apt-get", "dpkg", "dnf", "yum", "rpm", "pacman", "yay", "paru", "zypper", "apk", "brew", "port", "snap", "flatpak", "nix-env", "choco", "winget", "scoop",
-    "pip", "pip3", "pipx", "npm", "pnpm", "yarn", "gem", "cargo", "go", "uv", "conda",
+const WORDY: &[&str] = &[
+    "make", "find", "man", "top", "free", "kill", "sort", "cut", "less", "head", "tail", "host", "source", "screen", "export", "convert", "echo", "touch",
+    "go", "code",
 ];
-const PKG_VERBS: &[&str] = &["install", "i", "add", "remove", "rm", "uninstall", "purge", "autoremove", "upgrade", "update", "reinstall", "erase", "-S", "-Syu", "-Sy", "-R", "-Rs", "-Rns", "-U", "-i", "-e", "global"];
+const STOPWORDS: &[&str] = &["the", "a", "an", "to", "and", "you", "is", "of", "that", "this", "with", "for", "your", "it", "be", "are", "will", "can", "sure"];
+const INTERPRETERS: &[&str] =
+    &["sh", "bash", "zsh", "fish", "dash", "ksh", "python", "python3", "perl", "ruby", "node", "php", "iex", "invoke-expression", "pwsh", "powershell"];
+const PACKAGE_MANAGERS: &[&str] = &[
+    "apt", "apt-get", "dpkg", "dnf", "yum", "rpm", "pacman", "yay", "paru", "zypper", "apk", "brew", "port", "snap", "flatpak", "nix-env", "choco", "winget",
+    "scoop", "pip", "pip3", "pipx", "npm", "pnpm", "yarn", "gem", "cargo", "go", "uv", "conda",
+];
+const PKG_VERBS: &[&str] = &[
+    "install",
+    "i",
+    "add",
+    "remove",
+    "rm",
+    "uninstall",
+    "purge",
+    "autoremove",
+    "upgrade",
+    "update",
+    "reinstall",
+    "erase",
+    "-S",
+    "-Syu",
+    "-Sy",
+    "-R",
+    "-Rs",
+    "-Rns",
+    "-U",
+    "-i",
+    "-e",
+    "global",
+];
 
 /// Logical command lines: prompts stripped, `\` / backtick continuations joined.
 fn command_lines(text: &str) -> Vec<(String, bool)> {
@@ -159,7 +360,9 @@ pub fn analyze(cmd: &str) -> Vec<CommandRisk> {
         }
         let Some(first) = toks.get(i) else { continue };
         let mut name = base_name(first).to_string();
-        if matches!(name.as_str(), "sudo" | "doas" | "su" | "pkexec" | "runas") || first.eq_ignore_ascii_case("start-process") && seg.to_ascii_lowercase().contains("runas") {
+        if matches!(name.as_str(), "sudo" | "doas" | "su" | "pkexec" | "runas")
+            || first.eq_ignore_ascii_case("start-process") && seg.to_ascii_lowercase().contains("runas")
+        {
             add(Privileged);
             i += 1;
             while i < toks.len() && toks[i].starts_with('-') {
@@ -174,9 +377,8 @@ pub fn analyze(cmd: &str) -> Vec<CommandRisk> {
         let lname = name.to_ascii_lowercase();
         match lname.as_str() {
             "rm" | "rmdir" | "del" | "erase" | "rd" | "shred" | "unlink" | "remove-item" | "ri" => add(Deletion),
-            "mv" | "cp" | "chmod" | "chown" | "chgrp" | "chattr" | "ln" | "truncate" | "tee" | "install" | "mount" | "umount" | "fdisk" | "parted" | "set-content" => {
-                add(FilesystemModification)
-            }
+            "mv" | "cp" | "chmod" | "chown" | "chgrp" | "chattr" | "ln" | "truncate" | "tee" | "install" | "mount" | "umount" | "fdisk" | "parted"
+            | "set-content" => add(FilesystemModification),
             "dd" | "mkfs" | "wipefs" | "format" => {
                 add(FilesystemModification);
                 add(Deletion);
@@ -266,7 +468,10 @@ mod tests {
 
     #[test]
     fn prompts_and_continuations() {
-        assert_eq!(cmds("$ git clone https://github.com/qa-p1/Arcade-lens"), vec![("git clone https://github.com/qa-p1/Arcade-lens".into(), vec![NetworkDownload])]);
+        assert_eq!(
+            cmds("$ git clone https://github.com/qa-p1/Arcade-lens"),
+            vec![("git clone https://github.com/qa-p1/Arcade-lens".into(), vec![NetworkDownload])]
+        );
         assert_eq!(cmds("user@box:~/src$ ls -la"), vec![("ls -la".into(), vec![])]);
         assert_eq!(cmds("docker run \\\n  -p 8080:80 \\\n  nginx")[0].0, "docker run -p 8080:80 nginx");
         assert_eq!(cmds(r"PS C:\Users\ada> Get-ChildItem -Recurse")[0].0, "Get-ChildItem -Recurse");

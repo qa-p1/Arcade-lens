@@ -19,13 +19,16 @@ static DECIMAL: LazyLock<Regex> = LazyLock::new(|| {
 static DMS: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"(?i)(?P<la>\d{1,2})°\s*(?P<lam>\d{1,2})['′]\s*(?:(?P<las>\d{1,2}(?:\.\d+)?)["″]?\s*)?(?P<ns>[NS])[,\s]+(?P<lo>\d{1,3})°\s*(?P<lom>\d{1,2})['′]\s*(?:(?P<los>\d{1,2}(?:\.\d+)?)["″]?\s*)?(?P<ew>[EW])"#).unwrap()
 });
-static CONTEXT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)\b(lat|lng|lon|long|latitude|longitude|coordinates?|coords?|location|gps|position)\b").unwrap());
+static CONTEXT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)\b(lat|lng|lon|long|latitude|longitude|coordinates?|coords?|location|gps|position)\b").unwrap());
 
 pub fn detect(input: &TextInput, _cx: &RecognizeContext) -> Vec<Detection> {
     let text = input.text;
     let mut out = Vec::new();
     for c in DMS.captures_iter(text) {
-        let f = |d: &str, m: &str, s: Option<regex::Match>| d.parse::<f64>().unwrap() + m.parse::<f64>().unwrap() / 60.0 + s.map_or(0.0, |s| s.as_str().parse::<f64>().unwrap() / 3600.0);
+        let f = |d: &str, m: &str, s: Option<regex::Match>| {
+            d.parse::<f64>().unwrap() + m.parse::<f64>().unwrap() / 60.0 + s.map_or(0.0, |s| s.as_str().parse::<f64>().unwrap() / 3600.0)
+        };
         let mut lat = f(&c["la"], &c["lam"], c.name("las"));
         let mut lon = f(&c["lo"], &c["lom"], c.name("los"));
         if c["ns"].eq_ignore_ascii_case("s") {

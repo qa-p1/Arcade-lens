@@ -110,7 +110,8 @@ impl Chain {
             .findings
             .iter()
             .filter(|f| graph.is_a(&f.capability, &plan.input))
-            .max_by(|a, b| a.confidence.total_cmp(&b.confidence))
+            // Prefer an exact capability match over descendants (text over url).
+            .max_by(|a, b| (a.capability == plan.input).cmp(&(b.capability == plan.input)).then(a.confidence.total_cmp(&b.confidence)))
             .ok_or_else(|| LensError::InvalidInput(format!("nothing in the selection provides {}", plan.input)))?;
         let mut current = Item::from(start);
         let mut outcomes = Vec::new();

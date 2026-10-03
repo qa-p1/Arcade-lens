@@ -20,10 +20,13 @@ impl Recognizer for WindowRecognizer {
     fn recognize(&self, _input: &Finding, cx: &RecognizeContext) -> Result<Vec<Detection>> {
         let sel = cx.selection.rect;
         // Front-most window wins ties: windows are ordered front to back.
-        let best = cx.selection.context.windows.iter().map(|w| (w.rect.iou(&sel), w)).filter(|(iou, _)| *iou >= MIN_IOU).fold(None, |best: Option<(f64, _)>, (iou, w)| match best {
-            Some((b, _)) if b >= iou => best,
-            _ => Some((iou, w)),
-        });
+        let best = cx.selection.context.windows.iter().map(|w| (w.rect.iou(&sel), w)).filter(|(iou, _)| *iou >= MIN_IOU).fold(
+            None,
+            |best: Option<(f64, _)>, (iou, w)| match best {
+                Some((b, _)) if b >= iou => best,
+                _ => Some((iou, w)),
+            },
+        );
         Ok(best
             .map(|(iou, w)| {
                 let mut d = Detection::new(caps::WINDOW, Value::Window(w.clone())).confidence(iou as f32).detail("Window", w.title.clone());

@@ -99,8 +99,24 @@ impl CapabilityGraph {
         g.add(REGION, IMAGE);
         g.add(ICON, IMAGE);
         for textual in [
-            TABLE, CODE, COMMAND, ERROR, URL, EMAIL, PHONE, ADDRESS, DATE_TIME, TIMECODE, PATH,
-            IP_ADDRESS, DOMAIN, HASH, UUID, CURRENCY, QUANTITY, COORDINATES,
+            TABLE,
+            CODE,
+            COMMAND,
+            ERROR,
+            URL,
+            EMAIL,
+            PHONE,
+            ADDRESS,
+            DATE_TIME,
+            TIMECODE,
+            PATH,
+            IP_ADDRESS,
+            DOMAIN,
+            HASH,
+            UUID,
+            CURRENCY,
+            QUANTITY,
+            COORDINATES,
         ] {
             g.add(textual, TEXT);
         }

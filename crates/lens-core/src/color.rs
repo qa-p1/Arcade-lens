@@ -102,11 +102,7 @@ impl Rgb {
                 let mut it = s.chars();
                 Some(Rgb::new(expand(it.next()?)?, expand(it.next()?)?, expand(it.next()?)?))
             }
-            6 => Some(Rgb::new(
-                u8::from_str_radix(&s[0..2], 16).ok()?,
-                u8::from_str_radix(&s[2..4], 16).ok()?,
-                u8::from_str_radix(&s[4..6], 16).ok()?,
-            )),
+            6 => Some(Rgb::new(u8::from_str_radix(&s[0..2], 16).ok()?, u8::from_str_radix(&s[2..4], 16).ok()?, u8::from_str_radix(&s[4..6], 16).ok()?)),
             _ => None,
         }
     }

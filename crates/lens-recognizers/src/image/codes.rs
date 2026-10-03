@@ -82,7 +82,13 @@ impl Recognizer for CodeRecognizer {
                 let f = r.getBarcodeFormat();
                 let cap = if is_qr(f) { caps::QR_CODE } else { caps::BARCODE };
                 let payload = r.getText().to_string();
-                let kind = if payload.starts_with("WIFI:") { "Wi-Fi network" } else if payload.starts_with("BEGIN:VCARD") { "Contact card" } else { "" };
+                let kind = if payload.starts_with("WIFI:") {
+                    "Wi-Fi network"
+                } else if payload.starts_with("BEGIN:VCARD") {
+                    "Contact card"
+                } else {
+                    ""
+                };
                 let mut d = Detection::new(cap, Value::Barcode(BarcodeValue { format: label(f).into(), payload })).confidence(0.99).detail("Format", label(f));
                 if !kind.is_empty() {
                     d = d.detail("Contains", kind);
@@ -143,7 +149,7 @@ mod tests {
 
     #[test]
     fn nothing_in_noise() {
-        let img = RgbaImage::from_fn(120, 120, |x, y| Rgba([(x * 31 ^ y * 17) as u8, (x * y) as u8, 90, 255]));
+        let img = RgbaImage::from_fn(120, 120, |x, y| Rgba([((x * 31) ^ (y * 17)) as u8, (x * y) as u8, 90, 255]));
         assert!(run(img).is_empty());
     }
 }

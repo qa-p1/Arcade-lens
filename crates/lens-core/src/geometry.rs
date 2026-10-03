@@ -52,10 +52,7 @@ impl Rect {
     }
 
     pub fn contains(&self, p: Point) -> bool {
-        (p.x as i64) >= self.x as i64
-            && (p.x as i64) < self.right()
-            && (p.y as i64) >= self.y as i64
-            && (p.y as i64) < self.bottom()
+        (p.x as i64) >= self.x as i64 && (p.x as i64) < self.right() && (p.y as i64) >= self.y as i64 && (p.y as i64) < self.bottom()
     }
 
     pub fn intersection(&self, other: &Rect) -> Option<Rect> {
@@ -110,12 +107,7 @@ pub struct MonitorInfo {
 
 /// Picks the monitor containing most of `rect`.
 pub fn monitor_for<'a>(monitors: &'a [MonitorInfo], rect: &Rect) -> Option<&'a MonitorInfo> {
-    monitors
-        .iter()
-        .map(|m| (m, m.rect.intersection(rect).map_or(0, |r| r.area())))
-        .filter(|(_, a)| *a > 0)
-        .max_by_key(|(_, a)| *a)
-        .map(|(m, _)| m)
+    monitors.iter().map(|m| (m, m.rect.intersection(rect).map_or(0, |r| r.area()))).filter(|(_, a)| *a > 0).max_by_key(|(_, a)| *a).map(|(m, _)| m)
 }
 
 #[cfg(test)]
@@ -141,8 +133,22 @@ mod tests {
     #[test]
     fn negative_monitor_coordinates_and_scaling() {
         let monitors = vec![
-            MonitorInfo { id: "a".into(), name: "left".into(), rect: Rect::new(-2560, 0, 2560, 1440), scale_factor: 1.0, refresh_rate_hz: None, is_primary: false },
-            MonitorInfo { id: "b".into(), name: "main".into(), rect: Rect::new(0, 0, 3840, 2160), scale_factor: 1.5, refresh_rate_hz: Some(144.0), is_primary: true },
+            MonitorInfo {
+                id: "a".into(),
+                name: "left".into(),
+                rect: Rect::new(-2560, 0, 2560, 1440),
+                scale_factor: 1.0,
+                refresh_rate_hz: None,
+                is_primary: false,
+            },
+            MonitorInfo {
+                id: "b".into(),
+                name: "main".into(),
+                rect: Rect::new(0, 0, 3840, 2160),
+                scale_factor: 1.5,
+                refresh_rate_hz: Some(144.0),
+                is_primary: true,
+            },
         ];
         let sel = Rect::new(-100, 10, 300, 50);
         assert_eq!(monitor_for(&monitors, &sel).unwrap().id, "b");

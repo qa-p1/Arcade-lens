@@ -22,11 +22,13 @@ static STREET_LINE: LazyLock<Regex> = LazyLock::new(|| {
     ))
     .unwrap()
 });
-static POSTAL: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"\b(?:[A-Z]{2}\s+\d{5}(?:-\d{4})?|[1-9]\d{2}\s?\d{3}|[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}|\d{5})\b").unwrap()
-});
+static POSTAL: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"\b(?:[A-Z]{2}\s+\d{5}(?:-\d{4})?|[1-9]\d{2}\s?\d{3}|[A-Z]{1,2}\d[A-Z\d]?\s*\d[A-Z]{2}|\d{5})\b").unwrap());
 static VOCAB: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(&format!(r"(?i)\b(?:{STREET}|Sector|Block|Colony|Near|Opp|Opposite|District|Dist|Tehsil|PO|Village|Building|Bldg|Floor|Flat|Apt|Suite|Postcode|ZIP|PIN)\b")).unwrap()
+    Regex::new(&format!(
+        r"(?i)\b(?:{STREET}|Sector|Block|Colony|Near|Opp|Opposite|District|Dist|Tehsil|PO|Village|Building|Bldg|Floor|Flat|Apt|Suite|Postcode|ZIP|PIN)\b"
+    ))
+    .unwrap()
 });
 
 pub fn detect(input: &TextInput, _cx: &RecognizeContext) -> Vec<Detection> {
@@ -60,7 +62,11 @@ pub fn detect(input: &TextInput, _cx: &RecognizeContext) -> Vec<Detection> {
         for m in STREET_LINE.find_iter(text) {
             let s = m.as_str().trim_end_matches([',', '.', ' ']);
             let has_postal = POSTAL.is_match(s);
-            out.push(Detection::new(caps::ADDRESS, Value::Address(s.to_string())).span(m.start()..m.start() + s.len()).confidence(if has_postal { 0.8 } else { 0.6 }));
+            out.push(Detection::new(caps::ADDRESS, Value::Address(s.to_string())).span(m.start()..m.start() + s.len()).confidence(if has_postal {
+                0.8
+            } else {
+                0.6
+            }));
         }
     }
     out
@@ -73,7 +79,10 @@ mod tests {
 
     #[test]
     fn single_line() {
-        assert_eq!(texts(detect, "Ship to 1600 Amphitheatre Parkway, Mountain View, CA 94043 please"), vec!["1600 Amphitheatre Parkway, Mountain View, CA 94043"]);
+        assert_eq!(
+            texts(detect, "Ship to 1600 Amphitheatre Parkway, Mountain View, CA 94043 please"),
+            vec!["1600 Amphitheatre Parkway, Mountain View, CA 94043"]
+        );
         assert_eq!(texts(detect, "Office: 221B Baker Street, London NW1 6XE"), vec!["221B Baker Street, London NW1 6XE"]);
     }
 

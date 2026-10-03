@@ -26,7 +26,7 @@ pub mod settings;
 pub mod usage;
 pub mod value;
 
-pub use action::{Action, ActionContext, ActionDescriptor, ActionGroup, ActionOutcome, Effects, Item, Produces, SafetyClass};
+pub use action::{Action, ActionContext, ActionDescriptor, ActionGroup, ActionOutcome, Choice, Effects, Item, Produces, SafetyClass};
 pub use capability::{caps, Capability};
 pub use engine::{Analysis, AnalysisEvent, AnalysisReport, Engine};
 pub use error::{LensError, Result};

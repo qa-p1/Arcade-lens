@@ -7,9 +7,7 @@ use regex::Regex;
 
 use super::{trim_token, TextInput};
 
-static URL: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?i)\b(?:(?:https?|ftp|wss?)://|www\.)[^\s<>"'`{}|\\^]+"#).unwrap()
-});
+static URL: LazyLock<Regex> = LazyLock::new(|| Regex::new(r#"(?i)\b(?:(?:https?|ftp|wss?)://|www\.)[^\s<>"'`{}|\\^]+"#).unwrap());
 
 /// Every URL in `text` with its byte range. Shared with recognizers that
 /// must not report pieces of a URL (domains, emails, paths).
@@ -36,11 +34,7 @@ pub fn host_of(url: &str) -> Option<String> {
     let rest = &url[url.find("://")? + 3..];
     let authority = rest.split(['/', '?', '#']).next()?;
     let hostport = authority.rsplit('@').next()?;
-    let host = if hostport.starts_with('[') {
-        hostport.split(']').next().map(|h| format!("{h}]"))?
-    } else {
-        hostport.split(':').next()?.to_string()
-    };
+    let host = if hostport.starts_with('[') { hostport.split(']').next().map(|h| format!("{h}]"))? } else { hostport.split(':').next()?.to_string() };
     (!host.is_empty()).then(|| host.to_ascii_lowercase())
 }
 

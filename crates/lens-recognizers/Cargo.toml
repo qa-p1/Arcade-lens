@@ -11,10 +11,13 @@ image.workspace = true
 regex.workspace = true
 chrono.workspace = true
 rxing = "0.9"
+ocrs = { version = "0.13", optional = true }
+# Must match the rten version used by ocrs.
+rten = { version = "0.26", optional = true }
 
 [features]
-# Portable local OCR engine (downloads models on first use).
-ocrs = []
+# Portable local OCR engine. Models are loaded from files the app provides.
+ocrs = ["dep:ocrs", "dep:rten"]
 
 [dev-dependencies]
 qrcode = { version = "0.14", default-features = false, features = ["image"] }

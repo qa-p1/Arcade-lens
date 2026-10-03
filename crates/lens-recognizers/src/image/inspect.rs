@@ -71,7 +71,15 @@ impl Recognizer for InspectRecognizer {
         d = d.detail("Background", background.hex());
         if let Some(fg) = foreground {
             let ratio = fg.contrast(&background);
-            let grade = if ratio >= 7.0 { "AAA" } else if ratio >= 4.5 { "AA" } else if ratio >= 3.0 { "AA large text" } else { "fails WCAG" };
+            let grade = if ratio >= 7.0 {
+                "AAA"
+            } else if ratio >= 4.5 {
+                "AA"
+            } else if ratio >= 3.0 {
+                "AA large text"
+            } else {
+                "fails WCAG"
+            };
             d = d.detail("Foreground", fg.hex()).detail("Contrast", format!("{ratio:.1}:1 ({grade})"));
         }
         Ok(vec![d])

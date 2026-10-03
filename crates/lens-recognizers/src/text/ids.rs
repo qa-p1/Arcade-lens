@@ -8,8 +8,7 @@ use regex::Regex;
 
 use super::{overlaps, TextInput};
 
-static UUID: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b").unwrap());
+static UUID: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\b").unwrap());
 static HEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b[0-9a-fA-F]{7,128}\b").unwrap());
 static COMMIT_CONTEXT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)\b(commit|sha|rev|revision|hash|cherry-pick|checkout|revert)\b|^\s*$").unwrap());
 

@@ -46,7 +46,11 @@ pub enum Value {
     Geometry(GeometryValue),
     File(FileValue),
     /// Plugin-defined payload.
-    Custom { type_name: String, data: serde_json::Value, text: Option<String> },
+    Custom {
+        type_name: String,
+        data: serde_json::Value,
+        text: Option<String>,
+    },
 }
 
 impl Value {

@@ -101,6 +101,7 @@ fn specificity(cap: &Capability) -> f32 {
 const PREFERRED_BOOST: f32 = 40.0;
 const SPECIFICITY_WEIGHT: f32 = 40.0;
 const MAX_PER_GROUP: usize = 2;
+const MAX_PER_FINDING: usize = 2;
 
 pub fn build_palette(input: &PaletteInput) -> Palette {
     let PaletteInput { registry, findings, settings, usage, host, chains, now } = *input;
@@ -143,11 +144,9 @@ pub fn build_palette(input: &PaletteInput) -> Palette {
                     None => needs_confirmation = true,
                 }
             }
-            let preferred = settings.preferred_actions.iter().any(|p| *p == d.id);
-            let score = d.priority as f32
-                + SPECIFICITY_WEIGHT * spec
-                + usage.boost(f.capability.as_str(), &d.id, now)
-                + if preferred { PREFERRED_BOOST } else { 0.0 };
+            let preferred = settings.preferred_actions.contains(&d.id);
+            let score =
+                d.priority as f32 + SPECIFICITY_WEIGHT * spec + usage.boost(f.capability.as_str(), &d.id, now) + if preferred { PREFERRED_BOOST } else { 0.0 };
             entries.push(PaletteEntry {
                 target: Target::Action(d.id.clone()),
                 finding: f.id,
@@ -167,7 +166,11 @@ pub fn build_palette(input: &PaletteInput) -> Palette {
     for chain in chains {
         let Ok(plan) = chain.validate(registry) else { continue };
         let graph = registry.graph();
-        let Some(f) = findings.iter().filter(|f| graph.is_a(&f.capability, &plan.input)).max_by(|a, b| a.confidence.total_cmp(&b.confidence)) else {
+        let Some(f) = findings
+            .iter()
+            .filter(|f| graph.is_a(&f.capability, &plan.input))
+            .max_by(|a, b| (a.capability == plan.input).cmp(&(b.capability == plan.input)).then(a.confidence.total_cmp(&b.confidence)))
+        else {
             continue;
         };
         let target = Target::Chain(chain.id.clone());
@@ -188,27 +191,30 @@ pub fn build_palette(input: &PaletteInput) -> Palette {
     }
 
     // Deterministic order: score, then stable ids.
-    entries.sort_by(|a, b| {
-        b.score
-            .total_cmp(&a.score)
-            .then_with(|| a.target.usage_key().cmp(&b.target.usage_key()))
-            .then_with(|| a.finding.cmp(&b.finding))
-    });
+    entries.sort_by(|a, b| b.score.total_cmp(&a.score).then_with(|| a.target.usage_key().cmp(&b.target.usage_key())).then_with(|| a.finding.cmp(&b.finding)));
 
     let n = settings.primary_action_count.max(1);
     let mut primary = Vec::new();
     let mut used_targets = HashSet::new();
     let mut used_labels = HashSet::new();
     let mut per_group: HashMap<ActionGroup, usize> = HashMap::new();
+    let mut per_finding: HashMap<FindingId, usize> = HashMap::new();
+    // Distinct findings are worth surfacing, but never at the cost of leaving slots empty.
+    let distinct = entries.iter().map(|e| e.finding).collect::<HashSet<_>>().len();
+    let finding_cap = if distinct > 1 { MAX_PER_FINDING } else { usize::MAX };
     for e in &entries {
         if primary.len() >= n {
             break;
         }
         let g = per_group.entry(e.group).or_default();
-        if *g >= MAX_PER_GROUP || used_targets.contains(&e.target) || used_labels.contains(&e.label) {
+        let pf = per_finding.entry(e.finding).or_default();
+        // The region's baseline actions (Copy, Save, Pin) are the universal fallback: never capped.
+        let capped = e.capability != caps::REGION && *pf >= finding_cap;
+        if *g >= MAX_PER_GROUP || capped || used_targets.contains(&e.target) || used_labels.contains(&e.label) {
             continue;
         }
         *g += 1;
+        *pf += 1;
         used_targets.insert(e.target.clone());
         used_labels.insert(e.label.clone());
         primary.push(e.clone());
@@ -274,6 +280,8 @@ pub enum Invocation {
     Done(ActionOutcome),
     /// Re-invoke with `confirmed = true` once the user accepts.
     NeedsConfirmation(crate::action::ConfirmRequest),
+    /// Re-invoke with the chosen value in the `choice` parameter.
+    NeedsChoice(Vec<crate::action::Choice>),
 }
 
 pub struct InvokeContext<'a> {
@@ -299,11 +307,15 @@ pub fn invoke(action_id: &str, finding: FindingId, cx: &InvokeContext) -> Result
     if cx.settings.privacy.guard_secrets && d.effects.intersects(Effects::OUTBOUND) {
         let outgoing = a.preview(&item, cx.settings).or_else(|| f.value.as_text().map(|t| t.into_owned()));
         let leaks = f.capability == caps::SECRET
-            || outgoing.is_some_and(|text| {
-                cx.findings.iter().any(|s| matches!(&s.value, Value::Secret(sv) if text.contains(sv.raw.expose())))
-            });
+            || outgoing.is_some_and(|text| cx.findings.iter().any(|s| matches!(&s.value, Value::Secret(sv) if text.contains(sv.raw.expose()))));
         if leaks {
             return Err(LensError::Blocked("the content appears to contain a secret".into()));
+        }
+    }
+    if !cx.params.contains_key("choice") {
+        let choices = a.choices(&item, cx.settings);
+        if !choices.is_empty() {
+            return Ok(Invocation::NeedsChoice(choices));
         }
     }
     if !cx.confirmed {
@@ -312,5 +324,18 @@ pub fn invoke(action_id: &str, finding: FindingId, cx: &InvokeContext) -> Result
         }
     }
     let acx = ActionContext { host: cx.host, settings: cx.settings, selection: cx.selection, params: cx.params };
-    Ok(Invocation::Done(a.execute(&item, &acx)?))
+    let mut outcome = a.execute(&item, &acx)?;
+    // A pure transform invoked from the palette has nowhere else to go: copy its result.
+    if d.safety() == SafetyClass::Pure && outcome.message.is_none() {
+        if let Some(out) = &outcome.output {
+            if let Some(img) = out.value.as_image() {
+                cx.host.set_clipboard_image(img)?;
+                outcome.message = Some(format!("{} — copied", d.label));
+            } else if let Some(text) = out.value.as_text() {
+                cx.host.set_clipboard_text(&text)?;
+                outcome.message = Some(format!("{} — copied", d.label));
+            }
+        }
+    }
+    Ok(Invocation::Done(outcome))
 }

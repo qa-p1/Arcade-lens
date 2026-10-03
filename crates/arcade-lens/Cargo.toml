@@ -1,7 +1,30 @@
 [package]
 name = "arcade-lens"
+description = "Arcade Lens: select anything on screen and act on it"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
+[[bin]]
+name = "arcade-lens"
+path = "src/main.rs"
+
+[features]
+default = ["ocrs"]
+ocrs = ["lens-recognizers/ocrs"]
+
 [dependencies]
+lens-core.workspace = true
+lens-recognizers.workspace = true
+lens-actions.workspace = true
+image.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+clap = { version = "4", features = ["derive"] }
+directories = "6"
+arboard = { version = "3", default-features = false, features = ["image-data"] }
+ureq = "3"
+
+[dev-dependencies]
+qrcode = { version = "0.14", default-features = false, features = ["image"] }

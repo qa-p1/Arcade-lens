@@ -80,8 +80,24 @@ pub static UNITS: &[Unit] = &[
     u("lb", Mass, 0.45359237, &["lb", "lbs", "pound", "pounds"], true, true),
     u("oz", Mass, 0.028349523125, &["oz", "ounce", "ounces"], true, true),
     u("st", Mass, 6.35029318, &["stone"], true, false),
-    Unit { symbol: "°C", dimension: Temperature, factor: 1.0, offset: 273.15, aliases: &["°C", "ºC", "° C", "degC", "celsius", "Celsius", "degrees celsius", "degrees Celsius"], fold: false, target: true },
-    Unit { symbol: "°F", dimension: Temperature, factor: 5.0 / 9.0, offset: 255.372_222_222_222_2, aliases: &["°F", "ºF", "° F", "degF", "fahrenheit", "Fahrenheit", "degrees fahrenheit", "degrees Fahrenheit"], fold: false, target: true },
+    Unit {
+        symbol: "°C",
+        dimension: Temperature,
+        factor: 1.0,
+        offset: 273.15,
+        aliases: &["°C", "ºC", "° C", "degC", "celsius", "Celsius", "degrees celsius", "degrees Celsius"],
+        fold: false,
+        target: true,
+    },
+    Unit {
+        symbol: "°F",
+        dimension: Temperature,
+        factor: 5.0 / 9.0,
+        offset: 255.372_222_222_222_2,
+        aliases: &["°F", "ºF", "° F", "degF", "fahrenheit", "Fahrenheit", "degrees fahrenheit", "degrees Fahrenheit"],
+        fold: false,
+        target: true,
+    },
     Unit { symbol: "K", dimension: Temperature, factor: 1.0, offset: 0.0, aliases: &["kelvin", "Kelvin"], fold: false, target: true },
     u("km/h", Speed, 1.0 / 3.6, &["km/h", "kmh", "kph", "kmph", "km/hr"], true, true),
     u("mph", Speed, 0.44704, &["mph", "mi/h", "miles per hour"], true, true),
@@ -136,7 +152,8 @@ pub fn format_number(x: f64) -> String {
 /// Rough measurement system, used to prefer cross-system conversions
 /// (metric → imperial and back; decimal ↔ binary data units).
 fn system(symbol: &str) -> u8 {
-    const IMPERIAL: &[&str] = &["in", "ft", "yd", "mi", "ft²", "acre", "gal", "fl oz", "cup", "tbsp", "tsp", "lb", "oz", "st", "°F", "mph", "KiB", "MiB", "GiB", "TiB"];
+    const IMPERIAL: &[&str] =
+        &["in", "ft", "yd", "mi", "ft²", "acre", "gal", "fl oz", "cup", "tbsp", "tsp", "lb", "oz", "st", "°F", "mph", "KiB", "MiB", "GiB", "TiB"];
     match symbol {
         "K" | "kn" => 2,
         s if IMPERIAL.contains(&s) => 1,

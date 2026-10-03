@@ -27,7 +27,13 @@ impl Recognizer for ColorRecognizer {
     fn recognize(&self, input: &Finding, cx: &RecognizeContext) -> Result<Vec<Detection>> {
         let Some(img) = input.value.as_image() else { return Ok(vec![]) };
         let Some((color, share)) = most_common_exact(img) else { return Ok(vec![]) };
-        let confidence = if cx.signals.is_uniform() { 0.95 } else if share > 0.5 { 0.8 } else { 0.6 };
+        let confidence = if cx.signals.is_uniform() {
+            0.95
+        } else if share > 0.5 {
+            0.8
+        } else {
+            0.6
+        };
         Ok(vec![color_detection(color, confidence)])
     }
 }
@@ -104,10 +110,8 @@ pub fn extract_palette(img: &RgbaImage) -> Vec<PaletteColor> {
     if total == 0 {
         return vec![];
     }
-    let mut bins: Vec<(u32, Rgb)> = hist
-        .into_values()
-        .map(|(n, s)| (n, Rgb::new((s[0] / n as u64) as u8, (s[1] / n as u64) as u8, (s[2] / n as u64) as u8)))
-        .collect();
+    let mut bins: Vec<(u32, Rgb)> =
+        hist.into_values().map(|(n, s)| (n, Rgb::new((s[0] / n as u64) as u8, (s[1] / n as u64) as u8, (s[2] / n as u64) as u8))).collect();
     bins.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.hex().cmp(&b.1.hex())));
 
     struct Cluster {
@@ -134,7 +138,10 @@ pub fn extract_palette(img: &RgbaImage) -> Vec<PaletteColor> {
         .into_iter()
         .map(|k| {
             let n = k.n as f64;
-            PaletteColor { color: Rgb::new((k.sum[0] / n).round() as u8, (k.sum[1] / n).round() as u8, (k.sum[2] / n).round() as u8), coverage: k.n as f32 / total as f32 }
+            PaletteColor {
+                color: Rgb::new((k.sum[0] / n).round() as u8, (k.sum[1] / n).round() as u8, (k.sum[2] / n).round() as u8),
+                coverage: k.n as f32 / total as f32,
+            }
         })
         .filter(|p| p.coverage >= MIN_COVERAGE)
         .collect();

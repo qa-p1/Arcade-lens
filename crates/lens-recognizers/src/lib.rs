@@ -12,16 +12,19 @@ use std::sync::Arc;
 use lens_core::registry::{PluginManifest, PluginRegistrar};
 use lens_core::{Registry, Result};
 
-/// Registers every built-in recognizer. `ocr` is optional so the rest of
-/// Lens keeps working where no OCR engine is available.
+/// Adds every built-in recognizer to the `core` plugin. `ocr` is optional
+/// so the rest of Lens keeps working where no OCR engine is available.
+pub fn register_builtins(r: &mut PluginRegistrar, ocr: Option<Arc<dyn ocr::OcrEngine>>) {
+    for t in text::recognizers() {
+        r.recognizer(t);
+    }
+    image::register(r);
+    if let Some(engine) = ocr {
+        r.recognizer(ocr::OcrRecognizer::new(engine));
+    }
+}
+
+/// Registers only the built-in recognizers (no actions) as the `core` plugin.
 pub fn register(registry: &mut Registry, ocr: Option<Arc<dyn ocr::OcrEngine>>) -> Result<()> {
-    registry.register_plugin(PluginManifest::first_party("core", "Arcade Lens built-ins"), |r: &mut PluginRegistrar| {
-        for t in text::recognizers() {
-            r.recognizer(t);
-        }
-        image::register(r);
-        if let Some(engine) = ocr {
-            r.recognizer(ocr::OcrRecognizer::new(engine));
-        }
-    })
+    registry.register_plugin(PluginManifest::first_party("core", "Arcade Lens built-ins"), |r: &mut PluginRegistrar| register_builtins(r, ocr))
 }

@@ -10,14 +10,34 @@ use super::TextInput;
 
 /// (symbol, ISO code assumed for it, whether that assumption is ambiguous)
 const SYMBOLS: &[(&str, &str, bool)] = &[
-    ("US$", "USD", false), ("CA$", "CAD", false), ("C$", "CAD", false), ("A$", "AUD", false), ("AU$", "AUD", false), ("NZ$", "NZD", false),
-    ("HK$", "HKD", false), ("S$", "SGD", false), ("R$", "BRL", false), ("Rs.", "INR", true), ("Rs", "INR", true), ("₹", "INR", false),
-    ("€", "EUR", false), ("£", "GBP", false), ("¥", "JPY", true), ("₩", "KRW", false), ("₽", "RUB", false), ("₺", "TRY", false),
-    ("₪", "ILS", false), ("₫", "VND", false), ("₱", "PHP", false), ("฿", "THB", false), ("₦", "NGN", false), ("$", "USD", true),
+    ("US$", "USD", false),
+    ("CA$", "CAD", false),
+    ("C$", "CAD", false),
+    ("A$", "AUD", false),
+    ("AU$", "AUD", false),
+    ("NZ$", "NZD", false),
+    ("HK$", "HKD", false),
+    ("S$", "SGD", false),
+    ("R$", "BRL", false),
+    ("Rs.", "INR", true),
+    ("Rs", "INR", true),
+    ("₹", "INR", false),
+    ("€", "EUR", false),
+    ("£", "GBP", false),
+    ("¥", "JPY", true),
+    ("₩", "KRW", false),
+    ("₽", "RUB", false),
+    ("₺", "TRY", false),
+    ("₪", "ILS", false),
+    ("₫", "VND", false),
+    ("₱", "PHP", false),
+    ("฿", "THB", false),
+    ("₦", "NGN", false),
+    ("$", "USD", true),
 ];
 const CODES: &[&str] = &[
-    "USD", "EUR", "GBP", "INR", "JPY", "CNY", "RMB", "AUD", "CAD", "CHF", "SEK", "NOK", "DKK", "NZD", "SGD", "HKD", "KRW", "BRL", "MXN", "RUB",
-    "ZAR", "TRY", "AED", "SAR", "PLN", "CZK", "HUF", "ILS", "THB", "IDR", "MYR", "PHP", "VND", "NGN", "EGP", "PKR", "BDT", "LKR", "NPR", "BTC", "ETH",
+    "USD", "EUR", "GBP", "INR", "JPY", "CNY", "RMB", "AUD", "CAD", "CHF", "SEK", "NOK", "DKK", "NZD", "SGD", "HKD", "KRW", "BRL", "MXN", "RUB", "ZAR", "TRY",
+    "AED", "SAR", "PLN", "CZK", "HUF", "ILS", "THB", "IDR", "MYR", "PHP", "VND", "NGN", "EGP", "PKR", "BDT", "LKR", "NPR", "BTC", "ETH",
 ];
 
 const AMOUNT: &str = r"\d{1,3}(?:[,.\x{2009}\x{202F}']\d{2,3})+(?:[.,]\d{1,2})?|\d+(?:[.,]\d{1,2})?";
@@ -75,12 +95,10 @@ pub fn detect(input: &TextInput, _cx: &RecognizeContext) -> Vec<Detection> {
             return;
         }
         let raw = text[r.clone()].trim().to_string();
-        let mut d = Detection::new(
-            caps::CURRENCY,
-            Value::Currency(CurrencyValue { raw, amount, code: code.map(String::from), symbol: symbol.map(String::from) }),
-        )
-        .span(r)
-        .confidence(if assumed { 0.8 } else { 0.92 });
+        let mut d =
+            Detection::new(caps::CURRENCY, Value::Currency(CurrencyValue { raw, amount, code: code.map(String::from), symbol: symbol.map(String::from) }))
+                .span(r)
+                .confidence(if assumed { 0.8 } else { 0.92 });
         if let Some(c) = code {
             d = d.detail("Currency", if assumed { format!("{c} (assumed from {})", symbol.unwrap_or("symbol")) } else { c.to_string() });
         }

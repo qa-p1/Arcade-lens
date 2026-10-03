@@ -9,14 +9,13 @@ use regex::Regex;
 
 use super::{overlaps, url, TextInput};
 
-static EMAIL: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)\b[A-Z0-9][A-Z0-9._%+-]*@(?:[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?\.)+[A-Z]{2,24}\b").unwrap());
+static EMAIL: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)\b[A-Z0-9][A-Z0-9._%+-]*@(?:[A-Z0-9](?:[A-Z0-9-]*[A-Z0-9])?\.)+[A-Z]{2,24}\b").unwrap());
 
-static PHONE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r"(?:\+\d{1,3}[\s.-]?)?(?:\(\d{1,5}\)[\s.-]?)?\d{2,5}(?:[\s.-]\d{2,5}){1,4}|\+?\d{10,13}").unwrap()
-});
+static PHONE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?:\+\d{1,3}[\s.-]?)?(?:\(\d{1,5}\)[\s.-]?)?\d{2,5}(?:[\s.-]\d{2,5}){1,4}|\+?\d{10,13}").unwrap());
 
-static PHONE_CONTEXT: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)\b(?:phone|tel|telephone|call|mobile|mob|cell|ph|whatsapp|fax|contact)\b[.:]?\s*$").unwrap());
+static PHONE_CONTEXT: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)\b(?:phone|tel|telephone|call|mobile|mob|cell|ph|whatsapp|fax|contact)\b[.:]?\s*$").unwrap());
 
 pub fn emails(text: &str) -> Vec<Range<usize>> {
     let urls: Vec<_> = url::find(text).into_iter().map(|(r, _)| r).collect();

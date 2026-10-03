@@ -52,7 +52,11 @@ static PATTERNS: LazyLock<Vec<Pattern>> = LazyLock::new(|| {
 /// Values that are obviously placeholders, not secrets.
 fn placeholder(v: &str) -> bool {
     let l = v.to_ascii_lowercase();
-    v.starts_with('$') || v.starts_with('<') || v.starts_with("{{") || v.starts_with("${") || v.chars().all(|c| c == '*' || c == 'x' || c == 'X' || c == '•' || c == '.')
+    v.starts_with('$')
+        || v.starts_with('<')
+        || v.starts_with("{{")
+        || v.starts_with("${")
+        || v.chars().all(|c| c == '*' || c == 'x' || c == 'X' || c == '•' || c == '.')
         || ["your", "example", "placeholder", "changeme", "redacted", "xxxx", "none", "null", "true", "false", "process.env", "os.environ", "env("]
             .iter()
             .any(|p| l.contains(p))

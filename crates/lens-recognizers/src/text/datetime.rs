@@ -17,23 +17,24 @@ use regex::Regex;
 
 use super::{overlaps, TextInput};
 
-const MONTHS: &str = r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
+const MONTHS: &str =
+    r"(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|june?|july?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)";
 const WEEKDAY: &str = r"(?:(?:mon|tue|tues|wed|thu|thur|thurs|fri|sat|sun)(?:day|nesday|sday|urday)?\.?,?\s+)?";
 const TIME: &str = r"(?:(?:,|\s+at|\s*@)?\s*(?P<time>\d{1,2}(?::\d{2}){1,2}(?:\s*[ap]\.?m\.?)?|\d{1,2}\s*[ap]\.?m\.?))?";
 
 static ISO: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r"\b(?P<y>\d{4})-(?P<m>\d{2})-(?P<d>\d{2})(?:[T ](?P<time>\d{2}:\d{2}(?::\d{2})?)(?:\.\d+)?(?P<tz>Z|[+-]\d{2}:?\d{2})?)?\b").unwrap()
 });
-static NUMERIC: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(&format!(r"(?i)\b(?P<a>\d{{1,4}})(?P<sep>[/.\-])(?P<b>\d{{1,2}})(?P<sep2>[/.\-])(?P<c>\d{{2,4}})\b{TIME}")).unwrap()
-});
+static NUMERIC: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(&format!(r"(?i)\b(?P<a>\d{{1,4}})(?P<sep>[/.\-])(?P<b>\d{{1,2}})(?P<sep2>[/.\-])(?P<c>\d{{2,4}})\b{TIME}")).unwrap());
 static TEXTUAL_DMY: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(r"(?i)\b{WEEKDAY}(?P<d>\d{{1,2}})(?:st|nd|rd|th)?\s+(?:of\s+)?(?P<mon>{MONTHS})\.?,?(?:\s+(?P<y>\d{{4}}))?\b{TIME}")).unwrap()
 });
 static TEXTUAL_MDY: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(&format!(r"(?i)\b{WEEKDAY}(?P<mon>{MONTHS})\.?\s+(?P<d>\d{{1,2}})(?:st|nd|rd|th)?\b(?:,?\s+(?P<y>\d{{4}}))?\b{TIME}")).unwrap()
 });
-static TIME_ONLY: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)\b(?P<time>\d{1,2}:\d{2}(?::\d{2})?(?:\s*[ap]\.?m\.?)?|\d{1,2}\s*[ap]\.?m\.?)(?:\b|$)").unwrap());
+static TIME_ONLY: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"(?i)\b(?P<time>\d{1,2}:\d{2}(?::\d{2})?(?:\s*[ap]\.?m\.?)?|\d{1,2}\s*[ap]\.?m\.?)(?:\b|$)").unwrap());
 static TIMECODE: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b(?:(?P<h>\d{1,3}):)?(?P<m>[0-5]?\d):(?P<s>[0-5]\d)(?:[.,](?P<f>\d{1,3}))?\b").unwrap());
 
 pub fn detect(input: &TextInput, cx: &RecognizeContext) -> Vec<Detection> {
@@ -144,7 +145,8 @@ pub fn detect_at(input: &TextInput, order: DateOrder, today: NaiveDate) -> Vec<D
             continue;
         }
         let cands = times.iter().map(|t| DateTimeCandidate { date: None, time: Some(t.clone()), description: describe_time(t) }).collect();
-        let explicit = c["time"].to_ascii_lowercase().contains('m') || c["time"].split(':').next().is_some_and(|h| h.parse::<u32>().is_ok_and(|h| h >= 13 || h == 0));
+        let explicit =
+            c["time"].to_ascii_lowercase().contains('m') || c["time"].split(':').next().is_some_and(|h| h.parse::<u32>().is_ok_and(|h| h >= 13 || h == 0));
         push(&mut out, &mut taken, r, cands, if explicit { 0.8 } else { 0.55 });
     }
 

@@ -1,7 +1,7 @@
 //! Closure-based action construction, so simple providers don't need a type
 //! per action.
 
-use crate::action::{Action, ActionContext, ActionDescriptor, ActionGroup, ActionOutcome, ConfirmRequest, Effects, Item, ParamSpec, Produces};
+use crate::action::{Action, ActionContext, ActionDescriptor, ActionGroup, ActionOutcome, Choice, ConfirmRequest, Effects, Item, ParamSpec, Produces};
 use crate::capability::Capability;
 use crate::error::Result;
 use crate::finding::Finding;
@@ -11,6 +11,7 @@ use crate::settings::Settings;
 type AppliesFn = Box<dyn Fn(&Finding, HostFeatures) -> bool + Send + Sync>;
 type TextFn = Box<dyn Fn(&Item, &Settings) -> Option<String> + Send + Sync>;
 type ConfirmFn = Box<dyn Fn(&Item, &Settings) -> Option<ConfirmRequest> + Send + Sync>;
+type ChoicesFn = Box<dyn Fn(&Item, &Settings) -> Vec<Choice> + Send + Sync>;
 type RunFn = Box<dyn Fn(&Item, &ActionContext) -> Result<ActionOutcome> + Send + Sync>;
 
 pub struct FnAction {
@@ -18,6 +19,7 @@ pub struct FnAction {
     applies: Option<AppliesFn>,
     preview: Option<TextFn>,
     confirm: Option<ConfirmFn>,
+    choices: Option<ChoicesFn>,
     run: RunFn,
 }
 
@@ -48,6 +50,10 @@ impl Action for FnAction {
         }
     }
 
+    fn choices(&self, input: &Item, settings: &Settings) -> Vec<Choice> {
+        self.choices.as_ref().map_or_else(Vec::new, |f| f(input, settings))
+    }
+
     fn execute(&self, input: &Item, cx: &ActionContext) -> Result<ActionOutcome> {
         (self.run)(input, cx)
     }
@@ -58,6 +64,7 @@ pub struct ActionBuilder {
     applies: Option<AppliesFn>,
     preview: Option<TextFn>,
     confirm: Option<ConfirmFn>,
+    choices: Option<ChoicesFn>,
 }
 
 /// Starts building an action with the given namespaced id and label.
@@ -80,6 +87,7 @@ pub fn action(id: impl Into<String>, label: impl Into<String>) -> ActionBuilder 
         applies: None,
         preview: None,
         confirm: None,
+        choices: None,
     }
 }
 
@@ -144,7 +152,11 @@ impl ActionBuilder {
         self.confirm = Some(Box::new(f));
         self
     }
+    pub fn choices(mut self, f: impl Fn(&Item, &Settings) -> Vec<Choice> + Send + Sync + 'static) -> Self {
+        self.choices = Some(Box::new(f));
+        self
+    }
     pub fn run(self, f: impl Fn(&Item, &ActionContext) -> Result<ActionOutcome> + Send + Sync + 'static) -> FnAction {
-        FnAction { descriptor: self.d, applies: self.applies, preview: self.preview, confirm: self.confirm, run: Box::new(f) }
+        FnAction { descriptor: self.d, applies: self.applies, preview: self.preview, confirm: self.confirm, choices: self.choices, run: Box::new(f) }
     }
 }

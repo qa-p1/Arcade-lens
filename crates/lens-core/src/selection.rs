@@ -77,7 +77,15 @@ impl Signals {
     pub fn compute(image: &RgbaImage) -> Signals {
         let (w, h) = image.dimensions();
         if w == 0 || h == 0 {
-            return Signals { width: w, height: h, distinct_colors: 0, dominant: Rgb::new(0, 0, 0), dominant_fraction: 0.0, edge_density: 0.0, mean_saturation: 0.0 };
+            return Signals {
+                width: w,
+                height: h,
+                distinct_colors: 0,
+                dominant: Rgb::new(0, 0, 0),
+                dominant_fraction: 0.0,
+                edge_density: 0.0,
+                mean_saturation: 0.0,
+            };
         }
         // Sample at most ~40k pixels on a regular grid.
         let step = (((w as u64 * h as u64) as f64 / 40_000.0).sqrt().floor() as u32).max(1);
@@ -131,9 +139,10 @@ impl Signals {
         self.width as u64 * self.height as u64
     }
 
-    /// Nearly a single flat color.
+    /// Nearly a single flat color. Sparse text on a solid background (a dark
+    /// terminal is often >90% one color) is *not* uniform: it has edges.
     pub fn is_uniform(&self) -> bool {
-        self.dominant_fraction >= 0.9
+        self.dominant_fraction >= 0.98 || (self.dominant_fraction >= 0.9 && self.edge_density < 0.005)
     }
 
     /// Small enough that the user is probably pointing at a color or icon.
@@ -155,6 +164,15 @@ mod tests {
         assert_eq!(s.distinct_colors, 1);
         assert_eq!(s.dominant, Rgb::new(0x18, 0x18, 0x1B));
         assert_eq!(s.edge_density, 0.0);
+    }
+
+    #[test]
+    fn sparse_text_on_solid_background_is_not_uniform() {
+        // 92% background with thin glyph-like strokes.
+        let img = RgbaImage::from_fn(200, 50, |x, y| if y % 10 == 5 && x % 4 != 0 { Rgba([250, 250, 250, 255]) } else { Rgba([24, 24, 27, 255]) });
+        let s = Signals::compute(&img);
+        assert!(s.dominant_fraction > 0.9 && s.dominant_fraction < 0.98, "{}", s.dominant_fraction);
+        assert!(!s.is_uniform());
     }
 
     #[test]

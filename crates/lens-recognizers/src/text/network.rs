@@ -13,17 +13,16 @@ use super::{contact, overlaps, url, TextInput};
 static IPV4: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b(?:\d{1,3}\.){3}\d{1,3}(?::(\d{1,5}))?\b").unwrap());
 static IPV6: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"\[([0-9A-Fa-f:.]{2,45})\](?::(\d{1,5}))?|[0-9A-Fa-f]{0,4}(?::[0-9A-Fa-f]{0,4}){2,7}(?:%\w+)?").unwrap());
-static DOMAIN: LazyLock<Regex> =
-    LazyLock::new(|| Regex::new(r"(?i)\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+([a-z]{2,24})\b\.?").unwrap());
+static DOMAIN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"(?i)\b(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+([a-z]{2,24})\b\.?").unwrap());
 
 /// Generic and popular country TLDs. A curated list (rather than every TLD in
 /// existence) keeps `self.name` or `file.zip` from being reported as domains.
 const TLDS: &[&str] = &[
-    "com", "org", "net", "edu", "gov", "mil", "int", "info", "biz", "dev", "app", "io", "ai", "co", "me", "tv", "xyz", "site", "online", "tech",
-    "store", "shop", "blog", "cloud", "page", "wiki", "news", "live", "art", "design", "email", "pro", "team", "tools", "systems", "games",
-    "uk", "us", "ca", "au", "nz", "de", "fr", "nl", "be", "ch", "at", "se", "no", "dk", "fi", "es", "pt", "it", "ie", "pl", "cz", "ru", "ua",
-    "jp", "kr", "cn", "tw", "hk", "sg", "in", "id", "my", "th", "vn", "ph", "br", "ar", "mx", "cl", "za", "ng", "ke", "eg", "tr", "il", "ae",
-    "sa", "eu", "gg", "fm", "ly", "sh", "to", "is", "so", "rs", "md", "py", "pl", "cc",
+    "com", "org", "net", "edu", "gov", "mil", "int", "info", "biz", "dev", "app", "io", "ai", "co", "me", "tv", "xyz", "site", "online", "tech", "store",
+    "shop", "blog", "cloud", "page", "wiki", "news", "live", "art", "design", "email", "pro", "team", "tools", "systems", "games", "uk", "us", "ca", "au",
+    "nz", "de", "fr", "nl", "be", "ch", "at", "se", "no", "dk", "fi", "es", "pt", "it", "ie", "pl", "cz", "ru", "ua", "jp", "kr", "cn", "tw", "hk", "sg", "in",
+    "id", "my", "th", "vn", "ph", "br", "ar", "mx", "cl", "za", "ng", "ke", "eg", "tr", "il", "ae", "sa", "eu", "gg", "fm", "ly", "sh", "to", "is", "so", "rs",
+    "md", "py", "pl", "cc",
 ];
 
 /// TLDs that are also common file extensions: `main.rs`, `README.md`,
@@ -194,7 +193,9 @@ mod tests {
         assert_eq!(found("Visit example.com today"), vec![("domain".into(), "example.com".into())]);
         assert_eq!(found("served by api.github.com."), vec![("domain".into(), "api.github.com".into())]);
         assert_eq!(found("see docs.rs"), vec![("domain".into(), "docs.rs".into())]);
-        for t in ["edit src/main.rs", "open README.md", "run setup.py", "self.name = x", "console.log(x)", "https://example.com/a", "me@example.com", "file.zip"] {
+        for t in
+            ["edit src/main.rs", "open README.md", "run setup.py", "self.name = x", "console.log(x)", "https://example.com/a", "me@example.com", "file.zip"]
+        {
             assert!(found(t).iter().all(|(c, _)| c != "domain"), "{t}: {:?}", found(t));
         }
     }

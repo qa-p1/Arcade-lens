@@ -47,10 +47,7 @@ impl Effects {
     /// Effects that move content off this machine.
     pub const OUTBOUND: Effects = Effects::NETWORK.union(Effects::UPLOADS_CONTENT).union(Effects::SENDS_TO_DEVICE);
     /// Effects that can cause damage that is hard to undo.
-    pub const DANGEROUS: Effects = Effects::EXECUTES_COMMAND
-        .union(Effects::DELETES_FILES)
-        .union(Effects::OVERWRITES_FILES)
-        .union(Effects::PRIVILEGED);
+    pub const DANGEROUS: Effects = Effects::EXECUTES_COMMAND.union(Effects::DELETES_FILES).union(Effects::OVERWRITES_FILES).union(Effects::PRIVILEGED);
 
     pub fn safety_class(&self) -> SafetyClass {
         if self.intersects(Effects::DANGEROUS) {
@@ -195,6 +192,15 @@ impl ActionOutcome {
     }
 }
 
+/// One option when an action needs the user to pick an interpretation
+/// (which date was meant, which unit to convert to). The chosen `value` is
+/// passed back in the `choice` parameter.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Choice {
+    pub label: String,
+    pub value: serde_json::Value,
+}
+
 /// Request shown to the user before a dangerous or sensitive action runs.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ConfirmRequest {
@@ -224,12 +230,15 @@ pub trait Action: Send + Sync {
         let d = self.descriptor();
         (d.safety() == SafetyClass::Dangerous).then(|| ConfirmRequest {
             title: d.label.clone(),
-            subject: self
-                .preview(input, settings)
-                .or_else(|| input.value.as_text().map(Cow::into_owned))
-                .unwrap_or_default(),
+            subject: self.preview(input, settings).or_else(|| input.value.as_text().map(Cow::into_owned)).unwrap_or_default(),
             reasons: vec!["This action can make changes that are hard to undo.".into()],
         })
+    }
+
+    /// Interpretations the user must choose between before running. When
+    /// non-empty, the action is only executed with a `choice` parameter.
+    fn choices(&self, _input: &Item, _settings: &Settings) -> Vec<Choice> {
+        Vec::new()
     }
 
     fn execute(&self, input: &Item, cx: &ActionContext) -> Result<ActionOutcome>;

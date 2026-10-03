@@ -31,13 +31,29 @@ static KINDS: LazyLock<Vec<Kind>> = LazyLock::new(|| {
         confidence,
     };
     vec![
-        k("Python traceback", r"(?m)^Traceback \(most recent call last\):", Some(r"(?m)^(?:[\w.]+\.)?\w*(?:Error|Exception|Warning|Exit|Interrupt|Iteration)\b.*$"), 0.97),
-        k("Rust compiler error", r"(?m)^error(?:\[E\d{4}\])?: .+", Some(r"(?m)^error(?:\[E\d{4}\])?: .+$"), 0.95),
+        k(
+            "Python traceback",
+            r"(?m)^Traceback \(most recent call last\):",
+            Some(r"(?m)^(?:[\w.]+\.)?\w*(?:Error|Exception|Warning|Exit|Interrupt|Iteration)\b.*$"),
+            0.97,
+        ),
+        // `[:;]`: OCR frequently reads the colon after `error[E0382]` as a semicolon.
+        k("Rust compiler error", r"(?m)^error(?:\[E\d{4}\][:;]|:) .+", Some(r"(?m)^error(?:\[E\d{4}\][:;]|:) .+$"), 0.95),
         k("Rust panic", r"thread '[^']*' panicked at", Some(r"(?m)^thread '[^']*' panicked at .*$"), 0.95),
         k("Go panic", r"(?m)^panic: .+", Some(r"(?m)^panic: .+$"), 0.93),
-        k("Java exception", r#"(?m)(?:^Exception in thread "[^"]*" |^Caused by: |^)(?:[a-z][\w$]*\.)+[A-Z][\w$]*(?:Exception|Error)\b.*\n\s+at "#, Some(r"(?m)(?:[a-z][\w$]*\.)+[A-Z][\w$]*(?:Exception|Error)\b.*$"), 0.95),
+        k(
+            "Java exception",
+            r#"(?m)(?:^Exception in thread "[^"]*" |^Caused by: |^)(?:[a-z][\w$]*\.)+[A-Z][\w$]*(?:Exception|Error)\b.*\n\s+at "#,
+            Some(r"(?m)(?:[a-z][\w$]*\.)+[A-Z][\w$]*(?:Exception|Error)\b.*$"),
+            0.95,
+        ),
         k(".NET exception", r"(?m)^(?:Unhandled exception\. )?System\.[\w.]+Exception: .+", Some(r"(?m)System\.[\w.]+Exception: .+$"), 0.93),
-        k("JavaScript error", r"(?m)^(?:Uncaught )?(?:\w+)?(?:Error|Exception): .+(?:\n\s+at .+)?", Some(r"(?m)^(?:Uncaught )?(?:\w+)?(?:Error|Exception): .+$"), 0.85),
+        k(
+            "JavaScript error",
+            r"(?m)^(?:Uncaught )?(?:\w+)?(?:Error|Exception): .+(?:\n\s+at .+)?",
+            Some(r"(?m)^(?:Uncaught )?(?:\w+)?(?:Error|Exception): .+$"),
+            0.85,
+        ),
         k("Compiler error", r"(?m)^[^\s:]+:\d+:\d+: (?:fatal )?error: .+", Some(r"(?m)(?:fatal )?error: .+$"), 0.92),
         k("Segmentation fault", r"(?i)\bsegmentation fault\b|\bSIGSEGV\b|\bcore dumped\b", Some(r"(?i).*(?:segmentation fault|SIGSEGV).*$"), 0.92),
         k("npm error", r"(?m)^npm ERR! .+|^npm error .+", Some(r"(?m)^npm (?:ERR!|error) (?:code )?.+$"), 0.88),
@@ -48,13 +64,17 @@ static KINDS: LazyLock<Vec<Kind>> = LazyLock::new(|| {
             0.85,
         ),
         k("Exception", r"\b\w+(?:Exception|Error): \S.+", Some(r"\b\w+(?:Exception|Error): \S.+$"), 0.7),
-        k("Error message", r"(?m)^\s*(?:\[?(?:ERROR|FATAL|CRITICAL)\]?:?|error:|fatal:|E\d{4}:)\s+\S.+", Some(r"(?m)^\s*(?:\[?(?:ERROR|FATAL|CRITICAL)\]?:?|error:|fatal:|E\d{4}:)\s+\S.+$"), 0.65),
+        k(
+            "Error message",
+            r"(?m)^\s*(?:\[?(?:ERROR|FATAL|CRITICAL)\]?:?|error:|fatal:|E\d{4}:)\s+\S.+",
+            Some(r"(?m)^\s*(?:\[?(?:ERROR|FATAL|CRITICAL)\]?:?|error:|fatal:|E\d{4}:)\s+\S.+$"),
+            0.65,
+        ),
     ]
 });
 
-static STACK_LINE: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"(?m)^\s+(?:at\s|File "|\d+:\s+0x|-->\s|in\s\S+\s\(|\.\.\.\s\d+\smore)|^\s*goroutine \d+ |^\s+\S+\.go:\d+"#).unwrap()
-});
+static STACK_LINE: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r#"(?m)^\s+(?:at\s|File "|\d+:\s+0x|-->\s|in\s\S+\s\(|\.\.\.\s\d+\smore)|^\s*goroutine \d+ |^\s+\S+\.go:\d+"#).unwrap());
 
 pub fn detect(input: &TextInput, _cx: &RecognizeContext) -> Vec<Detection> {
     let text = input.text;
@@ -160,13 +180,16 @@ mod tests {
         let e = err("error[E0382]: borrow of moved value: `x`\n --> src/main.rs:4:20\n  |").unwrap();
         assert_eq!(e.headline, "error[E0382]: borrow of moved value: `x`");
         assert_eq!(e.cleaned_query, "error[E0382]: borrow of moved value: `x`");
-        let e = err("thread 'main' panicked at src/main.rs:2:5:\nindex out of bounds: the len is 3 but the index is 7\nnote: run with `RUST_BACKTRACE=1`").unwrap();
+        assert_eq!(err("error[E0382]; borrow of moved value: config").unwrap().kind, "Rust compiler error");
+        let e =
+            err("thread 'main' panicked at src/main.rs:2:5:\nindex out of bounds: the len is 3 but the index is 7\nnote: run with `RUST_BACKTRACE=1`").unwrap();
         assert_eq!(e.headline, "panicked: index out of bounds: the len is 3 but the index is 7");
     }
 
     #[test]
     fn java_and_js() {
-        let e = err("Exception in thread \"main\" java.lang.NullPointerException: Cannot invoke \"String.length()\"\n\tat com.example.App.main(App.java:5)").unwrap();
+        let e = err("Exception in thread \"main\" java.lang.NullPointerException: Cannot invoke \"String.length()\"\n\tat com.example.App.main(App.java:5)")
+            .unwrap();
         assert_eq!(e.kind, "Java exception");
         assert!(e.headline.starts_with("java.lang.NullPointerException"));
         let e = err("Uncaught TypeError: Cannot read properties of undefined (reading 'map')\n    at App (App.jsx:12:5)").unwrap();

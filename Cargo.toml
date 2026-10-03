@@ -1,0 +1,28 @@
+[workspace]
+resolver = "2"
+members = ["crates/lens-core", "crates/lens-recognizers", "crates/lens-actions", "crates/arcade-lens"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/qa-p1/Arcade-lens"
+rust-version = "1.80"
+
+[workspace.dependencies]
+lens-core = { path = "crates/lens-core" }
+lens-recognizers = { path = "crates/lens-recognizers" }
+lens-actions = { path = "crates/lens-actions" }
+image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
+regex = "1"
+chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+toml = "0.8"
+thiserror = "2"
+bitflags = { version = "2", features = ["serde"] }
+rayon = "1"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1

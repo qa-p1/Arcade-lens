@@ -1,0 +1,20 @@
+[package]
+name = "lens-recognizers"
+description = "Built-in Arcade Lens recognizers: OCR, structured text, colors, codes, windows"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+lens-core.workspace = true
+image.workspace = true
+regex.workspace = true
+chrono.workspace = true
+rxing = "0.9"
+
+[features]
+# Portable local OCR engine (downloads models on first use).
+ocrs = []
+
+[dev-dependencies]
+qrcode = { version = "0.14", default-features = false, features = ["image"] }

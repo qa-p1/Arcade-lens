@@ -1,0 +1,17 @@
+[package]
+name = "lens-core"
+description = "Arcade Lens core: data model, capability engine, actions, ranking, safety and chains"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+image.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+bitflags.workspace = true
+rayon.workspace = true
+
+[dev-dependencies]
+toml.workspace = true

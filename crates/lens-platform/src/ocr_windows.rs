@@ -39,7 +39,7 @@ impl OcrEngine for WindowsOcr {
             return Err(LensError::InvalidInput(format!("selection exceeds {max}px, the Windows OCR limit")));
         }
         let mut bgra = image.as_raw().clone();
-        for px in bgra.chunks_exact_mut(4) {
+        for px in bgra.as_chunks_mut::<4>().0 {
             px.swap(0, 2);
         }
         let writer = DataWriter::new().map_err(e)?;

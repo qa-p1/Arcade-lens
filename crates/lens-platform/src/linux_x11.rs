@@ -148,7 +148,7 @@ impl X {
         }
         let lsb = setup.image_byte_order == ImageOrder::LSB_FIRST;
         let mut rgba = Vec::with_capacity((r.width * r.height * 4) as usize);
-        for px in img.data.chunks_exact(4) {
+        for px in img.data.as_chunks::<4>().0 {
             let (b, g, red) = if lsb { (px[0], px[1], px[2]) } else { (px[3], px[2], px[1]) };
             rgba.extend_from_slice(&[red, g, b, 255]);
         }

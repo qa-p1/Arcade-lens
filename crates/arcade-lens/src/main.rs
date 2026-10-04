@@ -11,6 +11,7 @@ mod config;
 mod gui;
 mod host;
 mod icon;
+mod link;
 mod net;
 
 use std::path::PathBuf;
@@ -26,6 +27,9 @@ const HELP: &str = "Arcade Lens: select anything on screen and act on it.
   arcade-lens --capture     Select something on screen now
   arcade-lens --restart     Restart the background instance
   arcade-lens --quit        Quit the background instance
+  arcade-lens --version     Print the version
+  arcade-lens --arcade-manifest
+                            Print Lens's Arcade Link manifest (no side effects)
 
 Once running, press the activation shortcut (Ctrl+Alt+Shift+L by default)
 or use the tray icon.";
@@ -102,6 +106,11 @@ fn run(args: &[String]) -> Result<(), String> {
         }
         Some("help" | "h") => {
             println!("{HELP}");
+            Ok(())
+        }
+        Some("arcade-manifest") => {
+            let settings = config::load_settings(&Paths::discover()).unwrap_or_default();
+            println!("{}", link::manifest(&settings).to_json());
             Ok(())
         }
         Some("version" | "V") => {

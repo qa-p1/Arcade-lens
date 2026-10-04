@@ -33,6 +33,8 @@ pub struct Settings {
     pub privacy: Privacy,
     /// Third-party plugins the user has explicitly enabled (by id).
     pub enabled_plugins: Vec<String>,
+    /// Working with the other Arcade apps (Settings → Connected apps).
+    pub link: LinkSettings,
 }
 
 impl Default for Settings {
@@ -55,7 +57,32 @@ impl Default for Settings {
             home_currency: None,
             privacy: Privacy::default(),
             enabled_plugins: Vec::new(),
+            link: LinkSettings::default(),
         }
+    }
+}
+
+/// "Connect with other Arcade apps" and the per-app "Use with Arcade Lens"
+/// toggles. Peers are on by default: they are first-party apps, and every
+/// entry they contribute still goes through Lens's effects and secret guard.
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct LinkSettings {
+    pub enabled: bool,
+    /// Canonical IDs (`arcade.box`, …) whose entries are hidden in Lens.
+    pub disabled_peers: Vec<String>,
+}
+
+impl Default for LinkSettings {
+    fn default() -> Self {
+        Self { enabled: true, disabled_peers: Vec::new() }
+    }
+}
+
+impl LinkSettings {
+    /// Whether entries from `peer` may appear in Lens.
+    pub fn uses(&self, peer: &str) -> bool {
+        self.enabled && !self.disabled_peers.iter().any(|p| p == peer)
     }
 }
 

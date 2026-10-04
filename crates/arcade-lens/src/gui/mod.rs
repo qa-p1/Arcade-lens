@@ -300,6 +300,9 @@ impl LensApp {
         match Runtime::load(Paths::discover()) {
             Ok(rt) => {
                 let rt = Arc::new(rt);
+                if !self.solo {
+                    crate::link::refresh(&rt.settings);
+                }
                 let mut st = self.state.lock().unwrap();
                 let usage = st.env.usage.clone();
                 st.env = build_env(rt.clone(), st.ui_tx.clone(), ctx, usage);
@@ -706,6 +709,7 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
         let _ = tx.send(t);
     }
     let rt = Arc::new(Runtime::load(paths)?);
+    crate::link::start(&rt.settings);
     background::integrate(&rt.paths, rt.settings.activation_shortcut.clone());
     let x11 = lens_platform::display_server() == lens_platform::DisplayServer::X11;
     let root = ViewportBuilder::default()
@@ -719,7 +723,9 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
         .with_window_level(egui::WindowLevel::AlwaysOnTop)
         .with_override_redirect(x11);
     let mode = Mode { daemon: true, one_shot: false, solo: false };
-    start_app(rt, root, (tx, rx), mode, |_, _| {})
+    let r = start_app(rt, root, (tx, rx), mode, |_, _| {});
+    crate::link::stop();
+    r
 }
 
 /// Queues `t` for the app and wakes its event loop.

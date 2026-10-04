@@ -176,6 +176,7 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
             let _ = tx.send("rebind");
         });
     }
+    crate::link::start(&config::load_settings(paths).unwrap_or_default());
     let mut shortcut = Shortcut { bound: None, warned: false };
     shortcut.apply(paths);
     let bound = || shortcut.bound.as_ref().map(|(s, _)| s.clone());
@@ -196,6 +197,7 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
             "capture" => open_once(&mut capture, &Solo::Capture),
             "settings" => open_once(&mut settings, &Solo::Settings),
             "reload" => {
+                crate::link::refresh(&config::load_settings(paths).unwrap_or_default());
                 shortcut.apply(paths);
                 if let Some(t) = &tray {
                     t.set_shortcut(shortcut.bound.as_ref().map(|(s, _)| s.clone()));
@@ -213,6 +215,7 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
         }
     }
     shortcut.clear();
+    crate::link::stop();
     drop(tray);
     Ok(())
 }

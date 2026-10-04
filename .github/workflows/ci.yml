@@ -159,8 +159,13 @@ jobs:
         run: |
           (cd dist && sha256sum * > SHA256SUMS.txt)
           prev=$(git tag --list 'v*' --sort=-v:refname | grep -vx "$TAG" | head -1 || true)
-          packaging/release-notes.sh "$TAG" "$LABEL" "$prev" > notes.md
-          gh release create "$TAG" dist/* --target "$GITHUB_SHA" --title "Arcade Lens ${TAG#v}" --notes-file notes.md --latest
+          if gh release view "$TAG" > /dev/null 2>&1; then
+            # Published by hand (e.g. on the website): attach the packages.
+            gh release upload "$TAG" dist/* --clobber
+          else
+            packaging/release-notes.sh "$TAG" "$LABEL" "$prev" > notes.md
+            gh release create "$TAG" dist/* --target "$GITHUB_SHA" --title "Arcade Lens ${TAG#v}" --notes-file notes.md --latest
+          fi
 
   nightly:
     if: needs.version.outputs.publish == 'nightly'

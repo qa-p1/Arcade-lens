@@ -19,6 +19,22 @@ pub struct Runtime {
     pub plugins: Vec<lens_plugins::PluginStatus>,
 }
 
+/// Downloaded OCR models, or else those shipped with Lens (the Linux
+/// AppImage bundles them in `share/arcade-lens/models` beside `bin`).
+#[cfg(feature = "ocrs")]
+fn models_dir(paths: &Paths) -> std::path::PathBuf {
+    use lens_recognizers::ocr::ocrs_engine::OcrsEngine;
+    let downloaded = paths.models();
+    if OcrsEngine::models_present(&downloaded) {
+        return downloaded;
+    }
+    lens_platform::autostart::current_exe()
+        .ok()
+        .and_then(|exe| Some(exe.parent()?.parent()?.join("share/arcade-lens/models")))
+        .filter(|d| OcrsEngine::models_present(d))
+        .unwrap_or(downloaded)
+}
+
 /// Picks the best local OCR engine: the OS engine when present (Windows,
 /// macOS), otherwise the portable ocrs engine if its models are installed.
 pub fn ocr_engine(paths: &Paths) -> (Option<Arc<dyn OcrEngine>>, String) {
@@ -29,8 +45,9 @@ pub fn ocr_engine(paths: &Paths) -> (Option<Arc<dyn OcrEngine>>, String) {
     #[cfg(feature = "ocrs")]
     {
         use lens_recognizers::ocr::ocrs_engine::OcrsEngine;
-        let dir = paths.models();
+        let dir = models_dir(paths);
         if OcrsEngine::models_present(&dir) {
+            crate::lens_debug!("OCR models from {}", dir.display());
             return match OcrsEngine::load(&dir) {
                 Ok(e) => (Some(Arc::new(e)), "ocrs".into()),
                 Err(e) => (None, format!("unavailable: {e}")),

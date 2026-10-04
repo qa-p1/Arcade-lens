@@ -28,6 +28,7 @@ rayon = "1"
 [profile.release]
 lto = "thin"
 codegen-units = 1
+strip = "debuginfo"
 
 # OCR inference and image codecs are unusably slow unoptimized; optimize
 # dependencies even in dev builds.

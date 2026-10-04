@@ -21,7 +21,9 @@ use lens_recognizers::ocr::OcrEngine;
 pub mod autostart;
 pub mod ipc;
 pub mod shortcut;
+pub mod tray;
 
+pub mod hyprland;
 #[cfg(target_os = "linux")]
 mod linux_wayland;
 #[cfg(target_os = "linux")]

@@ -73,6 +73,7 @@ pub struct SettingsView {
     pub status: Option<(String, bool)>,
     pub closed: bool,
     pub autostart: bool,
+    pub launcher: bool,
     pub models_busy: bool,
 }
 
@@ -121,6 +122,7 @@ impl SettingsView {
             status: None,
             closed: false,
             autostart: lens_platform::autostart::is_enabled(),
+            launcher: lens_platform::autostart::launcher_installed(),
             models_busy: false,
         }
     }
@@ -135,6 +137,7 @@ impl SettingsView {
             .with_inner_size([920.0, 640.0])
             .with_min_inner_size([720.0, 480.0])
             .with_app_id("arcade-lens-settings")
+            .with_icon(crate::icon::window_icon())
     }
 
     pub fn refresh_runtime(&mut self, rt: Arc<Runtime>) {
@@ -269,7 +272,12 @@ impl SettingsView {
         if cfg!(target_os = "linux") {
             ui.horizontal(|ui| {
                 ui.add_sized([150.0, 20.0], egui::Label::new("App launcher"));
-                if ui.button("Add Arcade Lens to the applications menu").clicked() {
+                if self.launcher {
+                    ui.label(RichText::new("✓ In the applications menu").color(SUCCESS));
+                    if ui.small_button("Repair").on_hover_text("Rewrite the menu entry and icon").clicked() {
+                        out.push(SettingsRequest::InstallLauncher);
+                    }
+                } else if ui.button("Add Arcade Lens to the applications menu").clicked() {
                     out.push(SettingsRequest::InstallLauncher);
                 }
             });
@@ -313,12 +321,16 @@ impl SettingsView {
         }
         ui.add_space(12.0);
         if lens_platform::display_server() == lens_platform::DisplayServer::Wayland {
-            ui.label(
-                RichText::new("Wayland does not let applications register global shortcuts. Bind a shortcut in your desktop's keyboard settings to:")
-                    .color(MUTED),
-            );
-            let exe = std::env::current_exe().map(|p| p.display().to_string()).unwrap_or_else(|_| "arcade-lens".into());
-            ui.label(RichText::new(format!("{exe} capture")).monospace().color(TEXT));
+            if lens_platform::hyprland::active() {
+                ui.label(RichText::new("Lens adds this shortcut to Hyprland while it runs; nothing to set up.").color(MUTED));
+            } else {
+                ui.label(
+                    RichText::new("This Wayland desktop does not let applications register global shortcuts. Bind a shortcut in its keyboard settings to:")
+                        .color(MUTED),
+                );
+                let exe = lens_platform::autostart::launch_path().map(|p| p.display().to_string()).unwrap_or_else(|_| "arcade-lens".into());
+                ui.label(RichText::new(format!("{exe} --capture")).monospace().color(TEXT));
+            }
         }
         ui.add_space(12.0);
         ui.label(RichText::new("In the palette").strong());

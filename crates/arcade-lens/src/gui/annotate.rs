@@ -271,7 +271,13 @@ impl Editor {
     pub fn builder(&self) -> ViewportBuilder {
         let (w, h) = (self.original.width() as f32, self.original.height() as f32);
         let size = Vec2::new(w.clamp(900.0, 1400.0), (h + 90.0).clamp(360.0, 900.0));
-        ViewportBuilder::default().with_title("Annotate — Arcade Lens").with_inner_size(size).with_min_inner_size([480.0, 300.0]).with_always_on_top()
+        ViewportBuilder::default()
+            .with_title("Annotate — Arcade Lens")
+            .with_inner_size(size)
+            .with_min_inner_size([480.0, 300.0])
+            .with_always_on_top()
+            .with_app_id("arcade-lens-annotate")
+            .with_icon(crate::icon::window_icon())
     }
 
     fn rebuild_base(&mut self) {

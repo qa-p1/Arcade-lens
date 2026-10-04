@@ -7,13 +7,31 @@ code, an error, a color, a table, a file path or a window. Arcade Lens works
 out everything the selection *is* and offers the few actions that matter,
 right next to it. You never have to decide which utility to open first.
 
-## Using it
+## Installing
+
+Download the package for your system from the latest
+[release](https://github.com/qa-p1/Arcade-lens/releases) (or the artifacts of
+the latest CI run on `main`):
+
+| System | Package | Setup |
+|---|---|---|
+| Windows (x64) | `…-windows-x64-setup.exe` | Installs for your user (no admin), adds a Start menu entry, optionally starts Lens at sign-in, and launches it. Uninstall from Settings → Apps. A portable `.exe` is also provided. |
+| Linux (x86_64) | `…-linux-x86_64.AppImage` | `chmod +x` it and run it. On first start it adds itself to the applications menu and to login startup. OCR models are included. |
+| macOS 12.3+ (Apple silicon and Intel) | `…-macos-universal.dmg` | Drag Arcade Lens to Applications and open it. It lives in the menu bar and adds itself to login items. The app isn't notarized: the first time, right-click it and choose Open. |
+
+To build and install from source on Linux instead:
 
 ```console
-$ arcade-lens models download     # local OCR models (~12 MB, once)
-$ arcade-lens start               # background instance with the global shortcut
-$ arcade-lens autostart enable    # start at login
+$ ./scripts/install.sh
 ```
+
+This builds Lens, installs it to `~/.local/bin` and starts it. Lens then
+lives in the tray, starts at login, and appears in the applications menu as
+**Arcade Lens**. Run the script again after pulling changes; the running
+instance restarts on the new build. Text recognition needs a one-time
+download (~12 MB): **Settings → General → Download OCR models**.
+
+## Using it
 
 Press **Ctrl+Alt+Shift+L**, which you can change in Settings. Lens captures
 every monitor first and then freezes the screen, so menus and tooltips can be
@@ -39,14 +57,20 @@ The palette works progressively:
 - Outbound actions are marked ↗, and the expanded list shows exactly what
   each one would send.
 
-Other entry points, which reach the running instance when there is one:
+The **tray icon** shows that Lens is running. Click it for Settings, or
+open its menu for **Capture Screen**, **Settings**, **Start at Login**,
+**Restart** and **Quit**. Opening Arcade Lens from the applications menu
+opens Settings; its right-click menu has Capture Screen and Quit.
+
+For a compositor or launcher binding, the same commands are available as
+options, and they reach the running instance:
 
 ```console
-$ arcade-lens capture             # open the overlay now (bind this on Wayland)
-$ arcade-lens settings
-$ arcade-lens pin image.png
-$ arcade-lens quit
-$ arcade-lens install-launcher    # Linux: add to the applications menu
+$ arcade-lens                 # Settings (starts Lens if it isn't running)
+$ arcade-lens --capture       # select something now
+$ arcade-lens --background    # start without a window (what login uses)
+$ arcade-lens --restart
+$ arcade-lens --quit
 ```
 
 **Pins** float above other windows:
@@ -63,23 +87,8 @@ plus undo/redo. From there it can be copied, saved or pinned.
 
 A selection is never classified into a single type. A QR code containing a
 URL is a screenshot, an image, a QR code *and* a URL at the same time, and
-you get actions for all of them:
-
-```console
-$ arcade-lens analyze qr.png
-Selection 132 × 132 px · analyzed in 18 ms · OCR: ocrs
-
-FOUND
-  #0   region       Image(132x132)
-  #1   qr-code      https://arcade.example/lens
-  #2   url          https://arcade.example/lens
-  …
-ACTIONS
-  ⏎  Open ↗                       url #2
-  c  Copy URL                     url #2
-  q  Generate QR                  url #2
-  …
-```
+you get actions for all of them: Open, Copy URL and Generate QR for the URL,
+alongside Copy, Save, Pin and Annotate for the image.
 
 There are 25 built-in recognizers forming a dataflow graph (pixels → OCR →
 text → URL, command, error…) and 156 built-in actions. Ranking picks the 4–6
@@ -123,10 +132,8 @@ that matter, and learns locally which ones you prefer. See
 Third-party recognizers and actions run out of process with declared
 permissions, and stay disabled until the user enables them:
 
-```console
-$ arcade-lens plugins install ./examples/plugins/isbn
-$ arcade-lens plugins enable dev.example.isbn
-```
+Copy a plugin's directory into the plugins folder (**Settings → Plugins →
+Open plugins folder**), then enable it there.
 
 [docs/PLUGINS.md](docs/PLUGINS.md) documents the manifest, protocol and
 security model. The Arcade Clipboard, Quick Look and Wheel integrations are in
@@ -137,11 +144,13 @@ security model. The Arcade Clipboard, Quick Look and Wheel integrations are in
 | | Linux X11 | Linux Wayland | Windows | macOS |
 |---|---|---|---|---|
 | Capture | X11 (RandR monitors, per-monitor scale) | screenshot portal | xcap | xcap (needs Screen Recording permission) |
-| Global shortcut | ✓ | bind `arcade-lens capture` in your compositor | ✓ | ✓ |
+| Global shortcut | ✓ | Hyprland: automatic; elsewhere bind `arcade-lens --capture` | ✓ | ✓ |
 | Window detection & commands | ✓ (EWMH) | — | ✓ | detection only |
 | OCR | ocrs (local) | ocrs | Windows.Media.Ocr | Apple Vision |
 | Live pins | ✓ | — | ✓ | ✓ |
 | Window recording | ✓ (needs ffmpeg) | — | ✓ (needs ffmpeg) | — |
+| Tray icon | StatusNotifierItem | StatusNotifierItem | notification area | menu bar |
+| Start at login | XDG autostart | XDG autostart | Run key | LaunchAgent |
 
 **Testing status.** The Linux X11 build is exercised end to end under Xvfb:
 shortcut, overlay, palette, pins, measure, annotate, settings and plugins.
@@ -150,7 +159,9 @@ but have not yet been run on real machines.
 
 ## Building
 
-Requires Rust 1.95+.
+Requires Rust 1.95+. CI (`.github/workflows/ci.yml`) checks every push on
+all three systems; pushes to `main` also build the packages with the scripts
+in [`packaging/`](packaging), and a `v*` tag publishes them as a release.
 
 ```console
 $ cargo build --release
@@ -158,25 +169,10 @@ $ cargo test --workspace
 $ cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-## CLI
-
-The CLI drives the same engine as the overlay, using image files:
-
-```console
-$ arcade-lens analyze screenshot.png [--all] [--json] [--timeline]
-$ arcade-lens analyze --text "sudo pacman -S package"         # skip OCR
-$ arcade-lens run core.table.csv screenshot.png               # run an action
-$ arcade-lens run core.error.search-clean error.png --dry-run # show what would happen
-$ arcade-lens run chain:clean-copy shot.png                   # run a chain
-$ arcade-lens actions --capability url
-$ arcade-lens recognizers
-$ arcade-lens chains list
-$ arcade-lens config path | show | init
-$ arcade-lens reset-usage
-```
-
-Configuration lives in `settings.toml` (see `arcade-lens config path`).
-`ARCADE_LENS_HOME` overrides the location.
+Configuration lives in `settings.toml` (its location is shown in Settings →
+About). `ARCADE_LENS_HOME` overrides the location; instances started with it
+leave the login item and applications menu alone, as do builds run from
+`target/`.
 
 ## Known limitations
 
@@ -184,7 +180,14 @@ Configuration lives in `settings.toml` (see `arcade-lens config path`).
   example `₹`, and `l`/`1` in small UI fonts). Recognizers downstream are
   tolerant, but they cannot recover text OCR never produced.
 - **Wayland** doesn't allow global shortcuts, window lists or freezing
-  without the portal. There, the portal screenshot *is* the freeze.
+  without the portal. There, the portal screenshot *is* the freeze. With
+  Hyprland's `ecosystem.enforce_permissions` on, allow the portal's
+  screenshot tool in `hyprland.lua` or Hyprland asks before every capture:
+
+  ```lua
+  hl.permission("/usr/(bin|local/bin)/grim", "screencopy", "allow")
+  hl.permission("/usr/(lib|libexec|lib64)/xdg-desktop-portal-hyprland", "screencopy", "allow")
+  ```
 - **Missing features:**
   - Share (a system share sheet) is not implemented on any platform.
   - Send to device uses KDE Connect on Linux.

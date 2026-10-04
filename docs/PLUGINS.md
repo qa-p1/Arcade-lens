@@ -13,14 +13,8 @@ reference examples are in [`examples/plugins`](../examples/plugins):
 
 ## Installing and enabling
 
-```console
-$ arcade-lens plugins install ./examples/plugins/isbn   # copied, stays disabled
-$ arcade-lens plugins list
-$ arcade-lens plugins enable dev.example.isbn
-$ arcade-lens analyze --text "ISBN 978-0-306-40615-7"
-```
-
-Plugins can also be enabled or disabled in **Settings → Plugins**. A
+Copy the plugin's directory into the plugins folder (**Settings → Plugins →
+Open plugins folder**), then enable it in **Settings → Plugins** and save. A
 discovered plugin never runs until the user enables it.
 
 ## Manifest (`plugin.toml`)

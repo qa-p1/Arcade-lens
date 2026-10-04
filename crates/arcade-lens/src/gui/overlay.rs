@@ -526,6 +526,8 @@ impl Overlay {
         if primary && self.sel.is_none() && self.drag.is_none() {
             let hint = if self.measure {
                 "Measure · drag to measure a box · C copy · M back · Esc close"
+            } else if self.windows.is_empty() {
+                "Drag to select · M measure · Esc close"
             } else {
                 "Drag to select · Click a window · M measure · Esc close"
             };

@@ -14,11 +14,16 @@ pub fn active() -> bool {
 
 pub fn capture_all() -> Result<Vec<(MonitorInfo, RgbaImage)>, PlatformError> {
     let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().map_err(|e| PlatformError(e.to_string()))?;
+    // A request nobody answers (a dismissed permission prompt) would otherwise
+    // block every later capture.
     let uri = rt.block_on(async {
-        let request = ashpd::desktop::screenshot::Screenshot::request().interactive(false).modal(false).send().await?;
-        request.response().map(|s| s.uri().as_str().to_string())
+        let request = async {
+            let request = ashpd::desktop::screenshot::Screenshot::request().interactive(false).modal(false).send().await?;
+            request.response().map(|s| s.uri().as_str().to_string())
+        };
+        tokio::time::timeout(std::time::Duration::from_secs(60), request).await
     });
-    let uri = uri.map_err(|e| PlatformError(format!("screenshot portal: {e}")))?;
+    let uri = uri.map_err(|_| PlatformError("the screenshot portal did not answer".into()))?.map_err(|e| PlatformError(format!("screenshot portal: {e}")))?;
     let path = uri.strip_prefix("file://").ok_or_else(|| PlatformError(format!("unexpected screenshot URI {uri}")))?;
     let path = percent_decode(path);
     let img = image::open(&path).map_err(|e| PlatformError(format!("{path}: {e}")))?.to_rgba8();

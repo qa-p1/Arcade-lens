@@ -29,14 +29,21 @@ organized and why.
 | `lens-core` | Data model, capability graph, progressive engine, plugin registry, ranking, safety policy, chains, settings. No UI, no OS calls. |
 | `lens-recognizers` | The 25 built-in recognizers: OCR integration (ocrs, or a platform engine), structured text, context (git commits, documents, subtitles), colors/palettes, UI inspection, image kind, windows, media frames, QR/barcodes. |
 | `lens-actions` | The 156 built-in actions and the default chains. |
-| `lens-platform` | OS services: monitor enumeration and capture, cursor, window list and window commands, keyboard focus, global shortcut, single-instance IPC, autostart, native OCR engines. |
+| `lens-platform` | OS services: monitor enumeration and capture, cursor, window list and window commands, keyboard focus, global shortcut (and Hyprland bindings), single-instance IPC, tray icon, autostart and launcher entries, native OCR engines. |
 | `lens-plugins` | Out-of-process plugins: manifests, discovery, the JSON-lines protocol, and proxy recognizers/actions with permission enforcement. See [PLUGINS.md](PLUGINS.md). |
-| `arcade-lens` | The application: the egui/eframe overlay, palette, pins, annotate, measure and settings windows; the desktop `Host`; configuration; the CLI. |
+| `arcade-lens` | The application: the egui/eframe overlay, palette, pins, annotate, measure and settings windows; the desktop `Host`; configuration; the tray and desktop integration. |
 
 ## Process model
 
-`arcade-lens start` runs one long-lived process:
+Lens runs as one long-lived background instance, started at login
+(`arcade-lens --background`) or from the applications menu:
 
+* A **tray icon** (StatusNotifierItem on Linux) shows that it is running and
+  offers Capture, Settings, Start at Login, Restart and Quit. Restart starts
+  a successor (`--restarting`) that waits for the old instance to exit.
+* On its first run outside a cargo `target` directory it turns on start at
+  login, and at every start it keeps the login item and the
+  applications-menu entry pointing at its executable.
 * The **root window is the overlay**. While idle it is hidden (on X11 an
   override-redirect 1×1 window off screen), so an idle Lens draws nothing
   and does not repaint.
@@ -48,10 +55,15 @@ organized and why.
   viewports sharing `Arc<Mutex<AppState>>`. They outlive the overlay.
 * Keyboard focus is requested natively (`lens_platform::focus_native`),
   since an override-redirect window gets no focus from the window manager.
-* A second invocation (`capture`, `pin`, `settings`, `quit`) connects to the
-  running instance over loopback TCP. It authenticates with a random token
-  stored in a 0600 file. With no instance running, the command runs
-  standalone.
+* A second launch (`--capture`, `--settings`, `--restart`, `--quit`, or no
+  option for Settings) connects to the running instance over loopback TCP. It
+  authenticates with a random token stored in a 0600 file. With no instance
+  running, it becomes the background instance.
+* **Wayland** can't hide a window, so there the background instance has no
+  window at all: each overlay, pin, editor and the settings window runs in
+  its own short-lived process (`--window …`) whose root window is that
+  window. On Hyprland, the activation shortcut and window rules are added to
+  the compositor at runtime and re-added after a config reload.
 * Recognition runs on the engine's thread pool. The UI polls the analysis
   stream each frame and only repaints while work is outstanding.
 
@@ -171,7 +183,7 @@ the palette doesn't jump. `default_index` marks the Enter action.
 
 ### Usage learning
 `UsageStore` keeps a decaying counter per (capability, action) — no content,
-no account, resettable (`arcade-lens reset-usage`). Half-life is 30 days and
+no account, resettable (Settings → Privacy). Half-life is 30 days and
 the boost saturates so a few choices matter but hundreds don't drown out
 relevance.
 
@@ -209,7 +221,7 @@ Shared logic stays in the crates above. `lens-platform` implements:
 | Area | Linux X11 | Linux Wayland | Windows | macOS |
 |---|---|---|---|---|
 | Monitors & capture | RandR + `GetImage`, scale from `Xft.dpi` | `xdg-desktop-portal` Screenshot (ashpd) | xcap | xcap |
-| Global shortcut | `global-hotkey` (XGrabKey) | none; bind `arcade-lens capture` in the compositor | `global-hotkey` (RegisterHotKey) | `global-hotkey` (Carbon) |
+| Global shortcut | `global-hotkey` (XGrabKey) | Hyprland: runtime compositor binding; elsewhere bind `arcade-lens --capture` | `global-hotkey` (RegisterHotKey) | `global-hotkey` (Carbon) |
 | Overlay | override-redirect viewports | portal image, fullscreen viewport | topmost viewports | topmost viewports |
 | OCR | ocrs | ocrs | Windows.Media.Ocr | Vision |
 | Window list | EWMH `_NET_CLIENT_LIST` | unavailable | xcap | xcap |

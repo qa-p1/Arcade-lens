@@ -1,3 +1,4 @@
 /target
 *.rten
 .DS_Store
+/dist

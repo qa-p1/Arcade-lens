@@ -169,6 +169,9 @@ in [`packaging/`](packaging), and when the build passes:
   the version);
 - otherwise it replaces the `nightly` prerelease.
 
+Pushing a `v<version>` tag, or publishing a release on GitHub (which
+creates the tag), builds that tag and attaches the packages to its release.
+
 ```console
 $ cargo build --release
 $ cargo test --workspace

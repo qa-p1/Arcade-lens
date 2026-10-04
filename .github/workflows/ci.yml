@@ -2,7 +2,11 @@ name: CI
 
 # Every push and pull request is checked on Linux, Windows and macOS.
 # Pushes to main (and manual runs) also build the installers, uploaded as
-# workflow artifacts; a version tag (v1.2.3) publishes them as a release.
+# workflow artifacts. When main passes:
+#   - a version in Cargo.toml that has no release yet is tagged v<version>
+#     and published as the latest release (bump the version to release);
+#   - otherwise the build replaces the "nightly" prerelease.
+# Pushing a v* tag yourself also publishes that release.
 on:
   push:
     branches: ["**"]
@@ -21,7 +25,7 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -30,39 +34,51 @@ jobs:
       - run: cargo clippy --workspace --all-targets -- -D warnings
       - run: cargo test --workspace
 
-  # Names the packages: the Cargo version, plus the commit for untagged builds.
+  # Decides what this build is: a new release (packages named after the
+  # version), or a development build (version plus commit).
   version:
     if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
       label: ${{ steps.v.outputs.label }}
+      publish: ${{ steps.v.outputs.publish }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - id: v
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            label=$version
+            version=${GITHUB_REF_NAME#v} label=$version publish=release
+          elif [[ "$GITHUB_REF" == refs/heads/main ]] && ! gh release view "v$version" > /dev/null 2>&1; then
+            label=$version publish=release
+          elif [[ "$GITHUB_REF" == refs/heads/main ]]; then
+            label=$version-dev.${GITHUB_SHA::7} publish=nightly
           else
-            label=$version-dev.${GITHUB_SHA::7}
+            label=$version-dev.${GITHUB_SHA::7} publish=none
           fi
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "label=$label" >> "$GITHUB_OUTPUT"
+          echo "version=$version label=$label publish=$publish"
+          {
+            echo "version=$version"
+            echo "label=$label"
+            echo "publish=$publish"
+          } >> "$GITHUB_OUTPUT"
 
   linux:
     needs: [test, version]
     # The oldest supported runner, so the AppImage runs on older glibc too.
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
           key: release
       - run: cargo build --release --locked -p arcade-lens
       - run: packaging/linux/build-appimage.sh target/release/arcade-lens "dist/ArcadeLens-${{ needs.version.outputs.label }}-linux-x86_64.AppImage"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: linux-appimage
           path: dist/*.AppImage
@@ -72,7 +88,7 @@ jobs:
     needs: [test, version]
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -88,7 +104,7 @@ jobs:
           & $iscc "/DAppVersion=${{ needs.version.outputs.label }}" "/DSourceExe=$PWD\target\release\arcade-lens.exe" "/DOutputDir=$PWD\dist" packaging\windows\arcade-lens.iss
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Copy-Item target\release\arcade-lens.exe "dist\ArcadeLens-${{ needs.version.outputs.label }}-windows-x64-portable.exe"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: windows-installer
           path: dist/*.exe
@@ -98,7 +114,7 @@ jobs:
     needs: [test, version]
     runs-on: macos-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin, x86_64-apple-darwin
@@ -114,24 +130,61 @@ jobs:
             target/aarch64-apple-darwin/release/arcade-lens \
             target/x86_64-apple-darwin/release/arcade-lens
       - run: packaging/macos/build-dmg.sh target/universal/arcade-lens "${{ needs.version.outputs.version }}" "dist/ArcadeLens-${{ needs.version.outputs.label }}-macos-universal.dmg"
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: macos-dmg
           path: dist/*.dmg
           if-no-files-found: error
 
   release:
-    if: startsWith(github.ref, 'refs/tags/v')
-    needs: [linux, windows, macos]
+    if: needs.version.outputs.publish == 'release'
+    needs: [version, linux, windows, macos]
     runs-on: ubuntu-latest
     permissions:
       contents: write
+    concurrency: release
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
-      - uses: softprops/action-gh-release@v2
+      - name: Publish v${{ needs.version.outputs.version }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v${{ needs.version.outputs.version }}
+          LABEL: ${{ needs.version.outputs.label }}
+        run: |
+          (cd dist && sha256sum * > SHA256SUMS.txt)
+          prev=$(git tag --list 'v*' --sort=-v:refname | grep -vx "$TAG" | head -1 || true)
+          packaging/release-notes.sh "$TAG" "$LABEL" "$prev" > notes.md
+          gh release create "$TAG" dist/* --target "$GITHUB_SHA" --title "Arcade Lens ${TAG#v}" --notes-file notes.md --latest
+
+  nightly:
+    if: needs.version.outputs.publish == 'nightly'
+    needs: [version, linux, windows, macos]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency: release
+    steps:
+      - uses: actions/checkout@v7
         with:
-          files: dist/*
-          generate_release_notes: true
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          path: dist
+          merge-multiple: true
+      - name: Replace the nightly prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+          LABEL: ${{ needs.version.outputs.label }}
+        run: |
+          (cd dist && sha256sum * > SHA256SUMS.txt)
+          prev=$(git tag --list 'v*' --sort=-v:refname | head -1 || true)
+          packaging/release-notes.sh nightly "$LABEL" "$prev" > notes.md
+          gh release delete nightly --cleanup-tag --yes || true
+          gh release create nightly dist/* --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "Nightly ($LABEL)" --notes-file notes.md

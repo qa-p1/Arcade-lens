@@ -9,9 +9,10 @@ right next to it. You never have to decide which utility to open first.
 
 ## Installing
 
-Download the package for your system from the latest
-[release](https://github.com/qa-p1/Arcade-lens/releases) (or the artifacts of
-the latest CI run on `main`):
+Download the package for your system from the
+[latest release](https://github.com/qa-p1/Arcade-lens/releases/latest). The
+[nightly](https://github.com/qa-p1/Arcade-lens/releases/tag/nightly)
+prerelease has the latest build of `main`.
 
 | System | Package | Setup |
 |---|---|---|
@@ -160,8 +161,13 @@ but have not yet been run on real machines.
 ## Building
 
 Requires Rust 1.95+. CI (`.github/workflows/ci.yml`) checks every push on
-all three systems; pushes to `main` also build the packages with the scripts
-in [`packaging/`](packaging), and a `v*` tag publishes them as a release.
+all three systems. Pushes to `main` also build the packages with the scripts
+in [`packaging/`](packaging), and when the build passes:
+
+- if the `version` in `Cargo.toml` has no release yet, CI tags it
+  `v<version>` and publishes it as the latest release (so to release, bump
+  the version);
+- otherwise it replaces the `nightly` prerelease.
 
 ```console
 $ cargo build --release

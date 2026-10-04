@@ -11,18 +11,11 @@ use std::net::{TcpListener, TcpStream};
 use std::path::Path;
 use std::time::Duration;
 
-fn token() -> String {
-    // Unpredictable enough for a same-user loopback guard; no extra deps.
-    use std::collections::hash_map::RandomState;
-    use std::hash::{BuildHasher, Hasher};
-    let mut out = String::new();
-    for i in 0..4u64 {
-        let mut h = RandomState::new().build_hasher();
-        h.write_u64(i ^ std::process::id() as u64);
-        h.write_u128(std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos()));
-        out.push_str(&format!("{:016x}", h.finish()));
-    }
-    out
+fn token() -> std::io::Result<String> {
+    // 32 bytes from the OS random generator.
+    let mut bytes = [0u8; 32];
+    getrandom::fill(&mut bytes).map_err(|e| std::io::Error::other(e.to_string()))?;
+    Ok(bytes.iter().map(|b| format!("{b:02x}")).collect())
 }
 
 /// Starts listening and calls `handler` for each command on a background
@@ -33,7 +26,7 @@ pub fn serve(endpoint_file: &Path, handler: impl Fn(&str) -> String + Send + 'st
     }
     let listener = TcpListener::bind("127.0.0.1:0")?;
     let port = listener.local_addr()?.port();
-    let tok = token();
+    let tok = token()?;
     if let Some(dir) = endpoint_file.parent() {
         fs::create_dir_all(dir)?;
     }

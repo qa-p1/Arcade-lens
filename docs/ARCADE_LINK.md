@@ -37,3 +37,14 @@ arcade-link invoke lens lens.capture --json     # with the Arcade Link debug CLI
 | | Linux X11 | Linux Wayland | Windows | macOS |
 |---|---|---|---|---|
 | Exposed actions | tested (Xvfb) | build only (window processes, as for Lens's own windows) | build only | build only |
+
+## Verification
+
+Build Lens with `cargo build --release -p arcade-lens`, then run
+`python3 ../Arcade-link/tools/e2e.py --only lens`. The Lens check module
+uses the real binary in a private Xvfb/D-Bus session and tests one-shot
+and resident recognition on a generated PNG, a 240 × 160 pixel capture,
+Escape cancellation (`denied: user_cancelled`), Analyze, Pin, and
+Capture and act. It does not use the live desktop or the user's profile.
+Recognition works without downloaded OCR models; these checks verify
+image findings, and do not claim OCR model coverage.

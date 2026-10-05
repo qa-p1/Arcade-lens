@@ -141,6 +141,22 @@ fn finding_json(f: &Finding) -> Value {
     })
 }
 
+/// Recognition completes on independent workers. Wire order follows confidence,
+/// then stable content/provenance, never the order workers finished or their IDs.
+fn ordered_findings(findings: &[Finding]) -> Vec<&Finding> {
+    let mut result: Vec<_> = findings.iter().filter(|f| f.recognizer != "core.input" && !matches!(f.capability.as_str(), "region" | "image")).collect();
+    result.sort_by(|a, b| {
+        b.confidence
+            .total_cmp(&a.confidence)
+            .then_with(|| a.capability.cmp(&b.capability))
+            .then_with(|| a.recognizer.cmp(&b.recognizer))
+            .then_with(|| a.value.as_text().cmp(&b.value.as_text()))
+            .then_with(|| a.summary().cmp(&b.summary()))
+            .then_with(|| a.details.cmp(&b.details))
+    });
+    result
+}
+
 /// Lens's runtime for headless recognition, loaded on first use (the OCR
 /// model load is paid only when someone asks).
 fn runtime(paths: &Paths) -> Result<Arc<Runtime>, LinkError> {
@@ -178,10 +194,8 @@ pub fn recognize(paths: &Paths, request: &InvokeRequest, cancel: CancelToken) ->
         }
     };
     // The caller's own input (the image, or its text) isn't a finding.
-    let findings: Vec<&Finding> =
-        report.findings.iter().filter(|f| f.recognizer != "core.input" && !matches!(f.capability.as_str(), "region" | "image")).collect();
-    let ocr_text: Vec<String> = report
-        .findings
+    let findings = ordered_findings(&report.findings);
+    let ocr_text: Vec<String> = findings
         .iter()
         .filter(|f| f.recognizer == "core.ocr" && f.capability.as_str() == "text")
         .filter_map(|f| f.value.as_text().map(|t| t.into_owned()))
@@ -350,6 +364,39 @@ pub fn analyze_canvas(image: &RgbaImage, monitor: &lens_core::geometry::MonitorI
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn wire_findings_are_independent_of_worker_completion_order() {
+        let finding = |id, capability, text, confidence, recognizer: &str| Finding {
+            id: lens_core::finding::FindingId(id),
+            capability,
+            value: lens_core::Value::text(text),
+            confidence,
+            recognizer: recognizer.into(),
+            derived_from: None,
+            span: None,
+            details: vec![],
+        };
+        let mut findings = vec![
+            finding(1, lens_core::caps::COLOR, "red", 0.8, "core.color"),
+            finding(2, lens_core::caps::UI_ELEMENT, "panel", 0.95, "core.inspect"),
+            finding(3, lens_core::caps::TEXT, "z", 0.8, "core.ocr"),
+            finding(4, lens_core::caps::TEXT, "a", 0.8, "core.ocr"),
+            finding(5, lens_core::caps::TEXT, "input", 1.0, "core.input"),
+        ];
+        let expected: Vec<_> = ordered_findings(&findings).into_iter().map(finding_json).collect();
+        assert_eq!(expected.iter().map(|f| f["text"].as_str().unwrap()).collect::<Vec<_>>(), ["panel", "red", "a", "z"]);
+        for _ in 0..findings.len() {
+            findings.rotate_left(1);
+            // IDs also depend on scheduling, and must never be tiebreakers.
+            for (i, f) in findings.iter_mut().enumerate() {
+                f.id = lens_core::finding::FindingId(i as u32);
+            }
+            assert_eq!(ordered_findings(&findings).into_iter().map(finding_json).collect::<Vec<_>>(), expected);
+        }
+        findings.reverse();
+        assert_eq!(ordered_findings(&findings).into_iter().map(finding_json).collect::<Vec<_>>(), expected);
+    }
 
     #[test]
     fn manifest_lists_the_five_actions() {

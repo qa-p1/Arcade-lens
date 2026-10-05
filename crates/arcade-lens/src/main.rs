@@ -100,6 +100,8 @@ fn run(args: &[String]) -> Result<(), String> {
                 "settings" => gui::wayland::Solo::Settings,
                 "pin" => gui::wayland::Solo::Pin(image()?),
                 "annotate" => gui::wayland::Solo::Annotate(image()?),
+                "pick" => gui::wayland::Solo::Pick(image()?),
+                "analyze" => gui::wayland::Solo::Analyze(image()?),
                 _ => return Err(format!("unknown window {kind:?}")),
             };
             gui::run_solo(Paths::discover(), solo)
@@ -108,6 +110,7 @@ fn run(args: &[String]) -> Result<(), String> {
             println!("{HELP}");
             Ok(())
         }
+        Some("arcade-invoke") => std::process::exit(link::serve_oneshot()),
         Some("arcade-manifest") => {
             let settings = config::load_settings(&Paths::discover()).unwrap_or_default();
             println!("{}", link::manifest(&settings).to_json());

@@ -40,6 +40,8 @@ pub enum Trigger {
     Settings,
     Restart,
     Quit,
+    /// An interactive request from another Arcade app.
+    Link(crate::link::GuiRequest),
 }
 
 struct AppState {
@@ -180,6 +182,60 @@ impl LensApp {
             Ok(_) => return notify("no monitors to capture"),
             Err(e) => return notify(&format!("screen capture failed: {e}")),
         };
+        self.show_overlay(ctx, captures);
+    }
+
+    /// Requests from other Arcade apps (Arcade Link).
+    fn link_request(&mut self, ctx: &egui::Context, request: crate::link::GuiRequest) {
+        use crate::link::GuiRequest;
+        self.activity = true;
+        match request {
+            GuiRequest::Capture { target, measure, act } => {
+                self.begin_capture(ctx);
+                let mut st = self.state.lock().unwrap();
+                if let Some(ov) = &mut st.overlay {
+                    if act {
+                        ov.measure = measure;
+                    } else {
+                        ov.pick = Some(target);
+                    }
+                }
+            }
+            GuiRequest::Analyze(path) => {
+                if self.state.lock().unwrap().overlay.is_some() {
+                    return;
+                }
+                let image = match image::open(&path) {
+                    Ok(i) => i.to_rgba8(),
+                    Err(e) => return notify(&format!("cannot open {}: {e}", path.display())),
+                };
+                let monitors = lens_platform::monitors().unwrap_or_default();
+                let cursor = lens_platform::cursor_position();
+                let Some(monitor) = cursor
+                    .and_then(|c| monitors.iter().find(|m| m.rect.contains(c)))
+                    .or_else(|| monitors.iter().find(|m| m.is_primary))
+                    .or(monitors.first())
+                    .cloned()
+                else {
+                    return notify("no monitor to show the image on");
+                };
+                let (canvas, rect) = crate::link::analyze_canvas(&image, &monitor);
+                self.show_overlay(ctx, vec![lens_platform::Capture { monitor, image: Arc::new(canvas) }]);
+                let mut guard = self.state.lock().unwrap();
+                let st = &mut *guard;
+                if let Some(ov) = &mut st.overlay {
+                    ov.set_selection(&st.env, 0, rect);
+                }
+            }
+            GuiRequest::Pin(path) => match image::open(&path) {
+                Ok(i) => self.state.lock().unwrap().add_pin(Arc::new(i.to_rgba8()), None),
+                Err(e) => notify(&format!("cannot open {}: {e}", path.display())),
+            },
+        }
+    }
+
+    /// Shows the overlay over already captured (or composed) screens.
+    fn show_overlay(&mut self, ctx: &egui::Context, captures: Vec<lens_platform::Capture>) {
         let ov = make_overlay(ctx, captures);
         let m = ov.views[ov.root_monitor].monitor.clone();
         let s = m.scale_factor as f32;
@@ -424,6 +480,7 @@ impl eframe::App for LensApp {
                     }
                 }
                 Trigger::Quit => ctx.send_viewport_cmd(ViewportCommand::Close),
+                Trigger::Link(request) => self.link_request(ctx, request),
             }
         }
         self.handle_ui_commands(ctx);
@@ -708,6 +765,11 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
     if let Some(t) = initial {
         let _ = tx.send(t);
     }
+    let link_tx = tx.clone();
+    crate::link::set_gui(move |request| {
+        send_trigger(&link_tx, Trigger::Link(request));
+        true
+    });
     let rt = Arc::new(Runtime::load(paths)?);
     crate::link::start(&rt.settings);
     background::integrate(&rt.paths, rt.settings.activation_shortcut.clone());
@@ -743,12 +805,21 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
     let started = std::time::Instant::now();
     let loading = std::thread::spawn(move || Runtime::load(paths));
     // Capture before anything of ours is on screen.
-    let captures = match solo {
-        Solo::Capture => match lens_platform::capture_all() {
+    let mut analyze_rect = None;
+    let captures = match &solo {
+        Solo::Capture | Solo::Pick(_) => match lens_platform::capture_all() {
             Ok(c) if !c.is_empty() => c,
             Ok(_) => return Err("no monitors to capture".into()),
             Err(e) => return Err(format!("screen capture failed: {e}")),
         },
+        Solo::Analyze(p) => {
+            let image = wayland::load_image(p)?;
+            let monitors = lens_platform::monitors().map_err(|e| e.to_string())?;
+            let monitor = monitors.iter().find(|m| m.is_primary).or(monitors.first()).cloned().ok_or("no monitor")?;
+            let (canvas, rect) = crate::link::analyze_canvas(&image, &monitor);
+            analyze_rect = Some(rect);
+            vec![lens_platform::Capture { monitor, image: Arc::new(canvas) }]
+        }
         _ => Vec::new(),
     };
     crate::lens_debug!("captured after {:?}", started.elapsed());
@@ -759,7 +830,9 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
     let rt = Arc::new(loading.join().map_err(|_| "loading settings failed".to_string())??);
     crate::lens_debug!("ready after {:?}", started.elapsed());
     let root = match &solo {
-        Solo::Capture => ViewportBuilder::default().with_title("Arcade Lens").with_app_id("arcade-lens").with_decorations(false).with_fullscreen(true),
+        Solo::Capture | Solo::Pick(_) | Solo::Analyze(_) => {
+            ViewportBuilder::default().with_title("Arcade Lens").with_app_id("arcade-lens").with_decorations(false).with_fullscreen(true)
+        }
         Solo::Settings => settings_view::SettingsView::builder(),
         Solo::Pin(_) => pins::Pin::new(0, image.clone().unwrap(), None, 1.0).builder(),
         Solo::Annotate(_) => annotate::Editor::new(0, image.clone().unwrap()).builder(),
@@ -767,6 +840,18 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
     let mode = Mode { daemon: false, one_shot: true, solo: true };
     start_app(rt, root, mpsc::channel(), mode, move |st, ctx| match solo {
         Solo::Capture => st.overlay = Some(make_overlay(ctx, captures)),
+        Solo::Pick(out) => {
+            let mut ov = make_overlay(ctx, captures);
+            ov.pick = Some(crate::link::PickTarget::File(out));
+            st.overlay = Some(ov);
+        }
+        Solo::Analyze(_) => {
+            let mut ov = make_overlay(ctx, captures);
+            if let Some(rect) = analyze_rect {
+                ov.set_selection(&st.env, 0, rect);
+            }
+            st.overlay = Some(ov);
+        }
         Solo::Settings => st.settings = Some(settings_view::SettingsView::new(st.env.rt.clone())),
         Solo::Pin(_) => {
             let id = st.id();

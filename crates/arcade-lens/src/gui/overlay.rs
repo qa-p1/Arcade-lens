@@ -123,6 +123,9 @@ pub struct Overlay {
     measure_rect: Option<(usize, Rect)>,
     reanalyze_at: Option<Instant>,
     pub history_saved: bool,
+    /// Set for Arcade Link's `lens.capture`: the first selection is handed
+    /// back to the caller and the overlay closes, without the palette.
+    pub pick: Option<crate::link::PickTarget>,
 }
 
 pub fn cap_label(c: &Capability) -> String {
@@ -197,6 +200,7 @@ impl Overlay {
             measure_rect: None,
             reanalyze_at: None,
             history_saved: false,
+            pick: None,
         }
     }
 
@@ -213,6 +217,11 @@ impl Overlay {
         }
         let crop = image::imageops::crop_imm(&*v.image, rect.x as u32, rect.y as u32, rect.width, rect.height).to_image();
         let global = Rect::new(v.monitor.rect.x + rect.x, v.monitor.rect.y + rect.y, rect.width, rect.height);
+        if let Some(target) = self.pick.take() {
+            target.deliver(crate::link::Captured { image: crop, rect: global, monitor: Some(v.monitor.name.clone()) });
+            self.close_requested = true;
+            return;
+        }
         let mut selection = Selection::new(global, crop);
         selection.context = SelectionContext {
             monitor: Some(v.monitor.clone()),

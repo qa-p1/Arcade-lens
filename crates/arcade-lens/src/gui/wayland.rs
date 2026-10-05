@@ -25,6 +25,10 @@ pub enum Solo {
     Settings,
     Pin(PathBuf),
     Annotate(PathBuf),
+    /// Arcade Link `lens.capture`: select once, write the region to the path, exit.
+    Pick(PathBuf),
+    /// Arcade Link `lens.analyze`: an image as the frozen overlay.
+    Analyze(PathBuf),
 }
 
 /// Keeps Lens windows out of the tiling layout and the overlay unanimated.
@@ -51,6 +55,8 @@ fn spawn(solo: &Solo) -> Option<Child> {
         Solo::Settings => cmd.arg("settings"),
         Solo::Pin(p) => cmd.arg("pin").arg(p),
         Solo::Annotate(p) => cmd.arg("annotate").arg(p),
+        Solo::Pick(p) => cmd.arg("pick").arg(p),
+        Solo::Analyze(p) => cmd.arg("analyze").arg(p),
     };
     cmd.spawn().map_err(|e| notify(&format!("cannot open window: {e}"))).ok()
 }
@@ -132,6 +138,41 @@ impl Shortcut {
     }
 }
 
+/// Requests from other Arcade apps: each opens its own window process.
+fn link_request(request: crate::link::GuiRequest) -> bool {
+    use crate::link::{GuiRequest, PickTarget};
+    match request {
+        GuiRequest::Capture { act: true, .. } => spawn_detached(&Solo::Capture),
+        GuiRequest::Capture { target: PickTarget::Reply(tx), .. } => {
+            let out = temp_dir().join(format!(
+                "pick-{}-{}.png",
+                std::process::id(),
+                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos())
+            ));
+            let _ = std::fs::create_dir_all(temp_dir());
+            let Some(mut child) = spawn(&Solo::Pick(out.clone())) else { return false };
+            std::thread::spawn(move || {
+                let _ = child.wait();
+                if let Some(c) = crate::link::read_captured_file(&out) {
+                    let _ = tx.send(c);
+                }
+                let _ = std::fs::remove_file(&out);
+                let _ = std::fs::remove_file(out.with_extension("png.json"));
+            });
+        }
+        GuiRequest::Capture { target: PickTarget::File(_), .. } => return false,
+        GuiRequest::Analyze(p) => spawn_detached(&Solo::Analyze(p)),
+        GuiRequest::Pin(p) => match image::open(&p) {
+            Ok(i) => open_image(Solo::Pin, &i.to_rgba8()),
+            Err(e) => {
+                notify(&format!("cannot open {}: {e}", p.display()));
+                return false;
+            }
+        },
+    }
+    true
+}
+
 /// Starts `solo`, or brings the previous one to the front if it is still open.
 fn open_once(slot: &mut Option<Child>, solo: &Solo) {
     if let Some(c) = slot {
@@ -166,7 +207,7 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
     match initial {
         Some(Trigger::Capture) => tx.send("capture"),
         Some(Trigger::Settings) => tx.send("settings"),
-        Some(Trigger::Restart | Trigger::Quit) | None => Ok(()),
+        Some(Trigger::Restart | Trigger::Quit | Trigger::Link(_)) | None => Ok(()),
     }
     .ok();
     let t = tx.clone();
@@ -176,6 +217,7 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
             let _ = tx.send("rebind");
         });
     }
+    crate::link::set_gui(link_request);
     crate::link::start(&config::load_settings(paths).unwrap_or_default());
     let mut shortcut = Shortcut { bound: None, warned: false };
     shortcut.apply(paths);

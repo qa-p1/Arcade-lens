@@ -69,7 +69,7 @@ impl Engine {
         std::thread::Builder::new()
             .name("lens-analysis".into())
             .spawn(move || {
-                engine.coordinate(Arc::new(selection), token, jobs_tx, msg_rx, &mut |e| {
+                engine.coordinate(Arc::new(selection), None, token, jobs_tx, msg_rx, &mut |e| {
                     let _ = events_tx.send(e);
                 })
             })
@@ -81,11 +81,30 @@ impl Engine {
     pub fn analyze_blocking(&self, selection: Selection, cancel: CancelToken) -> AnalysisReport {
         let (msg_tx, msg_rx) = mpsc::channel();
         let mut report = AnalysisReport::default();
-        self.coordinate(Arc::new(selection), cancel, msg_tx, msg_rx, &mut |e| report.apply(e));
+        self.coordinate(Arc::new(selection), None, cancel, msg_tx, msg_rx, &mut |e| report.apply(e));
         report
     }
 
-    fn coordinate(&self, selection: Arc<Selection>, cancel: CancelToken, tx: Sender<Msg>, rx: Receiver<Msg>, emit: &mut dyn FnMut(AnalysisEvent)) {
+    /// Runs the text recognizers over `text` to completion (no image), for
+    /// callers that already have text, such as Arcade Link's `lens.recognize`.
+    pub fn analyze_text_blocking(&self, text: &str, cancel: CancelToken) -> AnalysisReport {
+        let (msg_tx, msg_rx) = mpsc::channel();
+        let mut report = AnalysisReport::default();
+        let root = Detection::new(crate::caps::TEXT, Value::text(text));
+        let selection = Selection::from_image(image::RgbaImage::new(1, 1));
+        self.coordinate(Arc::new(selection), Some(root), cancel, msg_tx, msg_rx, &mut |e| report.apply(e));
+        report
+    }
+
+    fn coordinate(
+        &self,
+        selection: Arc<Selection>,
+        root_override: Option<Detection>,
+        cancel: CancelToken,
+        tx: Sender<Msg>,
+        rx: Receiver<Msg>,
+        emit: &mut dyn FnMut(AnalysisEvent),
+    ) {
         let started = Instant::now();
         let signals = Arc::new(Signals::compute(&selection.image));
         let cx = RecognizeContext {
@@ -97,13 +116,16 @@ impl Engine {
         };
         let mut state = State { next_id: 0, seen: HashSet::new(), pending: 0 };
 
-        let root = state.make(
-            None,
-            0,
-            "core.region",
-            Detection::new(caps::REGION, Value::Image(ImageValue { image: Arc::clone(&selection.image), origin: Some(selection.rect) }))
-                .detail("Size", format!("{} × {} px", selection.rect.width, selection.rect.height)),
-        );
+        let root = match root_override {
+            Some(d) => state.make(None, 0, "core.input", d),
+            None => state.make(
+                None,
+                0,
+                "core.region",
+                Detection::new(caps::REGION, Value::Image(ImageValue { image: Arc::clone(&selection.image), origin: Some(selection.rect) }))
+                    .detail("Size", format!("{} × {} px", selection.rect.width, selection.rect.height)),
+            ),
+        };
         if let Some(root) = root {
             emit(AnalysisEvent::Findings(vec![root.0.clone()]));
             self.schedule(&root.0, root.1, &cx, &tx, &mut state);

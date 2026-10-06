@@ -99,15 +99,20 @@ pub struct ChipState {
 
 /// A palette chip: label plus key hint. Returns the click response.
 pub fn chip(ui: &mut egui::Ui, label: &str, key: Option<&str>, safety: SafetyClass, st: ChipState) -> egui::Response {
+    action_chip(ui, label, key, safety, st, None)
+}
+
+pub fn action_chip(ui: &mut egui::Ui, label: &str, key: Option<&str>, safety: SafetyClass, st: ChipState, peer: Option<&str>) -> egui::Response {
     let galley = ui.painter().layout_no_wrap(label.to_string(), font(13.5), TEXT);
     let key_w = key.map_or(0.0, |k| ui.painter().layout_no_wrap(k.to_string(), mono(10.5), MUTED).size().x.max(8.0) + 8.0 + 6.0);
     let marker_w = match safety {
-        SafetyClass::External => 10.0,
+        SafetyClass::External if peer.is_none() => 10.0,
         SafetyClass::Dangerous => 12.0,
         _ => 0.0,
     };
     let enter_w = if st.is_default { 14.0 } else { 0.0 };
-    let size = Vec2::new(galley.size().x + key_w + marker_w + enter_w + 20.0, 30.0);
+    let badge_w = if peer.is_some() { 22.0 } else { 0.0 };
+    let size = Vec2::new(galley.size().x + key_w + marker_w + enter_w + badge_w + 20.0, 30.0);
     let (rect, resp) = ui.allocate_exact_size(size, Sense::click());
     let p = ui.painter();
     let hovered = resp.hovered() || st.focused;
@@ -120,6 +125,10 @@ pub fn chip(ui: &mut egui::Ui, label: &str, key: Option<&str>, safety: SafetyCla
     };
     p.rect(rect, CornerRadius::same(7), fill, stroke, StrokeKind::Inside);
     let mut x = rect.left() + 10.0;
+    if let Some(peer) = peer {
+        super::glyphs::paint(p, Pos2::new(x + 8.0, rect.center().y), peer, super::glyphs::MUTED);
+        x += badge_w;
+    }
     p.galley(Pos2::new(x, rect.center().y - galley.size().y / 2.0), galley.clone(), TEXT);
     x += galley.size().x + 6.0;
     if marker_w > 0.0 {

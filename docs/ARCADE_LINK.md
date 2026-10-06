@@ -48,3 +48,47 @@ Escape cancellation (`denied: user_cancelled`), Analyze, Pin, and
 Capture and act. It does not use the live desktop or the user's profile.
 Recognition works without downloaded OCR models; these checks verify
 image findings, and do not claim OCR model coverage.
+
+## Connected actions
+
+Lens caches installed peers on a directory watcher. Registry reads, live
+presence checks, input size checks and palette rebuilding run on workers.
+Opening or filtering the palette does no IPC or disk access. Late entries
+use the existing palette stabilizer and keep surviving actions in place.
+
+| Finding | Connected action |
+|---|---|
+| Existing path, file URL | **Quick Look** (`Y`) in Arcade Look |
+| Region or image | Box's featured image presets, plus **More in Arcade Box…** |
+| Text, URL, image, file | **Send to my devices ↗** (`M`) through Arcade Clipboard |
+| URL, command, path, text | **Add to Wheel**, confirmed in Wheel Settings |
+
+Owning apps have monochrome glyph badges. Outbound actions show ↗ and
+the payload preview. Image sends are removed when Lens finds a secret,
+including at execution time. Oversized inputs stay in More with the
+standard limit reason and have no shortcut. Clipboard's Private mode
+refusal never falls through to KDE Connect. Without Clipboard, the existing
+KDE Connect actions are unchanged; without any peers, fixture palettes
+match the standalone registry exactly.
+
+Settings → **Connected apps** has **Connect with other Arcade apps** and
+per-peer **Use with Arcade Lens** toggles. Save applies them. The master
+switch removes Lens's actions and stops its listener. Get delegates to
+`tools.install` with `options.app` if available, otherwise opens the app's
+releases page. Diagnostics and shortcut clash warnings use cached state.
+
+Quick Look prefers the Link on all three desktop platforms. On Linux, an
+unsuccessful preview falls back to GNOME's D-Bus previewer, then the default
+opener. Look currently supports `file://` URLs; web URLs are hidden because
+its no-execution sandbox rejects them. Headless recognition starts no
+consumer watcher or peer. Linux X11 is exercised in the isolated runner;
+Linux Wayland uses the same cache in its existing window processes.
+Windows/macOS integration code is build only here and has not been run.
+
+The runner waits for Lens's full-size overlay and focuses it synchronously
+before typing in Xvfb (which has no window manager). A visible 1 × 1 root during startup or child-window
+creation is not an overlay. Checks also wait for unmapping between actions,
+so an Escape cannot be sent to the previous window during a transition.
+Automatic focus after rapid remapping remains unreliable under Xvfb: the
+native-focus check was not consistently successful. Automation's explicit
+focus does not prove that Lens always takes keyboard focus itself.

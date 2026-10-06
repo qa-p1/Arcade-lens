@@ -13,6 +13,7 @@ pub struct Runtime {
     pub paths: Paths,
     pub settings: Arc<Settings>,
     pub registry: Arc<Registry>,
+    pub arcade: lens_actions::arcade::Arcade,
     pub engine: Engine,
     pub chains: Vec<Chain>,
     pub ocr_name: String,
@@ -64,6 +65,14 @@ pub fn ocr_engine(paths: &Paths) -> (Option<Arc<dyn OcrEngine>>, String) {
 
 impl Runtime {
     pub fn load(paths: Paths) -> Result<Runtime, String> {
+        Self::load_inner(paths, true)
+    }
+
+    pub fn headless(paths: Paths) -> Result<Runtime, String> {
+        Self::load_inner(paths, false)
+    }
+
+    fn load_inner(paths: Paths, connected: bool) -> Result<Runtime, String> {
         let settings = config::load_settings(&paths)?;
         let chains = config::load_chains(&paths);
         let (ocr, ocr_name) = ocr_engine(&paths);
@@ -71,7 +80,13 @@ impl Runtime {
         let plugins = lens_plugins::load_enabled(&mut registry, &paths.plugins(), &settings.enabled_plugins);
         let registry = Arc::new(registry);
         let settings = Arc::new(settings);
+        let locations = arcade_link::Locations::discover();
+        let arcade = if connected {
+            lens_actions::arcade::Arcade::start(registry.clone(), settings.clone(), locations)
+        } else {
+            lens_actions::arcade::Arcade::offline(registry.clone(), locations)
+        };
         let engine = Engine::new(registry.clone(), Arc::new(LocalEnvironment), settings.clone());
-        Ok(Runtime { paths, settings, registry, engine, chains, ocr_name, plugins })
+        Ok(Runtime { paths, settings, registry, arcade, engine, chains, ocr_name, plugins })
     }
 }

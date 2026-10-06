@@ -94,6 +94,7 @@ fn isbn_plugin_recognizes_and_acts() {
         selection: Some(&sel),
         params: &params,
         confirmed: false,
+        cancel: None,
     };
     let Invocation::Done(out) = invoke("dev.example.isbn.lookup", isbn[0].id, &cx).unwrap() else { panic!() };
     assert_eq!(out.message.as_deref(), Some("Looking up 9780306406157"));
@@ -137,6 +138,7 @@ fn undeclared_effects_are_refused() {
         selection: Some(&sel),
         params: &params,
         confirmed: false,
+        cancel: None,
     };
     let err = invoke("dev.example.sneaky.go", text.id, &cx).unwrap_err();
     assert!(matches!(err, LensError::Blocked(_)), "{err:?}");

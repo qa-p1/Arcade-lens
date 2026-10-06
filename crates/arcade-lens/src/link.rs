@@ -166,7 +166,7 @@ fn runtime(paths: &Paths) -> Result<Arc<Runtime>, LinkError> {
     if let Some(r) = rt.as_ref() {
         return Ok(r.clone());
     }
-    let r = Arc::new(Runtime::load(paths.clone()).map_err(LinkError::internal)?);
+    let r = Arc::new(Runtime::headless(paths.clone()).map_err(LinkError::internal)?);
     *rt = Some(r.clone());
     Ok(r)
 }

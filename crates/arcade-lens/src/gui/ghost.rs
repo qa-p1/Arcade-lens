@@ -21,6 +21,7 @@ pub enum UiCommand {
     Measure { rect: Rect },
     Record { window: WindowInfo },
     Toast(String),
+    SettingsStatus { message: String, ok: bool },
 }
 
 pub struct GuiHost {
@@ -28,6 +29,8 @@ pub struct GuiHost {
     tx: Sender<UiCommand>,
     ctx: egui::Context,
     features: HostFeatures,
+    arcade: lens_actions::arcade::Arcade,
+    settings: Arc<lens_core::Settings>,
 }
 
 fn which(cmd: &str) -> bool {
@@ -47,7 +50,13 @@ fn kdeconnect_device() -> Option<String> {
 }
 
 impl GuiHost {
-    pub fn new(desktop: DesktopHost, tx: Sender<UiCommand>, ctx: egui::Context) -> Self {
+    pub fn new(
+        desktop: DesktopHost,
+        tx: Sender<UiCommand>,
+        ctx: egui::Context,
+        arcade: lens_actions::arcade::Arcade,
+        settings: Arc<lens_core::Settings>,
+    ) -> Self {
         let mut f = desktop.features() | HostFeatures::PIN | HostFeatures::ANNOTATE | HostFeatures::MEASURE | lens_platform::window_features();
         if ffmpeg_available() {
             f |= HostFeatures::RECORD_WINDOW;
@@ -61,7 +70,7 @@ impl GuiHost {
         if cfg!(target_os = "linux") && which("gdbus") {
             f |= HostFeatures::QUICK_LOOK;
         }
-        Self { desktop, tx, ctx, features: f }
+        Self { desktop, tx, ctx, features: f, arcade, settings }
     }
 
     fn ui(&self, c: UiCommand) -> Result<()> {
@@ -88,7 +97,20 @@ impl Host for GuiHost {
         self.desktop.open_uri(uri, private)
     }
     fn open_path(&self, path: &Path, mode: OpenPathMode) -> Result<()> {
+        if mode == OpenPathMode::QuickLook {
+            if let Some(result) = self.arcade.quick_look(&self.settings, path) {
+                if result.is_ok() || !cfg!(target_os = "linux") {
+                    return result;
+                }
+            }
+        }
         if mode == OpenPathMode::QuickLook && cfg!(target_os = "linux") {
+            return self.quick_look_fallback(path);
+        }
+        self.desktop.open_path(path, mode)
+    }
+    fn quick_look_fallback(&self, path: &Path) -> Result<()> {
+        if cfg!(target_os = "linux") {
             // GNOME Sushi previewer, the closest Linux equivalent of Quick Look.
             let uri = format!("file://{}", path.display());
             let ok = Command::new("gdbus")
@@ -109,7 +131,7 @@ impl Host for GuiHost {
                 .is_ok_and(|s| s.success());
             return if ok { Ok(()) } else { self.desktop.open_path(path, OpenPathMode::Default) };
         }
-        self.desktop.open_path(path, mode)
+        self.desktop.open_path(path, OpenPathMode::QuickLook)
     }
     fn terminal(&self, cwd: Option<&Path>, command: Option<&str>, execute: bool) -> Result<()> {
         self.desktop.terminal(cwd, command, execute)
@@ -142,6 +164,9 @@ impl Host for GuiHost {
         lens_platform::window_command(window, &command).map_err(|e| LensError::Failed(e.0))
     }
     fn send_to_device(&self, text: Option<&str>, image: Option<&RgbaImage>) -> Result<()> {
+        if let Some(result) = self.arcade.send_to_devices(&self.settings, text, image) {
+            return result;
+        }
         let device = kdeconnect_device().ok_or_else(|| LensError::Unsupported("no paired device is reachable (KDE Connect)".into()))?;
         let status = match (text, image) {
             (Some(t), _) if t.starts_with("http") || t.starts_with("tel:") => Command::new("kdeconnect-cli").args(["-d", &device, "--share", t]).status(),

@@ -6,6 +6,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+arcade-link.workspace = true
 lens-core.workspace = true
 lens-recognizers.workspace = true
 image = { workspace = true, features = ["ico"] }

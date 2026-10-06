@@ -125,6 +125,7 @@ fn ocr_text_flows_into_structured_recognizers_and_actions_run() {
         selection: Some(&sel),
         params: &params,
         confirmed,
+        cancel: None,
     };
 
     // Running an OCR'd command always requires confirmation, listing its risks.
@@ -174,6 +175,7 @@ fn secrets_suppress_outbound_actions() {
         selection: Some(&sel),
         params: &params,
         confirmed: true,
+        cancel: None,
     };
     assert!(invoke("core.text.search", text.id, &cx).is_err());
     assert!(host.calls().is_empty());
@@ -200,6 +202,7 @@ fn ambiguous_dates_require_a_choice() {
             selection: Some(&sel),
             params: &params,
             confirmed: false,
+            cancel: None,
         },
     )
     .unwrap();
@@ -218,6 +221,7 @@ fn ambiguous_dates_require_a_choice() {
             selection: Some(&sel),
             params: &params,
             confirmed: false,
+            cancel: None,
         },
     )
     .unwrap();

@@ -9,6 +9,7 @@
 pub mod annotate;
 pub mod background;
 pub mod ghost;
+pub mod glyphs;
 pub mod history;
 pub mod measure;
 pub mod overlay;
@@ -148,7 +149,9 @@ struct LensApp {
 
 fn build_env(rt: Arc<Runtime>, ui_tx: Sender<UiCommand>, ctx: &egui::Context, usage: Arc<Mutex<UsageStore>>) -> Env {
     let desktop = DesktopHost::new((*rt.settings).clone(), rt.paths.collections()).long_lived();
-    let host = Arc::new(GuiHost::new(desktop, ui_tx, ctx.clone()));
+    let repaint = ctx.clone();
+    rt.arcade.on_change(move || repaint.request_repaint());
+    let host = Arc::new(GuiHost::new(desktop, ui_tx, ctx.clone(), rt.arcade.clone(), rt.settings.clone()));
     Env { rt, host, usage }
 }
 
@@ -348,6 +351,22 @@ impl LensApp {
                     let st = self.state.lock().unwrap();
                     let _ = st.env.host.open_path(&p, lens_core::host::OpenPathMode::Default);
                 }
+                settings_view::SettingsRequest::GetApp(app) => {
+                    let st = self.state.lock().unwrap();
+                    let arcade = st.env.rt.arcade.clone();
+                    let host = st.env.host.clone();
+                    let tx = st.ui_tx.clone();
+                    let repaint = ctx.clone();
+                    std::thread::spawn(move || {
+                        let result = arcade.get(&app).unwrap_or_else(|| host.open_uri(settings_view::releases_page(&app), false));
+                        let (message, ok) = match result {
+                            Ok(()) => ("Opened".into(), true),
+                            Err(e) => (e.to_string(), false),
+                        };
+                        let _ = tx.send(UiCommand::SettingsStatus { message, ok });
+                        repaint.request_repaint();
+                    });
+                }
             }
         }
     }
@@ -397,6 +416,11 @@ impl LensApp {
                     }
                 }
                 UiCommand::Toast(t) => st.notices.push(t),
+                UiCommand::SettingsStatus { message, ok } => {
+                    if let Some(settings) = &mut st.settings {
+                        settings.status = Some((message, ok));
+                    }
+                }
             }
         }
         if let Some(rx) = &st.models_rx {

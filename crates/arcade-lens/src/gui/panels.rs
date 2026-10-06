@@ -116,9 +116,17 @@ fn primary(ov: &mut Overlay, ctx: &egui::Context, env: &Env, screen: egui::Rect,
                 ui.spacing_mut().item_spacing.x = 2.0;
                 for (i, e) in ov.palette.primary.iter().enumerate() {
                     let key = e.key.map(|k| k.to_ascii_uppercase().to_string());
-                    if theme::chip(ui, &e.label, key.as_deref(), e.safety, theme::ChipState { is_default: i == ov.palette.default_index, focused: false })
-                        .clicked()
-                    {
+                    let peer = e.icon.starts_with("arcade.").then_some(e.icon.as_str());
+                    let response = theme::action_chip(
+                        ui,
+                        &e.label,
+                        key.as_deref(),
+                        e.safety,
+                        theme::ChipState { is_default: i == ov.palette.default_index, focused: false },
+                        peer,
+                    );
+                    let response = if let Some(preview) = &e.preview { response.on_hover_text(preview) } else { response };
+                    if response.clicked() {
                         clicked = Some(e.clone());
                     }
                 }
@@ -223,7 +231,11 @@ fn expanded(ov: &mut Overlay, ctx: &egui::Context, env: &Env, screen: egui::Rect
                         }
                     }
                     let selected = i == cur;
-                    let row = ui.allocate_response(Vec2::new(ui.available_width(), if e.preview.is_some() { 38.0 } else { 26.0 }), Sense::click());
+                    let disabled = e.disabled_reason.is_some();
+                    let row = ui.allocate_response(
+                        Vec2::new(ui.available_width(), if e.preview.is_some() || disabled { 42.0 } else { 26.0 }),
+                        if disabled { Sense::hover() } else { Sense::click() },
+                    );
                     let p = ui.painter();
                     if selected || row.hovered() {
                         p.rect_filled(row.rect, CornerRadius::same(6), if selected { ACCENT.gamma_multiply(0.28) } else { theme::SURFACE_HI });
@@ -234,22 +246,37 @@ fn expanded(ov: &mut Overlay, ctx: &egui::Context, env: &Env, screen: egui::Rect
                         theme::key_badge(p, Pos2::new(x, y), &k.to_ascii_uppercase().to_string(), MUTED);
                     }
                     x += 26.0;
-                    let g = p.layout_no_wrap(e.label.clone(), theme::font(13.5), TEXT);
+                    let peer = e.icon.starts_with("arcade.");
+                    if peer {
+                        super::glyphs::paint(p, Pos2::new(x + 8.0, y), &e.icon, super::glyphs::MUTED);
+                        x += 22.0;
+                    }
+                    let color = if disabled { MUTED } else { TEXT };
+                    let width = row.rect.max.x - x - if e.needs_confirmation { 74.0 } else { 24.0 };
+                    let mut layout = egui::text::LayoutJob::simple(e.label.clone(), theme::font(13.5), color, width);
+                    layout.wrap.max_rows = 1;
+                    let g = p.layout_job(layout);
                     let gw = g.size().x;
                     p.galley(Pos2::new(x, y - g.size().y / 2.0), g, TEXT);
-                    theme::safety_marker(p, Pos2::new(x + gw + 9.0, y), e.safety);
+                    if !(peer && e.safety == SafetyClass::External) {
+                        theme::safety_marker(p, Pos2::new(x + gw + 9.0, y), e.safety);
+                    }
                     if e.needs_confirmation {
                         p.text(Pos2::new(row.rect.max.x - 8.0, y), Align2::RIGHT_CENTER, "asks first", theme::font(10.5), FAINT);
                     }
-                    if let Some(prev) = &e.preview {
+                    if let Some(reason) = &e.disabled_reason {
+                        let mut layout = egui::text::LayoutJob::simple(reason.clone(), theme::font(10.5), MUTED, row.rect.max.x - x - 8.0);
+                        layout.wrap.max_rows = 1;
+                        p.galley(Pos2::new(x, y + 8.0), p.layout_job(layout), MUTED);
+                    } else if let Some(prev) = &e.preview {
                         let short: String = prev.chars().take(60).collect();
                         let color = if e.safety == SafetyClass::External { EXTERNAL } else { FAINT };
-                        p.text(Pos2::new(x, y + 15.0), Align2::LEFT_CENTER, format!("sends: {short}"), theme::font(10.5), color);
+                        p.text(Pos2::new(x, y + 15.0), Align2::LEFT_CENTER, if peer { short } else { format!("sends: {short}") }, theme::font(10.5), color);
                     }
                     if selected {
                         row.scroll_to_me(None);
                     }
-                    if row.clicked() {
+                    if row.clicked() && !disabled {
                         run = Some(e.clone());
                     }
                 }
@@ -266,7 +293,7 @@ fn expanded(ov: &mut Overlay, ctx: &egui::Context, env: &Env, screen: egui::Rect
         }
     }
     if enter {
-        run = visible.get(cur).cloned();
+        run = visible.get(cur).filter(|e| e.disabled_reason.is_none()).cloned();
     }
     if let Some(e) = run {
         ov.panel = Panel::Primary;

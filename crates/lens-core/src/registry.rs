@@ -37,7 +37,7 @@ impl PluginManifest {
     }
 }
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct Registry {
     graph: CapabilityGraph,
     recognizers: Vec<Arc<dyn Recognizer>>,
@@ -100,6 +100,12 @@ impl Registry {
 
     pub fn action(&self, id: &str) -> Option<&Arc<dyn Action>> {
         self.action_index.get(id).map(|&i| &self.actions[i])
+    }
+
+    /// Removes fallback actions superseded by an installed first-party peer.
+    pub fn remove_actions(&mut self, ids: &[&str]) {
+        self.actions.retain(|a| !ids.contains(&a.descriptor().id.as_str()));
+        self.action_index = self.actions.iter().enumerate().map(|(i, a)| (a.descriptor().id.clone(), i)).collect();
     }
 
     pub fn plugins(&self) -> &[PluginManifest] {

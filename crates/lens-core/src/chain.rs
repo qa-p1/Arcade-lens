@@ -119,7 +119,7 @@ impl Chain {
             let ChainStep::Run { action, params } = step else { continue };
             cx.cancel.check()?;
             let a = cx.registry.action(action).expect("validated");
-            let acx = ActionContext { host: cx.host, settings: cx.settings, selection: cx.selection, params };
+            let acx = ActionContext { host: cx.host, settings: cx.settings, selection: cx.selection, params, cancel: Some(cx.cancel) };
             let outcome = a.execute(&current, &acx)?;
             if let Some(next) = &outcome.output {
                 current = next.clone();

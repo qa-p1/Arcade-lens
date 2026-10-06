@@ -101,6 +101,13 @@ struct Job {
     started: Instant,
     entry: PaletteEntry,
     params: Params,
+    cancel: CancelToken,
+}
+
+impl Drop for Job {
+    fn drop(&mut self) {
+        self.cancel.cancel();
+    }
 }
 
 pub struct Overlay {
@@ -113,6 +120,8 @@ pub struct Overlay {
     analysis: Option<Analysis>,
     pub report: AnalysisReport,
     pub palette: Palette,
+    palette_job: Option<Receiver<(Palette, Arc<lens_core::Registry>)>>,
+    palette_revision: u64,
     analysis_started: Instant,
     pub analysis_done: bool,
     pub panel: Panel,
@@ -190,6 +199,8 @@ impl Overlay {
             analysis: None,
             report: AnalysisReport::default(),
             palette: Palette::default(),
+            palette_job: None,
+            palette_revision: 0,
             analysis_started: Instant::now(),
             analysis_done: false,
             panel: Panel::Primary,
@@ -232,6 +243,7 @@ impl Overlay {
         self.analysis = Some(env.rt.engine.analyze(selection.clone()));
         self.report = AnalysisReport::default();
         self.palette = Palette::default();
+        self.palette_job = None;
         self.analysis_started = Instant::now();
         self.analysis_done = false;
         self.history_saved = false;
@@ -246,6 +258,7 @@ impl Overlay {
         self.sel = None;
         self.report = AnalysisReport::default();
         self.palette = Palette::default();
+        self.palette_job = None;
         self.panel = Panel::Primary;
     }
 
@@ -262,7 +275,9 @@ impl Overlay {
                 ctx.request_repaint_after(Duration::from_millis(50));
             }
         }
-        let mut changed = false;
+        let revision = env.rt.arcade.revision();
+        let mut changed = self.sel.is_some() && revision != self.palette_revision;
+        self.palette_revision = revision;
         if let Some(a) = &self.analysis {
             while let Ok(e) = a.events().try_recv() {
                 match &e {
@@ -281,20 +296,34 @@ impl Overlay {
             }
         }
         if changed {
-            let usage = env.usage.lock().unwrap();
+            let usage = env.usage.lock().unwrap().clone();
             let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
-            let next = build_palette(&PaletteInput {
-                registry: &env.rt.registry,
-                findings: &self.report.findings,
-                settings: &env.rt.settings,
-                usage: &usage,
-                host: env.host.features(),
-                chains: &env.rt.chains,
-                now,
+            let registry = env.rt.arcade.actions();
+            let rt = env.rt.clone();
+            let findings = self.report.findings.clone();
+            let host = env.host.features();
+            let repaint = ctx.clone();
+            let (tx, rx) = mpsc::channel();
+            std::thread::spawn(move || {
+                let next = build_palette(&PaletteInput {
+                    registry: &registry,
+                    findings: &findings,
+                    settings: &rt.settings,
+                    usage: &usage,
+                    host,
+                    chains: &rt.chains,
+                    now,
+                });
+                let _ = tx.send((next, registry));
+                repaint.request_repaint();
             });
+            self.palette_job = Some(rx);
+        }
+        if let Some((next, registry)) = self.palette_job.as_ref().and_then(|rx| rx.try_recv().ok()) {
+            self.palette_job = None;
             // Free reordering for the first moments; after that, keep what the user sees in place.
             let settled = self.analysis_started.elapsed() > Duration::from_millis(350);
-            self.palette = stabilize(&self.palette.primary, next, settled, &env.rt.settings, &env.rt.registry);
+            self.palette = stabilize(&self.palette.primary, next, settled, &env.rt.settings, &registry);
         }
         if let Some(job) = &self.job {
             if let Ok(out) = job.rx.try_recv() {
@@ -331,13 +360,18 @@ impl Overlay {
         if self.job.is_some() {
             return;
         }
+        if let Some(reason) = &entry.disabled_reason {
+            return self.toast(reason.clone(), ToastKind::Error, false);
+        }
         let Some(sel) = &self.sel else { return };
         let (tx, rx) = mpsc::channel();
-        let registry = env.rt.registry.clone();
+        let registry = env.rt.arcade.actions();
         let settings = env.rt.settings.clone();
         let findings = self.report.findings.clone();
         let selection = sel.selection.clone();
         let host: Arc<GuiHost> = env.host.clone();
+        let cancel = CancelToken::new();
+        let token = cancel.clone();
         match &entry.target {
             Target::Chain(id) => {
                 let Some(chain) = env.rt.chains.iter().find(|c| &c.id == id).cloned() else { return };
@@ -358,7 +392,7 @@ impl Overlay {
                         host: &*host,
                         settings: &settings,
                         selection: Some(&selection),
-                        cancel: &CancelToken::new(),
+                        cancel: &token,
                         confirmed: true,
                     });
                     let _ = tx.send(JobOutcome::Chain(r));
@@ -377,12 +411,13 @@ impl Overlay {
                         selection: Some(&selection),
                         params: &p,
                         confirmed,
+                        cancel: Some(&token),
                     };
                     let _ = tx.send(JobOutcome::Invocation(invoke(&id, finding, &cx)));
                 });
             }
         }
-        self.job = Some(Job { rx, started: Instant::now(), entry, params });
+        self.job = Some(Job { rx, started: Instant::now(), entry, params, cancel });
     }
 
     fn finish_job(&mut self, env: &Env, job: Job, out: JobOutcome) {
@@ -400,11 +435,11 @@ impl Overlay {
                 o.message.into_iter().collect()
             }
             JobOutcome::Invocation(Ok(Invocation::NeedsConfirmation(req))) => {
-                self.panel = Panel::Confirm { entry: job.entry, req, params: job.params };
+                self.panel = Panel::Confirm { entry: job.entry.clone(), req, params: job.params.clone() };
                 return;
             }
             JobOutcome::Invocation(Ok(Invocation::NeedsChoice(choices))) => {
-                self.panel = Panel::Choice { entry: job.entry, choices, cursor: 0, params: job.params };
+                self.panel = Panel::Choice { entry: job.entry.clone(), choices, cursor: 0, params: job.params.clone() };
                 return;
             }
             JobOutcome::Chain(Ok(outs)) => {
@@ -726,6 +761,9 @@ impl Overlay {
             }
             match key {
                 Key::Escape => {
+                    if let Some(job) = &self.job {
+                        job.cancel.cancel();
+                    }
                     match self.panel {
                         Panel::Primary if self.measure && self.sel.is_some() => self.measure = false,
                         Panel::Primary => self.close_requested = true,

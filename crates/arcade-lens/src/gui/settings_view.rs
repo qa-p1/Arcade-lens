@@ -21,12 +21,13 @@ enum Section {
     Chains,
     Providers,
     Plugins,
+    ConnectedApps,
     Privacy,
     About,
 }
 
 impl Section {
-    const ALL: [Section; 9] = [
+    const ALL: [Section; 10] = [
         Section::General,
         Section::Shortcut,
         Section::Actions,
@@ -34,6 +35,7 @@ impl Section {
         Section::Chains,
         Section::Providers,
         Section::Plugins,
+        Section::ConnectedApps,
         Section::Privacy,
         Section::About,
     ];
@@ -46,6 +48,7 @@ impl Section {
             Section::Chains => "Chains",
             Section::Providers => "Services",
             Section::Plugins => "Plugins",
+            Section::ConnectedApps => "Connected apps",
             Section::Privacy => "Privacy",
             Section::About => "About",
         }
@@ -60,6 +63,7 @@ pub enum SettingsRequest {
     Autostart(bool),
     InstallLauncher,
     OpenFolder(std::path::PathBuf),
+    GetApp(String),
 }
 
 pub struct SettingsView {
@@ -196,6 +200,7 @@ impl SettingsView {
                 Section::Chains => self.chains_ui(ui),
                 Section::Providers => self.providers(ui),
                 Section::Plugins => self.plugins(ui, &mut out),
+                Section::ConnectedApps => self.connected_apps(ui, &mut out),
                 Section::Privacy => self.privacy(ui, &mut out),
                 Section::About => self.about(ui),
             });
@@ -314,7 +319,11 @@ impl SettingsView {
                     }
                 }
             }
-            match lens_platform::shortcut::known_conflict(&sc) {
+            let recorded = self.draft.activation_shortcut.as_deref().unwrap_or(&sc);
+            if let Some(owner) = self.rt.arcade.snapshot().installed.shortcut_owner(arcade_link::ids::LENS, recorded) {
+                ui.label(RichText::new(format!("Used by {owner}")).color(DANGER));
+            }
+            match lens_platform::shortcut::known_conflict(recorded) {
                 Some(what) => ui.label(RichText::new(format!("⚠  Usually used by {what}. Pick another unless you're sure.")).color(DANGER)),
                 None => ui.label(RichText::new("No known conflicts. Saving checks whether another app holds it.").color(MUTED)),
             };
@@ -357,7 +366,7 @@ impl SettingsView {
         ui.add_space(6.0);
         let f = self.action_filter.to_lowercase();
         let mut by_cap: std::collections::BTreeMap<String, Vec<lens_core::ActionDescriptor>> = Default::default();
-        for a in self.rt.registry.actions() {
+        for a in self.rt.arcade.actions().actions() {
             let d = a.descriptor();
             if !d.in_palette || (!f.is_empty() && !d.label.to_lowercase().contains(&f) && !d.id.contains(&f)) {
                 continue;
@@ -697,7 +706,60 @@ impl SettingsView {
         if ui.button("Open plugins folder").clicked() {
             out.push(SettingsRequest::OpenFolder(self.rt.paths.plugins()));
         }
-        ui.label(RichText::new("Arcade apps (Clipboard, Quick Look, Wheel) integrate through this same plugin interface.").color(MUTED).size(11.5));
+        ui.label(RichText::new("First-party Arcade integrations are configured in Connected apps.").color(MUTED).size(11.5));
+    }
+
+    fn connected_apps(&mut self, ui: &mut egui::Ui, out: &mut Vec<SettingsRequest>) {
+        use super::glyphs;
+        use arcade_link::client::AppState;
+        Self::title(ui, "Connected apps", "Choose which Arcade apps Lens works with. Save to apply changes.");
+        ui.checkbox(&mut self.draft.link.enabled, "Connect with other Arcade apps");
+        ui.add_space(8.0);
+        let snapshot = self.rt.arcade.snapshot();
+        for peer in &snapshot.peers {
+            let name = arcade_link::manifest::app_name(&peer.id);
+            let (state, installed) = match &peer.state {
+                AppState::Running { version } => (format!("Running · v{version}"), true),
+                AppState::Installed { .. } => ("Installed".into(), true),
+                AppState::NotInstalled => ("Not installed".into(), false),
+            };
+            egui::Frame::new().fill(glyphs::SURFACE).stroke(egui::Stroke::new(1.0, glyphs::BORDER)).corner_radius(12).inner_margin(10).show(ui, |ui| {
+                ui.set_width(ui.available_width());
+                ui.horizontal(|ui| {
+                    glyphs::badge(ui, &peer.id);
+                    ui.label(RichText::new(name).color(glyphs::TEXT).strong());
+                    ui.label(RichText::new(&state).color(glyphs::MUTED).size(12.0));
+                });
+                ui.horizontal(|ui| {
+                    let mut on = !self.draft.link.disabled_peers.contains(&peer.id);
+                    if ui.add_enabled(self.draft.link.enabled, egui::Checkbox::new(&mut on, "Use with Arcade Lens")).changed() {
+                        self.draft.link.disabled_peers.retain(|id| id != &peer.id);
+                        if !on {
+                            self.draft.link.disabled_peers.push(peer.id.clone());
+                        }
+                    }
+                    if !peer.link_enabled {
+                        ui.label(RichText::new("Connections are off in this app").color(glyphs::MUTED).size(11.5));
+                    }
+                });
+                if !installed {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(RichText::new(peer_description(&peer.id)).color(glyphs::MUTED).size(12.0));
+                        if ui.button("Get").clicked() {
+                            self.status = Some(("Opening…".into(), true));
+                            out.push(SettingsRequest::GetApp(peer.id.clone()));
+                        }
+                    });
+                }
+            });
+            ui.add_space(5.0);
+        }
+        egui::CollapsingHeader::new("Diagnostics").show(ui, |ui| {
+            ui.label(RichText::new(format!("Registry: {}", self.rt.arcade.locations().registry.display())).color(glyphs::MUTED).size(11.5));
+            let listening = self.rt.settings.link.enabled;
+            ui.label(format!("Lens endpoint: {}", if listening { "enabled" } else { "off" }));
+            ui.label(format!("Last error: {}", snapshot.last_error.as_deref().unwrap_or("None")));
+        });
     }
 
     fn privacy(&mut self, ui: &mut egui::Ui, out: &mut Vec<SettingsRequest>) {
@@ -739,5 +801,25 @@ impl SettingsView {
                 ui.end_row();
             }
         });
+    }
+}
+
+fn peer_description(app: &str) -> &'static str {
+    match app {
+        arcade_link::ids::BOX => "Convert, compress and transform images; run saved pipelines.",
+        arcade_link::ids::LOOK => "Preview file paths with Quick Look.",
+        arcade_link::ids::WHEEL => "Save a URL, command, file or text as a Wheel action.",
+        arcade_link::ids::CLIPBOARD => "Send selections to the history on your devices.",
+        _ => "Install and update your Arcade apps.",
+    }
+}
+
+pub fn releases_page(app: &str) -> &'static str {
+    match app {
+        arcade_link::ids::BOX => "https://github.com/qa-p1/Arcade-box/releases",
+        arcade_link::ids::LOOK => "https://github.com/qa-p1/Arcade-look/releases",
+        arcade_link::ids::WHEEL => "https://github.com/qa-p1/Arcade-wheel/releases",
+        arcade_link::ids::CLIPBOARD => "https://github.com/qa-p1/Arcade-clipboard/releases",
+        _ => "https://github.com/qa-p1/Arcade-tools/releases",
     }
 }

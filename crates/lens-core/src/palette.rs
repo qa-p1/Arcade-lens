@@ -53,6 +53,8 @@ pub struct PaletteEntry {
     /// Exactly what leaves the machine or gets executed, if anything.
     pub preview: Option<String>,
     pub needs_confirmation: bool,
+    /// Shown as the reason the action cannot be selected.
+    pub disabled_reason: Option<String>,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -68,7 +70,7 @@ pub struct Palette {
 
 impl Palette {
     pub fn default_entry(&self) -> Option<&PaletteEntry> {
-        self.primary.get(self.default_index).or(self.primary.first())
+        self.primary.get(self.default_index).filter(|e| e.disabled_reason.is_none()).or_else(|| self.primary.iter().find(|e| e.disabled_reason.is_none()))
     }
 
     pub fn by_key(&self, key: char) -> Option<&PaletteEntry> {
@@ -149,6 +151,9 @@ pub fn build_palette(input: &PaletteInput) -> Palette {
             let preview = a.preview(&item, settings);
             let mut needs_confirmation = a.confirmation(&item, settings).is_some();
             if !secrets.is_empty() && d.effects.intersects(Effects::OUTBOUND) {
+                if a.guards_selection() {
+                    continue;
+                }
                 let outgoing = preview.clone().or_else(|| f.value.as_text().map(|t| t.into_owned()));
                 match outgoing {
                     // Never offer to send a secret anywhere.
@@ -173,6 +178,7 @@ pub fn build_palette(input: &PaletteInput) -> Palette {
                 key: None,
                 preview,
                 needs_confirmation,
+                disabled_reason: a.unavailable_reason(&item, settings),
             });
         }
     }
@@ -201,6 +207,7 @@ pub fn build_palette(input: &PaletteInput) -> Palette {
             key: None,
             preview: None,
             needs_confirmation: plan.needs_confirmation,
+            disabled_reason: None,
         });
     }
 
@@ -217,6 +224,9 @@ pub fn build_palette(input: &PaletteInput) -> Palette {
     let distinct = entries.iter().map(|e| e.finding).collect::<HashSet<_>>().len();
     let finding_cap = if distinct > 1 { MAX_PER_FINDING } else { usize::MAX };
     for e in &entries {
+        if e.disabled_reason.is_some() {
+            continue;
+        }
         if primary.len() >= n {
             break;
         }
@@ -293,6 +303,9 @@ fn assign_keys(p: &mut Palette, settings: &Settings, registry: &Registry) {
     let mut owner: HashMap<char, (Target, FindingId)> = HashMap::new();
     for e in p.primary.iter_mut().chain(p.all.iter_mut()) {
         e.key = None;
+        if e.disabled_reason.is_some() {
+            continue;
+        }
         let Some(k) = key_for(&e.target) else { continue };
         let me = (e.target.clone(), e.finding);
         match owner.get(&k) {
@@ -324,6 +337,7 @@ pub struct InvokeContext<'a> {
     pub selection: Option<&'a Selection>,
     pub params: &'a Params,
     pub confirmed: bool,
+    pub cancel: Option<&'a crate::cancel::CancelToken>,
 }
 
 /// Runs a single action on a finding, enforcing confirmation and the secret
@@ -336,9 +350,17 @@ pub fn invoke(action_id: &str, finding: FindingId, cx: &InvokeContext) -> Result
         return Err(LensError::InvalidInput(format!("{} does not accept {}", d.label, f.capability)));
     }
     let item = Item::from(f);
+    if cx.settings.disabled_actions.contains(&d.id) || !a.enabled(cx.settings) || !cx.host.features().contains(d.requires) || !a.applies(f, cx.host.features())
+    {
+        return Err(LensError::Blocked(format!("{} is unavailable", d.label)));
+    }
+    if let Some(reason) = a.unavailable_reason(&item, cx.settings) {
+        return Err(LensError::Blocked(reason));
+    }
     if cx.settings.privacy.guard_secrets && d.effects.intersects(Effects::OUTBOUND) {
         let outgoing = a.preview(&item, cx.settings).or_else(|| f.value.as_text().map(|t| t.into_owned()));
         let leaks = f.capability == caps::SECRET
+            || (a.guards_selection() && cx.findings.iter().any(|f| f.capability == caps::SECRET))
             || outgoing.is_some_and(|text| cx.findings.iter().any(|s| matches!(&s.value, Value::Secret(sv) if text.contains(sv.raw.expose()))));
         if leaks {
             return Err(LensError::Blocked("the content appears to contain a secret".into()));
@@ -355,7 +377,7 @@ pub fn invoke(action_id: &str, finding: FindingId, cx: &InvokeContext) -> Result
             return Ok(Invocation::NeedsConfirmation(req));
         }
     }
-    let acx = ActionContext { host: cx.host, settings: cx.settings, selection: cx.selection, params: cx.params };
+    let acx = ActionContext { host: cx.host, settings: cx.settings, selection: cx.selection, params: cx.params, cancel: cx.cancel };
     let mut outcome = a.execute(&item, &acx)?;
     // A pure transform invoked from the palette has nowhere else to go: copy its result.
     if d.safety() == SafetyClass::Pure && outcome.message.is_none() {

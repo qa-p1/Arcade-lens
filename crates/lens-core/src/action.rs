@@ -160,6 +160,7 @@ pub struct ActionContext<'a> {
     pub settings: &'a Settings,
     pub selection: Option<&'a Selection>,
     pub params: &'a Params,
+    pub cancel: Option<&'a crate::cancel::CancelToken>,
 }
 
 impl ActionContext<'_> {
@@ -222,6 +223,16 @@ pub trait Action: Send + Sync {
     /// Whether the action is enabled by configuration (e.g. a provider is set).
     fn enabled(&self, _settings: &Settings) -> bool {
         true
+    }
+
+    /// A visible but disabled entry, for example an input above a peer's limit.
+    fn unavailable_reason(&self, _input: &Item, _settings: &Settings) -> Option<String> {
+        None
+    }
+
+    /// Some sends include the whole selection, including secrets found in pixels.
+    fn guards_selection(&self) -> bool {
+        false
     }
 
     /// What will leave the machine or be executed, shown before running

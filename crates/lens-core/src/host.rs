@@ -91,6 +91,11 @@ pub trait Host: Send + Sync {
     fn open_path(&self, _path: &Path, _mode: OpenPathMode) -> Result<()> {
         Err(unsupported("opening files"))
     }
+    /// Legacy preview after a peer fails: the GUI uses Linux D-Bus, then the
+    /// default opener, without attempting the same peer again.
+    fn quick_look_fallback(&self, path: &Path) -> Result<()> {
+        self.open_path(path, OpenPathMode::QuickLook)
+    }
     /// Opens a terminal with `command` typed in. Only runs it if `execute`;
     /// callers must have obtained explicit confirmation first.
     fn terminal(&self, _cwd: Option<&Path>, _command: Option<&str>, _execute: bool) -> Result<()> {

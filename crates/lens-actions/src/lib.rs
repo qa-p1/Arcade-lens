@@ -4,6 +4,7 @@
 //! API: it declares what it accepts, what it produces, its side effects and
 //! required platform features. Recognizers know nothing about them.
 
+pub mod arcade;
 pub mod data;
 pub mod dev;
 pub mod extra;

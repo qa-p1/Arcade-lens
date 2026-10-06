@@ -9,7 +9,10 @@ reference examples are in [`examples/plugins`](../examples/plugins):
 | Example | Shows |
 |---|---|
 | `isbn/` | A recognizer (ISBN-10/13 with checksum) plus two actions, one of them outbound |
-| `arcade-clipboard/`, `arcade-quicklook/`, `arcade-wheel/` | Arcade ecosystem integrations: actions that forward a finding to another app's CLI |
+
+Arcade Look, Box, Clipboard and Wheel use the built-in
+[Arcade Link module](ARCADE_LINK.md). They are enabled by default when
+installed; switch them off in **Settings → Connected apps**.
 
 ## Installing and enabling
 
@@ -152,11 +155,5 @@ recognizer or action, and the next call starts a fresh process.
 
 The permission system controls **what Lens gives the plugin** and **what
 Lens does for it**. It is not an OS sandbox. The plugin executable runs with
-the user's privileges like any other program they install. For example, the
-Arcade integrations launch other apps' CLIs themselves. Enabling a plugin is
+the user's privileges like any other program they install. Enabling a plugin is
 therefore an explicit trust decision, which is why plugins start disabled.
-
-The Arcade integration manifests assume the commands `arcade-clipboard send`,
-`arcade-quicklook open` and `arcade-wheel add`, each taking the text as its
-last argument. If those apps expose a different interface, only `args` in the
-manifest needs to change.

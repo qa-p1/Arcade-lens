@@ -22,6 +22,11 @@ impl CancelToken {
         self.0.load(Ordering::Acquire)
     }
 
+    /// Shares cancellation with a blocking local IPC client.
+    pub fn atomic(&self) -> &AtomicBool {
+        &self.0
+    }
+
     /// Returns `Err(Cancelled)` if cancelled; sprinkle through long loops.
     pub fn check(&self) -> Result<()> {
         if self.is_cancelled() {

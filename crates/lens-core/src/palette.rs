@@ -269,7 +269,7 @@ pub fn stabilize(previous: &[PaletteEntry], mut next: Palette, settled: bool, se
     let n = settings.primary_action_count.max(1);
     let same = |a: &PaletteEntry, b: &PaletteEntry| a.target == b.target && a.finding == b.finding;
     // Refresh surviving entries (scores, previews) but keep their slots.
-    let mut slots: Vec<Option<PaletteEntry>> = previous.iter().map(|p| next.all.iter().find(|e| same(e, p)).cloned()).collect();
+    let mut slots: Vec<Option<PaletteEntry>> = previous.iter().map(|p| next.all.iter().find(|e| same(e, p) && e.disabled_reason.is_none()).cloned()).collect();
     slots.truncate(n);
     let incoming: Vec<PaletteEntry> = next.primary.iter().filter(|e| !slots.iter().flatten().any(|s| same(s, e) || s.target == e.target)).cloned().collect();
     for e in incoming {

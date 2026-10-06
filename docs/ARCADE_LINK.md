@@ -65,6 +65,14 @@ use the existing palette stabilizer and keep surviving actions in place.
 | Region or image | Box's featured image presets, plus **More in Arcade Box…** |
 | Text, URL, image, file | **Send to my devices ↗** (`M`) through Arcade Clipboard |
 | URL, command, path, text | **Add to Wheel**, confirmed in Wheel Settings |
+| Finding matching a saved pipeline's first input | **▶ Pipeline name** in Arcade Box |
+
+Box's `box.pipelines` list is fetched on a registry worker when its manifest
+changes or a background instance appears. Installed, stopped Box uses its
+headless one-shot mode. The palette reads only the cached list; it hides
+interactive-first pipelines and checks each first input type. Invocation
+sends `box.pipeline.run` with `options.pipeline`. The pipeline's declared
+effects feed Lens's existing confirmation and secret guard.
 
 Owning apps have monochrome glyph badges. Outbound actions show ↗ and
 the payload preview. Image sends are removed when Lens finds a secret,

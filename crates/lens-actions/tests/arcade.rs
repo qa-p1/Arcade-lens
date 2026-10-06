@@ -215,6 +215,86 @@ fn oversized_inputs_are_disabled_with_standard_reason_and_no_shortcut() {
     assert_eq!(command.hints, ["command"]);
 }
 
+#[test]
+fn cached_pipelines_match_first_input_hide_interactive_and_enforce_effects() {
+    let temp = Temp::new();
+    let loc = temp.locations();
+    let mut box_app = manifest(&loc, "box");
+    let base = lens_actions::standard_registry(None).unwrap();
+    let settings = Settings::default();
+    let pipeline = |id: &str, kind: &str, interactive, effects| arcade::Pipeline {
+        id: id.into(),
+        name: id.into(),
+        version: 1,
+        accepts: vec![kind.into()],
+        produces: vec!["file/image".into()],
+        effects,
+        interactive,
+    };
+    let offers = vec![
+        pipeline("image", "file/image", false, vec!["writes-files".into()]),
+        pipeline("text", "text/plain", false, vec!["sends-to-device".into(), "executes-commands".into()]),
+        pipeline("interactive", "file/image", true, vec!["opens-ui".into()]),
+        pipeline("empty", "", false, vec![]),
+    ];
+    let r = arcade::with_cached_peers(&base, &settings, &arcade_link::Registry::load(&loc), &loc, &offers).unwrap();
+    assert!(r.action("arcade.box.pipeline.interactive").is_none());
+    let image = build(&r, &[region()], &settings);
+    assert!(image.all.iter().any(|e| e.label == "▶ image"));
+    assert!(!image.all.iter().any(|e| e.label.starts_with("▶ text")));
+    let text = finding(2, caps::TEXT, Value::text("synthetic text"));
+    let text_palette = build(&r, std::slice::from_ref(&text), &settings);
+    let entry = text_palette.all.iter().find(|e| e.label == "▶ text ↗").unwrap();
+    assert!(entry.needs_confirmation);
+    assert_eq!(entry.preview.as_deref(), Some("synthetic text"));
+    let host = RecordingHost::all();
+    assert!(matches!(
+        palette::invoke(
+            "arcade.box.pipeline.text",
+            text.id,
+            &InvokeContext {
+                registry: &r,
+                findings: std::slice::from_ref(&text),
+                host: &host,
+                settings: &settings,
+                selection: None,
+                params: &Params::new(),
+                confirmed: false,
+                cancel: None
+            }
+        )
+        .unwrap(),
+        Invocation::NeedsConfirmation(_)
+    ));
+    assert!(host.calls().is_empty());
+    box_app.actions.iter_mut().find(|a| a.id == "box.pipeline.run").unwrap().available = false;
+    write_manifest(&loc, &box_app).unwrap();
+    let unavailable = arcade::with_cached_peers(&base, &settings, &arcade_link::Registry::load(&loc), &loc, &offers).unwrap();
+    assert!(unavailable.action("arcade.box.pipeline.image").is_none());
+}
+
+#[test]
+fn disabled_peers_and_live_unavailability_remove_cached_entries() {
+    let temp = Temp::new();
+    let loc = temp.locations();
+    let mut clipboard = manifest(&loc, "clipboard");
+    let settings = Settings::default();
+    let base = lens_actions::standard_registry(None).unwrap();
+    let r = arcade::with_peers(&base, &settings, &arcade_link::Registry::load(&loc), &loc).unwrap();
+    let before = build(&r, &[region()], &settings);
+    clipboard.actions.iter_mut().find(|a| a.id == "clipboard.add").unwrap().available = false;
+    write_manifest(&loc, &clipboard).unwrap();
+    let r = arcade::with_peers(&base, &settings, &arcade_link::Registry::load(&loc), &loc).unwrap();
+    let after = palette::stabilize(&before.primary, build(&r, &[region()], &settings), true, &settings, &r);
+    assert!(after.all.iter().all(|e| e.target.usage_key() != "arcade.clipboard.add"));
+    assert!(after.primary.iter().all(|e| e.target.usage_key() != "arcade.clipboard.add"));
+    let mut disabled = settings.clone();
+    disabled.link.disabled_peers.push(ids::CLIPBOARD.into());
+    let r = arcade::with_peers(&base, &disabled, &arcade_link::Registry::load(&loc), &loc).unwrap();
+    assert!(r.action("arcade.clipboard.add").is_none());
+    assert!(r.action("core.region.send").is_some());
+}
+
 struct Mock(Child);
 impl Drop for Mock {
     fn drop(&mut self) {
@@ -246,7 +326,20 @@ fn real_mock_peers_invoke_outputs_wheel_payloads_private_cancel_crash_and_timeou
     let temp = Temp::new();
     let loc = temp.locations();
     let log = temp.0.join("invokes.jsonl");
-    let _box = mock(&loc, "box", &fixture("box"), &log);
+    // A receiver owns its outputs. The shared mock's default echoes inputs,
+    // which are deleted when their handoff job finishes; never race that Drop
+    // while testing consumption of a Box output.
+    let output = temp.0.join("box-output.png");
+    RgbaImage::from_pixel(80, 60, Rgba([20, 40, 60, 255])).save(&output).unwrap();
+    let mut box_fixture: serde_json::Value = serde_json::from_slice(&std::fs::read(fixture("box")).unwrap()).unwrap();
+    for action in box_fixture["actions"].as_array_mut().unwrap() {
+        if matches!(action["id"].as_str(), Some("box:arcade.image.convert#webp" | "box.pipeline.run")) {
+            action["mock"]["result"] = json!({"outputs": [{"type": "file/image", "path": output}], "message": "Converted"});
+        }
+    }
+    let box_file = temp.0.join("box.json");
+    std::fs::write(&box_file, box_fixture.to_string()).unwrap();
+    let _box = mock(&loc, "box", &box_file, &log);
     let _wheel = mock(&loc, "wheel", &fixture("wheel"), &log);
     let _clipboard = mock(&loc, "clipboard", &fixture("clipboard"), &log);
     let _look = mock(&loc, "look", &fixture("look"), &log);
@@ -255,6 +348,8 @@ fn real_mock_peers_invoke_outputs_wheel_payloads_private_cancel_crash_and_timeou
     let service = Arcade::start(base, settings.clone(), loc.clone());
     wait(|| service.revision() > 0);
     let r = service.actions();
+    assert!(r.action("arcade.box.pipeline.p-web-image").is_some());
+    assert!(r.action("arcade.box.pipeline.p-optimized-screenshot").is_none());
     let f = region();
     let host = RecordingHost::all();
     let run = |id: &str, findings: &[Finding]| {
@@ -269,13 +364,15 @@ fn real_mock_peers_invoke_outputs_wheel_payloads_private_cancel_crash_and_timeou
     assert!(host.calls().iter().any(|c| matches!(c, HostCall::ClipboardImage { width: 80, height: 60 })));
     run("arcade.box.open", std::slice::from_ref(&f));
     run("arcade.clipboard.add", std::slice::from_ref(&f));
+    run("arcade.box.pipeline.p-web-image", std::slice::from_ref(&f));
     let cmd = finding(3, caps::COMMAND, Value::text("cargo test"));
     run("arcade.wheel.add_action", &[cmd]);
     run(&arcade::preset_wheel_id("arcade.box:arcade.image.convert#webp"), &[f]);
     let requests: Vec<InvokeRequest> = std::fs::read_to_string(&log).unwrap().lines().map(|line| serde_json::from_str(line).unwrap()).collect();
     let command = requests.iter().find(|r| r.action == "wheel.add_action" && r.inputs[0].kind == "text/plain").unwrap();
+    assert_eq!(requests.iter().find(|r| r.action == "box.pipeline.run").unwrap().options["pipeline"], "p-web-image");
     assert_eq!(command.inputs[0].hints, ["command"]);
-    let preset = requests.iter().find(|r| r.inputs[0].kind == "structured/arcade-action").unwrap().inputs[0].data.as_ref().unwrap();
+    let preset = requests.iter().find(|r| r.inputs.first().is_some_and(|c| c.kind == "structured/arcade-action")).unwrap().inputs[0].data.as_ref().unwrap();
     assert_eq!(preset["app"], ids::BOX);
     assert_eq!(preset["action"], "box:arcade.image.convert#webp");
     assert_eq!(preset["input"], "lens-selection");

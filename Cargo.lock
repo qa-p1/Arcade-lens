@@ -2623,6 +2623,7 @@ dependencies = [
  "lens-recognizers",
  "qrcode",
  "regex",
+ "serde",
  "serde_json",
 ]
 

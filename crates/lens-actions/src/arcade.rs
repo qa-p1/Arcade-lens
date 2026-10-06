@@ -18,6 +18,19 @@ use lens_core::value::{FileValue, PathKind};
 use lens_core::{caps, Finding, LensError, Registry, Result, Settings, Value};
 use serde_json::json;
 
+/// SPEC §5.4: accepts describes the first node; interactive-first pipelines
+/// cannot be started from an existing finding.
+#[derive(Clone, Debug, serde::Deserialize)]
+pub struct Pipeline {
+    pub id: String,
+    pub name: String,
+    pub version: u32,
+    pub accepts: Vec<String>,
+    pub produces: Vec<String>,
+    pub effects: Vec<String>,
+    pub interactive: bool,
+}
+
 const JOB_TIMEOUT: Duration = Duration::from_secs(60);
 type Wake = Arc<dyn Fn() + Send + Sync>;
 type PngCache = Arc<Mutex<Option<(Weak<RgbaImage>, Arc<Vec<u8>>)>>>;
@@ -36,6 +49,7 @@ pub struct Snapshot {
     pub peers: Vec<Peer>,
     pub revision: u64,
     pub last_error: Option<String>,
+    pub pipelines: Vec<Pipeline>,
 }
 
 struct Inner {
@@ -43,6 +57,7 @@ struct Inner {
     watch: Mutex<Option<SharedRegistry>>,
     wake: Mutex<Option<Wake>>,
     locations: Locations,
+    rebuild: Mutex<()>,
 }
 
 /// Shared between the GUI, its host and settings. No getter does disk or IPC.
@@ -59,10 +74,12 @@ impl Arcade {
                 peers: vec![],
                 revision: 0,
                 last_error: None,
+                pipelines: vec![],
             }),
             watch: Mutex::new(None),
             wake: Mutex::new(None),
             locations,
+            rebuild: Mutex::new(()),
         });
         Self(inner)
     }
@@ -169,8 +186,8 @@ fn me() -> PeerInfo {
 }
 
 fn rebuild(inner: &Inner, base: &Registry, settings: &Settings, installed: &arcade_link::registry::Registry, last_error: Option<String>) {
-    let registry = with_peers(base, settings, installed, &inner.locations).unwrap_or_else(|_| base.clone());
-    let peers = ids::APPS
+    let _serial = inner.rebuild.lock().unwrap_or_else(|e| e.into_inner());
+    let peers: Vec<_> = ids::APPS
         .iter()
         .filter(|id| **id != ids::LENS)
         .map(|id| Peer {
@@ -179,18 +196,66 @@ fn rebuild(inner: &Inner, base: &Registry, settings: &Settings, installed: &arca
             link_enabled: installed.get(id).is_none_or(|m| m.settings.link_enabled),
         })
         .collect();
+    let previous = inner.state.read().unwrap_or_else(|e| e.into_inner()).clone();
+    let mut last_error = last_error;
+    let pipelines = match installed.get(ids::BOX).filter(|m| settings.link.uses(ids::BOX) && m.settings.link_enabled) {
+        Some(box_app) => {
+            let running = |peers: &[Peer]| peers.iter().any(|p| p.id == ids::BOX && matches!(p.state, AppState::Running { .. }));
+            let changed = previous.installed.get(ids::BOX) != Some(box_app) || (running(&peers) && !running(&previous.peers));
+            if changed {
+                match load_pipelines(&inner.locations, box_app, running(&peers)) {
+                    Ok(offers) => offers,
+                    Err(e) => {
+                        last_error = Some(e.to_string());
+                        vec![]
+                    }
+                }
+            } else {
+                previous.pipelines
+            }
+        }
+        None => vec![],
+    };
+    let registry = with_cached_peers(base, settings, installed, &inner.locations, &pipelines).unwrap_or_else(|e| {
+        last_error = Some(e.to_string());
+        base.clone()
+    });
     {
         let mut state = inner.state.write().unwrap_or_else(|e| e.into_inner());
-        *state = Snapshot { registry: Arc::new(registry), installed: installed.clone(), peers, revision: state.revision + 1, last_error };
+        *state = Snapshot { registry: Arc::new(registry), installed: installed.clone(), peers, revision: state.revision + 1, last_error, pipelines };
     }
     if let Some(wake) = inner.wake.lock().unwrap_or_else(|e| e.into_inner()).clone() {
         wake();
     }
 }
 
+fn load_pipelines(locations: &Locations, manifest: &Manifest, running: bool) -> Result<Vec<Pipeline>> {
+    let Some(list) = manifest.usable_actions().find(|a| a.id == "box.pipelines" && !a.interactive) else { return Ok(vec![]) };
+    // Offline discovery may use a headless one-shot, never open an app's UI.
+    if !running && manifest.launch.invoke.is_none() {
+        return Ok(vec![]);
+    }
+    let mut req = request(list);
+    req.context.interactive = false;
+    let result = invoke(locations, manifest, req, CancelToken::new(), Duration::from_secs(3))?;
+    let data = result.outputs.into_iter().find(|c| c.kind == "structured/pipelines").and_then(|c| c.data);
+    data.map(|data| serde_json::from_value(data).map_err(|e| LensError::Failed(format!("Invalid Box pipelines: {e}")))).unwrap_or_else(|| Ok(vec![]))
+}
+
 /// Purely cached discovery; callers build palettes off the UI thread so input
 /// metadata and encoded size checks cannot pause a frame either.
 pub fn with_peers(base: &Registry, settings: &Settings, installed: &arcade_link::registry::Registry, locations: &Locations) -> Result<Registry> {
+    with_cached_peers(base, settings, installed, locations, &[])
+}
+
+/// Cached pipeline offers are appended here; this function never invokes Box.
+pub fn with_cached_peers(
+    base: &Registry,
+    settings: &Settings,
+    installed: &arcade_link::registry::Registry,
+    locations: &Locations,
+    pipelines: &[Pipeline],
+) -> Result<Registry> {
     let mut registry = base.clone();
     if !settings.link.enabled {
         return Ok(registry);
@@ -223,6 +288,39 @@ pub fn with_peers(base: &Registry, settings: &Settings, installed: &arcade_link:
             };
             if show {
                 let mut action = PeerAction::new(locations, m, a);
+                action.png = cache.clone();
+                actions.push(action);
+            }
+        }
+    }
+    if let Some(box_app) = installed.get(ids::BOX).filter(|m| settings.link.uses(&m.id)) {
+        if let Some(run) = box_app.usable_actions().find(|a| a.id == "box.pipeline.run") {
+            for pipeline in pipelines.iter().filter(|p| !p.interactive && !p.accepts.is_empty() && !p.id.is_empty() && !p.name.is_empty() && p.version > 0) {
+                let mut peer = run.clone();
+                peer.title = format!("▶ {}", pipeline.name);
+                peer.accepts = pipeline.accepts.clone();
+                peer.produces = pipeline.produces.clone();
+                peer.effects = pipeline.effects.clone();
+                peer.interactive = false;
+                let mut action = PeerAction::new(locations, box_app, &peer);
+                action.descriptor.id = format!("arcade.box.pipeline.{}", pipeline.id);
+                action.descriptor.priority = 60;
+                action.descriptor.accepts = vec![
+                    caps::REGION,
+                    caps::IMAGE,
+                    caps::ICON,
+                    caps::TEXT,
+                    caps::URL,
+                    caps::COMMAND,
+                    caps::CODE,
+                    caps::PATH,
+                    caps::FILE,
+                    caps::QR_CODE,
+                    caps::EMAIL,
+                    caps::PHONE,
+                    caps::TABLE,
+                ];
+                action.pipeline = Some(pipeline.id.clone());
                 action.png = cache.clone();
                 actions.push(action);
             }
@@ -313,6 +411,7 @@ struct PeerAction {
     peer: arcade_link::Action,
     png: PngCache,
     saved_preset: Option<arcade_link::Action>,
+    pipeline: Option<String>,
 }
 
 impl PeerAction {
@@ -379,6 +478,7 @@ impl PeerAction {
             peer: peer.clone(),
             png: Arc::new(Mutex::new(None)),
             saved_preset: None,
+            pipeline: None,
         }
     }
 
@@ -479,7 +579,10 @@ impl Action for PeerAction {
             cancel.check()?;
         }
         let (content, handoff) = self.input(item)?;
-        let req = request(&self.peer).input(content);
+        let mut req = request(&self.peer).input(content);
+        if let Some(pipeline) = &self.pipeline {
+            req.options = json!({ "pipeline": pipeline });
+        }
         let fallback_path = req.inputs.first().and_then(|c| c.path.clone());
         let result = match invoke_with_handoff(&self.locations, &self.manifest, req, cx.cancel.cloned().unwrap_or_default(), JOB_TIMEOUT, handoff) {
             Ok(result) => result,

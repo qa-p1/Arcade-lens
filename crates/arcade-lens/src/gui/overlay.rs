@@ -324,6 +324,22 @@ impl Overlay {
             // Free reordering for the first moments; after that, keep what the user sees in place.
             let settled = self.analysis_started.elapsed() > Duration::from_millis(350);
             self.palette = stabilize(&self.palette.primary, next, settled, &env.rt.settings, &registry);
+            if std::env::var_os("LENS_DEBUG").is_some() {
+                // IDs and capabilities only: diagnostic output must not leak
+                // the selected text, credentials or payload previews.
+                let entries: Vec<_> = self
+                    .palette
+                    .all
+                    .iter()
+                    .map(|e| {
+                        serde_json::json!({
+                            "action": e.target.usage_key(), "capability": e.capability.as_str(),
+                            "key": e.key, "disabled": e.disabled_reason.is_some()
+                        })
+                    })
+                    .collect();
+                crate::lens_debug!("palette actions: {}", serde_json::to_string(&entries).unwrap_or_default());
+            }
         }
         if let Some(job) = &self.job {
             if let Ok(out) = job.rx.try_recv() {
@@ -431,6 +447,7 @@ impl Overlay {
         };
         let messages: Vec<String> = match out {
             JobOutcome::Invocation(Ok(Invocation::Done(o))) => {
+                crate::lens_debug!("completed action {}", job.entry.target.usage_key());
                 record(env, &job.entry);
                 o.message.into_iter().collect()
             }
@@ -447,6 +464,7 @@ impl Overlay {
                 outs.into_iter().filter_map(|o| o.message).collect()
             }
             JobOutcome::Invocation(Err(e)) | JobOutcome::Chain(Err(e)) => {
+                crate::lens_debug!("failed action {}", job.entry.target.usage_key());
                 self.panel = Panel::Primary;
                 return self.toast(e.to_string(), ToastKind::Error, false);
             }

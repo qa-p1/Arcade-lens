@@ -96,7 +96,7 @@ fn run(args: &[String]) -> Result<(), String> {
             let kind = args.get(1).map(String::as_str).unwrap_or_default();
             let image = || args.get(2).map(PathBuf::from).ok_or_else(|| format!("{kind} needs an image path"));
             let solo = match kind {
-                "capture" => gui::wayland::Solo::Capture,
+                "capture" => gui::wayland::Solo::Capture(link::CaptureMode::parse(args.get(2).map(String::as_str)).map_err(|e| e.to_string())?),
                 "settings" => gui::wayland::Solo::Settings,
                 "pin" => gui::wayland::Solo::Pin(image()?),
                 "annotate" => gui::wayland::Solo::Annotate(image()?),

@@ -10,7 +10,7 @@ when no other Arcade app is installed.
 | Action | Accepts | Returns | Notes |
 |---|---|---|---|
 | `lens.capture` | — | `file/image` (PNG handoff file), `screen/region` (`{rect, monitor}`, physical pixels) | Lens's freeze overlay, multi-monitor and DPI-correct. The first selection is handed back; Esc cancels (`denied`, `user_cancelled`). |
-| `lens.capture_and_act` | — | — | The full Lens flow (select, then the palette). `options.mode: "measure"` starts in measure mode. |
+| `lens.capture_and_act` | — | — | The full Lens flow (select, then the palette). `options.mode` accepts `palette` (default), `measure`, `pin`, or `color`; see modes below. |
 | `lens.analyze` | `file/image` | — | The palette over an image, shown as Lens's frozen overlay with the image selected. |
 | `lens.recognize` | `file/image`, `text/plain` | `text/plain` (OCR text, if any), `structured/findings` | Headless. `options.ocrOnly: true` runs only OCR (Arcade Box's OCR provider). Also served one-shot (`arcade-lens --arcade-invoke`), so Lens needn't be running; the OCR model loads on first use. |
 | `lens.pin` | `file/image` | — | A floating pin. |
@@ -20,6 +20,25 @@ Wayland each of them opens its own window process, like Lens's own windows.
 `app.status.status.mode` reports `background` for an instance started with
 `--background`, or `foreground` for a first launch into Settings/capture.
 The value describes startup and is unchanged when a window is opened later.
+
+## Capture modes and input lifetime
+
+`lens.capture_and_act` accepts `options.mode`:
+
+- `palette` (default): select a region and choose an action.
+- `measure`: drag to measure, with the existing ruler and snapping.
+- `pin`: select a region and open it directly as a floating pin.
+- `color`: click a pixel to sample its exact color, or drag a region for
+  color and representative palette findings. The palette offers HEX, RGB,
+  HSL and color export actions.
+
+The mode reaches Wayland's window process as well. Unknown modes fail with
+`unsupported_input`. `lens.capture` always returns the selected pixels.
+
+`lens.pin` and `lens.analyze` decode and own the image before returning
+success. The caller may delete its handoff immediately after success; the
+GUI uses Lens's decoded pixels. Wayland copies those pixels into its own
+private window handoff before acknowledging the request.
 
 ## Settings
 

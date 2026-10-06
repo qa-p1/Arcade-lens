@@ -21,7 +21,7 @@ use crate::config::{self, Paths};
 /// What a window process shows.
 #[derive(Debug, Clone)]
 pub enum Solo {
-    Capture,
+    Capture(crate::link::CaptureMode),
     Settings,
     Pin(PathBuf),
     Annotate(PathBuf),
@@ -51,7 +51,7 @@ fn spawn(solo: &Solo) -> Option<Child> {
     let mut cmd = Command::new(exe);
     cmd.arg("--window");
     match solo {
-        Solo::Capture => cmd.arg("capture"),
+        Solo::Capture(mode) => cmd.arg("capture").arg(mode.hint()),
         Solo::Settings => cmd.arg("settings"),
         Solo::Pin(p) => cmd.arg("pin").arg(p),
         Solo::Annotate(p) => cmd.arg("annotate").arg(p),
@@ -62,9 +62,12 @@ fn spawn(solo: &Solo) -> Option<Child> {
 }
 
 /// Opens a window process and reaps it when it exits.
-fn spawn_detached(solo: &Solo) {
+fn spawn_detached(solo: &Solo) -> bool {
     if let Some(mut child) = spawn(solo) {
         std::thread::spawn(move || child.wait());
+        true
+    } else {
+        false
     }
 }
 
@@ -73,7 +76,7 @@ fn temp_dir() -> PathBuf {
 }
 
 /// Opens `image` in a new pin or editor process (`kind` is `Solo::Pin` or `Solo::Annotate`).
-pub fn open_image(kind: fn(PathBuf) -> Solo, image: &RgbaImage) {
+pub fn open_image(kind: fn(PathBuf) -> Solo, image: &RgbaImage) -> bool {
     let dir = temp_dir();
     let path =
         dir.join(format!("{}-{}.png", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos())));
@@ -86,8 +89,17 @@ pub fn open_image(kind: fn(PathBuf) -> Solo, image: &RgbaImage) {
         image.save(&path).map_err(|e| e.to_string())
     });
     match r {
-        Ok(()) => spawn_detached(&kind(path)),
-        Err(e) => notify(&format!("cannot hand over image: {e}")),
+        Ok(()) => {
+            let started = spawn_detached(&kind(path.clone()));
+            if !started {
+                let _ = std::fs::remove_file(path);
+            }
+            started
+        }
+        Err(e) => {
+            notify(&format!("cannot hand over image: {e}"));
+            false
+        }
     }
 }
 
@@ -142,7 +154,7 @@ impl Shortcut {
 fn link_request(request: crate::link::GuiRequest) -> bool {
     use crate::link::{GuiRequest, PickTarget};
     match request {
-        GuiRequest::Capture { act: true, .. } => spawn_detached(&Solo::Capture),
+        GuiRequest::Capture { act: true, mode, .. } => return spawn_detached(&Solo::Capture(mode)),
         GuiRequest::Capture { target: PickTarget::Reply(tx), .. } => {
             let out = temp_dir().join(format!(
                 "pick-{}-{}.png",
@@ -161,14 +173,8 @@ fn link_request(request: crate::link::GuiRequest) -> bool {
             });
         }
         GuiRequest::Capture { target: PickTarget::File(_), .. } => return false,
-        GuiRequest::Analyze(p) => spawn_detached(&Solo::Analyze(p)),
-        GuiRequest::Pin(p) => match image::open(&p) {
-            Ok(i) => open_image(Solo::Pin, &i.to_rgba8()),
-            Err(e) => {
-                notify(&format!("cannot open {}: {e}", p.display()));
-                return false;
-            }
-        },
+        GuiRequest::Analyze(image) => return open_image(Solo::Analyze, &image),
+        GuiRequest::Pin(image) => return open_image(Solo::Pin, &image),
     }
     true
 }
@@ -237,7 +243,7 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
     for cmd in rx {
         crate::lens_debug!("command {cmd}");
         match cmd {
-            "capture" => open_once(&mut capture, &Solo::Capture),
+            "capture" => open_once(&mut capture, &Solo::Capture(crate::link::CaptureMode::Palette)),
             "settings" => open_once(&mut settings, &Solo::Settings),
             "reload" => {
                 crate::link::refresh(&config::load_settings(paths).unwrap_or_default());

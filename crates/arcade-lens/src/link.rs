@@ -87,12 +87,46 @@ impl PickTarget {
     }
 }
 
+/// What `lens.capture_and_act` opens: the palette, or one tool directly
+/// (`options.mode`: `palette`, `measure`, `pin`, `color`).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub enum CaptureMode {
+    #[default]
+    Palette,
+    Measure,
+    Pin,
+    Color,
+}
+
+impl CaptureMode {
+    pub fn parse(hint: Option<&str>) -> Result<Self, LinkError> {
+        match hint {
+            None | Some("palette") => Ok(Self::Palette),
+            Some("measure") => Ok(Self::Measure),
+            Some("pin") => Ok(Self::Pin),
+            Some("color") => Ok(Self::Color),
+            Some(_) => Err(LinkError::unsupported("Unknown Lens capture mode")),
+        }
+    }
+
+    pub fn hint(self) -> &'static str {
+        match self {
+            Self::Palette => "palette",
+            Self::Measure => "measure",
+            Self::Pin => "pin",
+            Self::Color => "color",
+        }
+    }
+}
+
 /// An interactive request for the GUI.
 #[derive(Clone, Debug)]
 pub enum GuiRequest {
-    Capture { target: PickTarget, measure: bool, act: bool },
-    Analyze(PathBuf),
-    Pin(PathBuf),
+    Capture { target: PickTarget, mode: CaptureMode, act: bool },
+    // Own decoded pixels before acknowledging the caller: its handoff can
+    // disappear as soon as our job finishes, before the GUI drains its queue.
+    Analyze(Arc<RgbaImage>),
+    Pin(Arc<RgbaImage>),
 }
 
 type Gui = Box<dyn Fn(GuiRequest) -> bool + Send + Sync>;
@@ -127,6 +161,11 @@ fn image_path(request: &InvokeRequest) -> Result<PathBuf, LinkError> {
         return Err(LinkError::unsupported(format!("{} isn't a readable image", path.display())));
     }
     Ok(path)
+}
+
+fn gui_image(request: &InvokeRequest) -> Result<Arc<RgbaImage>, LinkError> {
+    let path = image_path(request)?;
+    image::open(&path).map(|image| Arc::new(image.to_rgba8())).map_err(|e| LinkError::unsupported(format!("{}: {e}", path.display())))
 }
 
 /// Text form of a finding for other apps (no image payloads).
@@ -243,13 +282,13 @@ impl Handler for LensHandler {
             }
             "lens.capture" | "lens.capture_and_act" => {
                 let act = request.action == "lens.capture_and_act";
-                let measure = request.options.get("mode").and_then(Value::as_str) == Some("measure");
                 if act {
-                    show(GuiRequest::Capture { target: PickTarget::Reply(mpsc::channel().0), measure, act: true })?;
+                    let mode = CaptureMode::parse(request.options.get("mode").and_then(Value::as_str))?;
+                    show(GuiRequest::Capture { target: PickTarget::Reply(mpsc::channel().0), mode, act: true })?;
                     return Ok(Reply::Done(InvokeResult::message("Arcade Lens is open")));
                 }
                 let (tx, rx) = mpsc::channel();
-                show(GuiRequest::Capture { target: PickTarget::Reply(tx), measure: false, act: false })?;
+                show(GuiRequest::Capture { target: PickTarget::Reply(tx), mode: CaptureMode::Palette, act: false })?;
                 let job = ctx.start_job();
                 let ticket = job.ticket();
                 std::thread::spawn(move || {
@@ -263,11 +302,11 @@ impl Handler for LensHandler {
                 Ok(Reply::Job(ticket))
             }
             "lens.analyze" => {
-                show(GuiRequest::Analyze(image_path(&request)?))?;
+                show(GuiRequest::Analyze(gui_image(&request)?))?;
                 Ok(Reply::Done(InvokeResult::message("Opened in Arcade Lens")))
             }
             "lens.pin" => {
-                show(GuiRequest::Pin(image_path(&request)?))?;
+                show(GuiRequest::Pin(gui_image(&request)?))?;
                 Ok(Reply::Done(InvokeResult::message("Pinned")))
             }
             other => Err(LinkError::unavailable(format!("Arcade Lens has no action {other}"))),
@@ -369,6 +408,38 @@ pub fn analyze_canvas(image: &RgbaImage, monitor: &lens_core::geometry::MonitorI
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn queued_images_survive_the_creators_handoff_cleanup() {
+        let dir = std::env::temp_dir().join(format!("lens-gui-image-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("input.png");
+        let pixels = RgbaImage::from_pixel(32, 24, image::Rgba([201, 40, 70, 255]));
+        for action in ["lens.pin", "lens.analyze"] {
+            pixels.save(&path).unwrap();
+            let request = InvokeRequest::new(action, "arcade.test").input(Content::file(&path));
+            let image = gui_image(&request).unwrap();
+            let queued = if action == "lens.pin" { GuiRequest::Pin(image) } else { GuiRequest::Analyze(image) };
+            std::fs::remove_file(&path).unwrap();
+            match queued {
+                GuiRequest::Pin(image) | GuiRequest::Analyze(image) => assert_eq!(*image, pixels),
+                _ => unreachable!(),
+            }
+        }
+        std::fs::write(&path, b"not an image").unwrap();
+        let request = InvokeRequest::new("lens.pin", "arcade.test").input(Content::file(&path));
+        assert!(gui_image(&request).is_err(), "invalid pixels must fail before acknowledging success");
+        std::fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn capture_mode_hints_are_explicit() {
+        assert_eq!(CaptureMode::parse(None).unwrap(), CaptureMode::Palette);
+        for mode in [CaptureMode::Palette, CaptureMode::Measure, CaptureMode::Pin, CaptureMode::Color] {
+            assert_eq!(CaptureMode::parse(Some(mode.hint())).unwrap(), mode);
+        }
+        assert!(CaptureMode::parse(Some("unknown")).is_err());
+    }
 
     #[test]
     fn status_reports_how_the_instance_was_started() {

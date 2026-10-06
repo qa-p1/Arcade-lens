@@ -115,6 +115,7 @@ pub struct Overlay {
     pub windows: Vec<WindowInfo>,
     pub root_monitor: usize,
     pub measure: bool,
+    pub mode: crate::link::CaptureMode,
     drag: Option<Drag>,
     pub sel: Option<Sel>,
     analysis: Option<Analysis>,
@@ -194,6 +195,7 @@ impl Overlay {
             windows,
             root_monitor,
             measure: false,
+            mode: crate::link::CaptureMode::Palette,
             drag: None,
             sel: None,
             analysis: None,
@@ -231,6 +233,13 @@ impl Overlay {
         if let Some(target) = self.pick.take() {
             target.deliver(crate::link::Captured { image: crop, rect: global, monitor: Some(v.monitor.name.clone()) });
             self.close_requested = true;
+            return;
+        }
+        if self.mode == crate::link::CaptureMode::Pin {
+            match env.host.pin(Arc::new(crop), Some(global)) {
+                Ok(()) => self.close_requested = true,
+                Err(e) => self.toast(e.to_string(), ToastKind::Error, false),
+            }
             return;
         }
         let mut selection = Selection::new(global, crop);
@@ -588,6 +597,10 @@ impl Overlay {
         if primary && self.sel.is_none() && self.drag.is_none() {
             let hint = if self.measure {
                 "Measure · drag to measure a box · C copy · M back · Esc close"
+            } else if self.mode == crate::link::CaptureMode::Pin {
+                "Pin · drag to select a region · Esc close"
+            } else if self.mode == crate::link::CaptureMode::Color {
+                "Color · click a pixel or drag a region · Esc close"
             } else if self.windows.is_empty() {
                 "Drag to select · M measure · Esc close"
             } else {
@@ -745,7 +758,7 @@ impl Overlay {
                 if bg.drag_stopped() {
                     self.drag = None;
                     if !matches!(d.kind, DragKind::Measure) {
-                        if rect.width >= 3 && rect.height >= 3 {
+                        if (rect.width >= 3 && rect.height >= 3) || (self.mode == crate::link::CaptureMode::Color && rect.width > 0 && rect.height > 0) {
                             self.set_selection(env, mon, rect);
                         } else {
                             self.sel = None;
@@ -757,6 +770,10 @@ impl Overlay {
         if bg.clicked() && self.drag.is_none() && !self.measure {
             if let Some((x, y)) = hover_px {
                 if !self.inside_selection(mon, hover_px) {
+                    if self.mode == crate::link::CaptureMode::Color {
+                        self.set_selection(env, mon, Rect::new(x, y, 1, 1));
+                        return;
+                    }
                     let m = self.view(mon).monitor.rect;
                     if let Some(w) = self.window_at(mon, x, y).cloned() {
                         let local = Rect::new(w.rect.x - m.x, w.rect.y - m.y, w.rect.width, w.rect.height);

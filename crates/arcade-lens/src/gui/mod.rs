@@ -70,7 +70,8 @@ impl AppState {
 
     fn add_pin(&mut self, image: Arc<RgbaImage>, origin: Option<lens_core::geometry::Rect>) {
         if self.solo {
-            return wayland::open_image(wayland::Solo::Pin, &image);
+            wayland::open_image(wayland::Solo::Pin, &image);
+            return;
         }
         let scale = origin
             .and_then(|o| {
@@ -86,7 +87,8 @@ impl AppState {
 
     fn add_editor(&mut self, image: Arc<RgbaImage>) {
         if self.solo {
-            return wayland::open_image(wayland::Solo::Annotate, &image);
+            wayland::open_image(wayland::Solo::Annotate, &image);
+            return;
         }
         let id = self.id();
         self.editors.push(annotate::Editor::new(id, image));
@@ -193,25 +195,22 @@ impl LensApp {
         use crate::link::GuiRequest;
         self.activity = true;
         match request {
-            GuiRequest::Capture { target, measure, act } => {
+            GuiRequest::Capture { target, mode, act } => {
                 self.begin_capture(ctx);
                 let mut st = self.state.lock().unwrap();
                 if let Some(ov) = &mut st.overlay {
                     if act {
-                        ov.measure = measure;
+                        ov.mode = mode;
+                        ov.measure = mode == crate::link::CaptureMode::Measure;
                     } else {
                         ov.pick = Some(target);
                     }
                 }
             }
-            GuiRequest::Analyze(path) => {
+            GuiRequest::Analyze(image) => {
                 if self.state.lock().unwrap().overlay.is_some() {
                     return;
                 }
-                let image = match image::open(&path) {
-                    Ok(i) => i.to_rgba8(),
-                    Err(e) => return notify(&format!("cannot open {}: {e}", path.display())),
-                };
                 let monitors = lens_platform::monitors().unwrap_or_default();
                 let cursor = lens_platform::cursor_position();
                 let Some(monitor) = cursor
@@ -230,10 +229,7 @@ impl LensApp {
                     ov.set_selection(&st.env, 0, rect);
                 }
             }
-            GuiRequest::Pin(path) => match image::open(&path) {
-                Ok(i) => self.state.lock().unwrap().add_pin(Arc::new(i.to_rgba8()), None),
-                Err(e) => notify(&format!("cannot open {}: {e}", path.display())),
-            },
+            GuiRequest::Pin(image) => self.state.lock().unwrap().add_pin(image, None),
         }
     }
 
@@ -832,7 +828,7 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
     // Capture before anything of ours is on screen.
     let mut analyze_rect = None;
     let captures = match &solo {
-        Solo::Capture | Solo::Pick(_) => match lens_platform::capture_all() {
+        Solo::Capture(_) | Solo::Pick(_) => match lens_platform::capture_all() {
             Ok(c) if !c.is_empty() => c,
             Ok(_) => return Err("no monitors to capture".into()),
             Err(e) => return Err(format!("screen capture failed: {e}")),
@@ -855,7 +851,7 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
     let rt = Arc::new(loading.join().map_err(|_| "loading settings failed".to_string())??);
     crate::lens_debug!("ready after {:?}", started.elapsed());
     let root = match &solo {
-        Solo::Capture | Solo::Pick(_) | Solo::Analyze(_) => {
+        Solo::Capture(_) | Solo::Pick(_) | Solo::Analyze(_) => {
             ViewportBuilder::default().with_title("Arcade Lens").with_app_id("arcade-lens").with_decorations(false).with_fullscreen(true)
         }
         Solo::Settings => settings_view::SettingsView::builder(),
@@ -864,7 +860,12 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
     };
     let mode = Mode { daemon: false, one_shot: true, solo: true };
     start_app(rt, root, mpsc::channel(), mode, move |st, ctx| match solo {
-        Solo::Capture => st.overlay = Some(make_overlay(ctx, captures)),
+        Solo::Capture(mode) => {
+            let mut ov = make_overlay(ctx, captures);
+            ov.mode = mode;
+            ov.measure = mode == crate::link::CaptureMode::Measure;
+            st.overlay = Some(ov);
+        }
         Solo::Pick(out) => {
             let mut ov = make_overlay(ctx, captures);
             ov.pick = Some(crate::link::PickTarget::File(out));

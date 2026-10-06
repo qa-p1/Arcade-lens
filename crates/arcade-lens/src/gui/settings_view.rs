@@ -730,19 +730,21 @@ impl SettingsView {
                     ui.label(RichText::new(name).color(glyphs::TEXT).strong());
                     ui.label(RichText::new(&state).color(glyphs::MUTED).size(12.0));
                 });
-                ui.horizontal(|ui| {
-                    let mut on = !self.draft.link.disabled_peers.contains(&peer.id);
-                    if ui.add_enabled(self.draft.link.enabled, egui::Checkbox::new(&mut on, "Use with Arcade Lens")).changed() {
-                        self.draft.link.disabled_peers.retain(|id| id != &peer.id);
-                        if !on {
-                            self.draft.link.disabled_peers.push(peer.id.clone());
+                // §10.2: a missing app gets a description and Get, not a toggle.
+                if installed {
+                    ui.horizontal(|ui| {
+                        let mut on = !self.draft.link.disabled_peers.contains(&peer.id);
+                        if ui.add_enabled(self.draft.link.enabled, egui::Checkbox::new(&mut on, "Use with Arcade Lens")).changed() {
+                            self.draft.link.disabled_peers.retain(|id| id != &peer.id);
+                            if !on {
+                                self.draft.link.disabled_peers.push(peer.id.clone());
+                            }
                         }
-                    }
-                    if !peer.link_enabled {
-                        ui.label(RichText::new("Connections are off in this app").color(glyphs::MUTED).size(11.5));
-                    }
-                });
-                if !installed {
+                        if !peer.link_enabled {
+                            ui.label(RichText::new("Connections are off in this app").color(glyphs::MUTED).size(11.5));
+                        }
+                    });
+                } else {
                     ui.horizontal_wrapped(|ui| {
                         ui.label(RichText::new(peer_description(&peer.id)).color(glyphs::MUTED).size(12.0));
                         if ui.button("Get").clicked() {

@@ -767,6 +767,7 @@ macro_rules! lens_debug {
 /// Runs the background instance until it quits: the global shortcut, the
 /// tray icon and IPC, then `initial` if given.
 pub fn run(initial: Option<Trigger>) -> Result<(), String> {
+    let background = initial.is_none();
     let paths = Paths::discover();
     if lens_platform::display_server() == lens_platform::DisplayServer::Wayland {
         return wayland::daemon(&paths, initial);
@@ -795,7 +796,7 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
         true
     });
     let rt = Arc::new(Runtime::load(paths)?);
-    crate::link::start(&rt.settings);
+    crate::link::start(&rt.settings, background);
     background::integrate(&rt.paths, rt.settings.activation_shortcut.clone());
     let x11 = lens_platform::display_server() == lens_platform::DisplayServer::X11;
     let root = ViewportBuilder::default()

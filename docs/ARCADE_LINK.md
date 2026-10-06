@@ -17,6 +17,9 @@ when no other Arcade app is installed.
 
 Interactive actions start Lens in the background if it isn't running. On
 Wayland each of them opens its own window process, like Lens's own windows.
+`app.status.status.mode` reports `background` for an instance started with
+`--background`, or `foreground` for a first launch into Settings/capture.
+The value describes startup and is unchanged when a window is opened later.
 
 ## Settings
 

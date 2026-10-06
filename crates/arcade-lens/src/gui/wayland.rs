@@ -188,6 +188,7 @@ fn open_once(slot: &mut Option<Child>, solo: &Solo) {
 
 /// The background instance: IPC, the shortcut and the tray icon, no window.
 pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
+    let background = initial.is_none();
     let (tx, rx) = mpsc::channel::<&'static str>();
     let t = tx.clone();
     lens_platform::ipc::serve(&paths.endpoint(), move |cmd| {
@@ -218,7 +219,7 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
         });
     }
     crate::link::set_gui(link_request);
-    crate::link::start(&config::load_settings(paths).unwrap_or_default());
+    crate::link::start(&config::load_settings(paths).unwrap_or_default(), background);
     let mut shortcut = Shortcut { bound: None, warned: false };
     shortcut.apply(paths);
     let bound = || shortcut.bound.as_ref().map(|(s, _)| s.clone());

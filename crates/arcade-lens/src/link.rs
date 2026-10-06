@@ -214,9 +214,14 @@ pub fn recognize(paths: &Paths, request: &InvokeRequest, cancel: CancelToken) ->
 
 struct LensHandler {
     paths: Paths,
+    background: bool,
 }
 
 impl Handler for LensHandler {
+    fn status(&self) -> Value {
+        json!({ "mode": if self.background { "background" } else { "foreground" } })
+    }
+
     fn describe(&self) -> Vec<Action> {
         actions()
     }
@@ -307,7 +312,7 @@ pub fn read_captured_file(path: &Path) -> Option<Captured> {
 
 /// `--arcade-invoke`: serves one request from stdin without any window.
 pub fn serve_oneshot() -> i32 {
-    arcade_link::oneshot::serve(&LensHandler { paths: Paths::discover() })
+    arcade_link::oneshot::serve(&LensHandler { paths: Paths::discover(), background: false })
 }
 
 static PRESENCE: OnceLock<Mutex<Option<Arc<Presence>>>> = OnceLock::new();
@@ -317,12 +322,12 @@ fn slot() -> &'static Mutex<Option<Arc<Presence>>> {
 }
 
 /// Starts Lens's presence on a background thread.
-pub fn start(settings: &Settings) {
+pub fn start(settings: &Settings, background: bool) {
     let m = manifest(settings);
     std::thread::Builder::new()
         .name("lens-link".into())
         .spawn(move || {
-            let p = Presence::start(Locations::discover(), m, Arc::new(LensHandler { paths: Paths::discover() }));
+            let p = Presence::start(Locations::discover(), m, Arc::new(LensHandler { paths: Paths::discover(), background }));
             if let Some(e) = p.last_error() {
                 crate::lens_debug!("arcade link: {e}");
             }
@@ -364,6 +369,15 @@ pub fn analyze_canvas(image: &RgbaImage, monitor: &lens_core::geometry::MonitorI
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn status_reports_how_the_instance_was_started() {
+        let paths = Paths { config: "unused-config".into(), data: "unused-data".into() };
+        for (background, mode) in [(true, "background"), (false, "foreground")] {
+            let handler = LensHandler { paths: paths.clone(), background };
+            assert_eq!(handler.status(), json!({ "mode": mode }));
+        }
+    }
 
     #[test]
     fn wire_findings_are_independent_of_worker_completion_order() {

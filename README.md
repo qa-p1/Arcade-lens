@@ -128,6 +128,20 @@ that matter, and learns locally which ones you prefer. See
   counters, and can be reset.
 - Debug logging (`LENS_DEBUG=1`) never includes selection content.
 
+## Works with other Arcade apps
+
+When the other Arcade apps are installed, Lens offers Quick Look for paths,
+Box's image presets and saved pipelines, Send to my devices through
+Clipboard, and Add to Wheel. The expanded palette shows what each action
+sends. Selections containing secrets cannot be sent.
+
+Manage these connections in **Settings → Connected apps**, with a master
+switch and a **Use with Arcade Lens** switch for each installed app. Lens
+keeps its capture, palette and local recognition when used alone.
+
+Other apps can ask Lens to capture, recognize, analyze or pin an image.
+See [the exposed actions, capture modes and platform status](docs/ARCADE_LINK.md).
+
 ## Plugins
 
 Third-party recognizers and actions run out of process with declared
@@ -137,8 +151,8 @@ Copy a plugin's directory into the plugins folder (**Settings → Plugins →
 Open plugins folder**), then enable it there.
 
 [docs/PLUGINS.md](docs/PLUGINS.md) documents the manifest, protocol and
-security model. The Arcade Clipboard, Quick Look and Wheel integrations are in
-[`examples/plugins`](examples/plugins).
+security model. The [`isbn` example](examples/plugins/isbn) shows a small
+recognizer. Arcade app connections are built into Lens.
 
 ## Platform support
 
@@ -171,6 +185,11 @@ in [`packaging/`](packaging), and when the build passes:
 
 Pushing a `v<version>` tag, or publishing a release on GitHub (which
 creates the tag), builds that tag and attaches the packages to its release.
+Packages include `arcade-release.json` and `SHA256SUMS.txt` for Arcade Tools.
+CI checks out the shared Arcade Link dependency from the repository variables
+`ARCADE_LINK_REPOSITORY` and `ARCADE_LINK_REF`; their defaults pin the source
+recorded in [VENDORED](VENDORED). Publishing that dependency repository and
+replacing the local path dependency are release-owner steps.
 
 ```console
 $ cargo build --release
@@ -199,7 +218,8 @@ leave the login item and applications menu alone, as do builds run from
   ```
 - **Missing features:**
   - Share (a system share sheet) is not implemented on any platform.
-  - Send to device uses KDE Connect on Linux.
+  - Send to device uses Arcade Clipboard when available, with KDE Connect
+    as the Linux fallback.
   - macOS window commands need the Accessibility API, which is not
     implemented yet.
 - **No accessibility metadata yet.** UI inspection is pixel-based; it doesn't

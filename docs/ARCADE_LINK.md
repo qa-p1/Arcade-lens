@@ -65,11 +65,42 @@ arcade-link invoke lens lens.capture --json     # with the Arcade Link debug CLI
 Build Lens with `cargo build --release -p arcade-lens`, then run
 `python3 ../Arcade-link/tools/e2e.py --only lens`. The Lens check module
 uses the real binary in a private Xvfb/D-Bus session and tests one-shot
-and resident recognition on a generated PNG, a 240 × 160 pixel capture,
-Escape cancellation (`denied: user_cancelled`), Analyze, Pin, and
-Capture and act. It does not use the live desktop or the user's profile.
-Recognition works without downloaded OCR models; these checks verify
-image findings, and do not claim OCR model coverage.
+and resident recognition, capture, repeated Escape cancellation, all capture
+modes, and Pin/Analyze after immediate input deletion. It also drives real
+Clipboard history sends and secret refusal, Look previews, Wheel's explicit
+command confirmation, Box presets and matching pipelines, Connected apps
+toggles, Get's release-page fallback and the cached shortcut warning.
+It does not use the live desktop or the user's profile. Those checks use
+generated PNGs and QR payloads without downloaded OCR models; they verify
+image and decoded-text findings rather than OCR inference.
+
+Run the full workspace suite with an empty `ARCADE_HOME` and clippy before
+building the release binary:
+
+```sh
+cargo test --workspace
+cargo clippy --workspace --all-targets -- -D warnings
+```
+
+### Failure injection
+
+The `lens-actions` integration tests compare standalone palettes with no
+peers, remove disabled/unavailable actions, preserve surviving rows during
+late discovery, hide interactive-first pipelines, refuse secret sends at
+execution time, and leave oversized inputs disabled without a shortcut.
+The isolated mock test additionally checks real output ownership, Private
+mode refusal, cooperative cancellation, timeout and a peer crash mid-job:
+
+```sh
+python3 ../Arcade-link/tools/e2e.py run -- \
+  cargo test -p lens-actions --test arcade -- --ignored --nocapture
+python3 ../Arcade-link/tools/e2e.py --only failure
+```
+
+The shared failure group covers crash recovery, cooperative cancel, busy
+responses, corrupt/incompatible registry entries, and killing and restarting
+the real apps. A Clipboard Private-mode refusal is reported directly; it
+cannot send the same payload through the KDE Connect fallback.
 
 ## Connected actions
 
@@ -115,10 +146,10 @@ consumer watcher or peer. Linux X11 is exercised in the isolated runner;
 Linux Wayland uses the same cache in its existing window processes.
 Windows/macOS integration code is build only here and has not been run.
 
-The runner waits for Lens's full-size overlay and focuses it synchronously
-before typing in Xvfb (which has no window manager). A visible 1 × 1 root during startup or child-window
-creation is not an overlay. Checks also wait for unmapping between actions,
-so an Escape cannot be sent to the previous window during a transition.
-Automatic focus after rapid remapping remains unreliable under Xvfb: the
-native-focus check was not consistently successful. Automation's explicit
-focus does not prove that Lens always takes keyboard focus itself.
+The runner waits for Lens's full-size overlay, raises and focuses it, then
+waits for the application's focus acknowledgement before typing in Xvfb
+(which has no window manager). A visible 1 × 1 root during startup or
+child-window creation is not an overlay. Checks wait for unmapping between
+actions, so Escape reaches the new capture rather than a previous window.
+This automation verifies input handling with explicit focus; automatic
+focus after remapping still needs a run under a real window manager.

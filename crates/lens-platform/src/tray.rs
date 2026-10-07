@@ -27,19 +27,6 @@ pub struct Tray {
     native: native::Native,
 }
 
-/// Flips start at login; returns whether it is now on.
-fn toggle_autostart() -> bool {
-    let r = match crate::autostart::launch_path() {
-        Ok(exe) if !crate::autostart::is_enabled() => crate::autostart::enable(&exe),
-        Ok(_) => crate::autostart::disable(),
-        Err(e) => Err(e),
-    };
-    if let Err(e) = r {
-        eprintln!("arcade-lens: start at login: {e}");
-    }
-    crate::autostart::is_enabled()
-}
-
 impl Tray {
     /// Shows the tray icon. `on_event` runs on the tray's thread (Linux) or
     /// the main thread. On Windows and macOS this must be called on the main
@@ -71,16 +58,6 @@ impl Tray {
         #[cfg(not(any(target_os = "linux", windows, target_os = "macos")))]
         let _ = shortcut;
     }
-
-    /// Updates the Start at Login check after it changed elsewhere.
-    pub fn set_autostart(&self, on: bool) {
-        #[cfg(target_os = "linux")]
-        self.handle.update(|t| t.autostart = on);
-        #[cfg(any(windows, target_os = "macos"))]
-        self.native.set_autostart(on);
-        #[cfg(not(any(target_os = "linux", windows, target_os = "macos")))]
-        let _ = on;
-    }
 }
 
 impl Drop for Tray {
@@ -92,16 +69,14 @@ impl Drop for Tray {
 
 #[cfg(target_os = "linux")]
 mod sni {
-    use ksni::menu::{CheckmarkItem, StandardItem};
+    use ksni::menu::StandardItem;
     use ksni::{Icon, MenuItem, ToolTip};
 
     use super::{TrayEvent, TrayIcon};
-    use crate::autostart;
 
     pub struct Item {
         icons: Vec<Icon>,
         pub shortcut: Option<String>,
-        pub autostart: bool,
         on_event: Box<dyn Fn(TrayEvent) + Send + Sync>,
     }
 
@@ -116,7 +91,7 @@ mod sni {
                     data: i.rgba.as_chunks::<4>().0.iter().flat_map(|&[r, g, b, a]| [a, r, g, b]).collect(),
                 })
                 .collect();
-            Item { icons, shortcut, autostart: autostart::is_enabled(), on_event }
+            Item { icons, shortcut, on_event }
         }
 
         fn action(label: &str, event: TrayEvent) -> MenuItem<Item> {
@@ -153,25 +128,13 @@ mod sni {
             (self.on_event)(TrayEvent::Capture);
         }
 
-        fn menu_about_to_show(&mut self) {
-            // Settings may have changed it since the menu was built.
-            self.autostart = autostart::is_enabled();
-        }
-
         fn menu(&self) -> Vec<MenuItem<Self>> {
+            // The same menu as every Arcade app: open, settings, restart, quit.
             vec![
-                Self::action("Capture Screen", TrayEvent::Capture),
-                Self::action("Settings…", TrayEvent::Settings),
-                MenuItem::Separator,
-                CheckmarkItem {
-                    label: "Start at Login".into(),
-                    checked: self.autostart,
-                    activate: Box::new(|t: &mut Item| t.autostart = super::toggle_autostart()),
-                    ..Default::default()
-                }
-                .into(),
-                MenuItem::Separator,
+                Self::action("Open Lens", TrayEvent::Capture),
+                Self::action("Open Settings", TrayEvent::Settings),
                 Self::action("Restart Arcade Lens", TrayEvent::Restart),
+                MenuItem::Separator,
                 Self::action("Quit Arcade Lens", TrayEvent::Quit),
             ]
         }
@@ -182,14 +145,13 @@ mod sni {
 mod native {
     use std::sync::Arc;
 
-    use tray_icon::menu::{CheckMenuItem, Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem};
+    use tray_icon::menu::{Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem};
     use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
     use super::{TrayEvent, TrayIcon};
 
     pub struct Native {
         icon: tray_icon::TrayIcon,
-        login: CheckMenuItem,
     }
 
     fn tooltip(shortcut: Option<&str>) -> String {
@@ -202,14 +164,12 @@ mod native {
     impl Native {
         pub fn new(icons: Vec<TrayIcon>, shortcut: Option<String>, on_event: Box<dyn Fn(TrayEvent) + Send + Sync>) -> Result<Native, String> {
             let on_event: Arc<dyn Fn(TrayEvent) + Send + Sync> = on_event.into();
-            let capture = MenuItem::new("Capture Screen", true, None);
-            let settings = MenuItem::new("Settings…", true, None);
-            let login = CheckMenuItem::new("Start at Login", true, crate::autostart::is_enabled(), None);
+            let capture = MenuItem::new("Open Lens", true, None);
+            let settings = MenuItem::new("Open Settings", true, None);
             let restart = MenuItem::new("Restart Arcade Lens", true, None);
             let quit = MenuItem::new("Quit Arcade Lens", true, None);
             let menu = Menu::new();
-            menu.append_items(&[&capture, &settings, &PredefinedMenuItem::separator(), &login, &PredefinedMenuItem::separator(), &restart, &quit])
-                .map_err(|e| e.to_string())?;
+            menu.append_items(&[&capture, &settings, &restart, &PredefinedMenuItem::separator(), &quit]).map_err(|e| e.to_string())?;
 
             let actions: Vec<(MenuId, TrayEvent)> = vec![
                 (capture.id().clone(), TrayEvent::Capture),
@@ -217,13 +177,9 @@ mod native {
                 (restart.id().clone(), TrayEvent::Restart),
                 (quit.id().clone(), TrayEvent::Quit),
             ];
-            let login_id = login.id().clone();
             let f = on_event.clone();
             MenuEvent::set_event_handler(Some(move |e: MenuEvent| {
-                if e.id == login_id {
-                    // The menu toggles its own check mark.
-                    super::toggle_autostart();
-                } else if let Some((_, event)) = actions.iter().find(|(id, _)| *id == e.id) {
+                if let Some((_, event)) = actions.iter().find(|(id, _)| *id == e.id) {
                     f(*event);
                 }
             }));
@@ -247,15 +203,11 @@ mod native {
                 .with_menu_on_left_click(cfg!(target_os = "macos"))
                 .build()
                 .map_err(|e| e.to_string())?;
-            Ok(Native { icon, login })
+            Ok(Native { icon })
         }
 
         pub fn set_shortcut(&self, shortcut: Option<String>) {
             let _ = self.icon.set_tooltip(Some(tooltip(shortcut.as_deref())));
-        }
-
-        pub fn set_autostart(&self, on: bool) {
-            self.login.set_checked(on);
         }
     }
 }

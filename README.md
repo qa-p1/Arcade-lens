@@ -59,8 +59,9 @@ The palette works progressively:
   each one would send.
 
 The **tray icon** shows that Lens is running. Click it for Settings, or
-open its menu for **Capture Screen**, **Settings**, **Start at Login**,
-**Restart** and **Quit**. Opening Arcade Lens from the applications menu
+open its menu for **Open Lens** (start a capture), **Open Settings**,
+**Restart Arcade Lens** and **Quit Arcade Lens**, the same menu every Arcade
+app has. Start at login is in Settings. Opening Arcade Lens from the applications menu
 opens Settings; its right-click menu has Capture Screen and Quit.
 
 For a compositor or launcher binding, the same commands are available as

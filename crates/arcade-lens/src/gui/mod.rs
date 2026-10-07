@@ -336,9 +336,6 @@ impl LensApp {
                         Ok(_) => lens_platform::autostart::disable(),
                         Err(e) => Err(e),
                     };
-                    if let Some(t) = &self.tray {
-                        t.set_autostart(lens_platform::autostart::is_enabled());
-                    }
                     let mut st = self.state.lock().unwrap();
                     if let Some(v) = &mut st.settings {
                         v.autostart = lens_platform::autostart::is_enabled();

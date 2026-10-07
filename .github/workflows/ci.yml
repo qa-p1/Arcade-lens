@@ -26,6 +26,15 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
+      - name: Checkout Arcade Link
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.ARCADE_LINK_REPOSITORY || 'qa-p1/Arcade-link' }}
+          ref: ${{ vars.ARCADE_LINK_REF || '539fa9174f88c3f95a9d84f41253ec2630f72021' }}
+          path: .arcade-link
+      - name: Place the shared dependency beside Lens
+        shell: bash
+        run: mv .arcade-link ../Arcade-link
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -72,6 +81,15 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7
+      - name: Checkout Arcade Link
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.ARCADE_LINK_REPOSITORY || 'qa-p1/Arcade-link' }}
+          ref: ${{ vars.ARCADE_LINK_REF || '539fa9174f88c3f95a9d84f41253ec2630f72021' }}
+          path: .arcade-link
+      - name: Place the shared dependency beside Lens
+        shell: bash
+        run: mv .arcade-link ../Arcade-link
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -89,6 +107,15 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Checkout Arcade Link
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.ARCADE_LINK_REPOSITORY || 'qa-p1/Arcade-link' }}
+          ref: ${{ vars.ARCADE_LINK_REF || '539fa9174f88c3f95a9d84f41253ec2630f72021' }}
+          path: .arcade-link
+      - name: Place the shared dependency beside Lens
+        shell: bash
+        run: mv .arcade-link ../Arcade-link
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -115,6 +142,15 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
+      - name: Checkout Arcade Link
+        uses: actions/checkout@v7
+        with:
+          repository: ${{ vars.ARCADE_LINK_REPOSITORY || 'qa-p1/Arcade-link' }}
+          ref: ${{ vars.ARCADE_LINK_REF || '539fa9174f88c3f95a9d84f41253ec2630f72021' }}
+          path: .arcade-link
+      - name: Place the shared dependency beside Lens
+        shell: bash
+        run: mv .arcade-link ../Arcade-link
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin, x86_64-apple-darwin
@@ -157,7 +193,8 @@ jobs:
           TAG: v${{ needs.version.outputs.version }}
           LABEL: ${{ needs.version.outputs.label }}
         run: |
-          (cd dist && sha256sum * > SHA256SUMS.txt)
+          python3 scripts/arcade-release.py --id arcade.lens --version "${TAG#v}" --channel stable \
+            --notes "https://github.com/qa-p1/Arcade-lens/releases/tag/$TAG" --windows-installer inno dist
           prev=$(git tag --list 'v*' --sort=-v:refname | grep -vx "$TAG" | head -1 || true)
           if gh release view "$TAG" > /dev/null 2>&1; then
             # Published by hand (e.g. on the website): attach the packages.
@@ -187,7 +224,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           LABEL: ${{ needs.version.outputs.label }}
         run: |
-          (cd dist && sha256sum * > SHA256SUMS.txt)
+          python3 scripts/arcade-release.py --id arcade.lens --version "$LABEL" --channel nightly \
+            --notes "https://github.com/qa-p1/Arcade-lens/releases/tag/nightly" --windows-installer inno dist
           prev=$(git tag --list 'v*' --sort=-v:refname | head -1 || true)
           packaging/release-notes.sh nightly "$LABEL" "$prev" > notes.md
           gh release delete nightly --cleanup-tag --yes || true

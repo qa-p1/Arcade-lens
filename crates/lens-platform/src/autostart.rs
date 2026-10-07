@@ -18,12 +18,26 @@ pub fn current_exe() -> std::io::Result<PathBuf> {
 /// Inside an AppImage that is the AppImage file, since our executable only
 /// exists while the image is mounted.
 pub fn launch_path() -> std::io::Result<PathBuf> {
-    if cfg!(target_os = "linux") {
-        if let Some(image) = std::env::var_os("APPIMAGE").map(PathBuf::from).filter(|p| p.is_file()) {
+    let exe = current_exe()?;
+    #[cfg(target_os = "linux")]
+    {
+        let appdir = std::env::var_os("APPDIR").map(PathBuf::from);
+        let image = std::env::var_os("APPIMAGE").map(PathBuf::from);
+        if let Some(image) = appimage_for_exe(&exe, appdir.as_deref(), image.as_deref()) {
             return Ok(image);
         }
     }
-    current_exe()
+    Ok(exe)
+}
+
+#[cfg(target_os = "linux")]
+fn appimage_for_exe(exe: &Path, appdir: Option<&Path>, image: Option<&Path>) -> Option<PathBuf> {
+    // A launcher may itself be an AppImage and pass its environment to Lens.
+    // Only its own mounted executable should relaunch via APPIMAGE.
+    let appdir = appdir?.canonicalize().ok()?;
+    let exe = exe.canonicalize().ok()?;
+    let image = image?;
+    (exe.starts_with(appdir) && image.is_file()).then(|| image.to_path_buf())
 }
 
 /// Writes `contents` unless the file already holds exactly that.
@@ -180,6 +194,30 @@ pub fn install_launcher(exe: &Path, icons: &[(u32, Vec<u8>)]) -> std::io::Result
 #[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::*;
+
+    #[test]
+    fn appimage_is_used_only_for_its_own_mounted_executable() {
+        let dir = Path::new(env!("CARGO_MANIFEST_DIR")).join(format!("../../target/lens-appimage-test-{}", std::process::id()));
+        let mounted = dir.join("mount/usr/bin/arcade-lens");
+        let unrelated = dir.join("mount-other/arcade-lens");
+        let image = dir.join("ArcadeLens.AppImage");
+        fs::create_dir_all(mounted.parent().unwrap()).unwrap();
+        fs::create_dir_all(unrelated.parent().unwrap()).unwrap();
+        fs::write(&mounted, b"mounted Lens").unwrap();
+        fs::write(&unrelated, b"standalone Lens").unwrap();
+        fs::write(&image, b"AppImage").unwrap();
+        let appdir = dir.join("mount");
+        assert_eq!(appimage_for_exe(&mounted, Some(&appdir), Some(&image)), Some(image.clone()));
+        assert_eq!(appimage_for_exe(&unrelated, Some(&appdir), Some(&image)), None);
+        assert_eq!(appimage_for_exe(&unrelated, None, Some(&image)), None);
+        assert_eq!(appimage_for_exe(&mounted, Some(&appdir), None), None);
+        let alias = dir.join("mount-alias");
+        std::os::unix::fs::symlink("mount", &alias).unwrap();
+        assert_eq!(appimage_for_exe(&mounted, Some(&alias), Some(&image)), Some(image.clone()));
+        fs::remove_file(&image).unwrap();
+        assert_eq!(appimage_for_exe(&mounted, Some(&appdir), Some(&image)), None);
+        fs::remove_dir_all(dir).unwrap();
+    }
 
     #[test]
     fn exec_quotes_paths() {

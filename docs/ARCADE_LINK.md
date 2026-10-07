@@ -82,6 +82,25 @@ cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
+For a separate check of the normal release binary with real Linux OCR,
+place `text-detection.onnx` and `text-recognition.onnx` in a local model
+directory (the URLs are in `ocr/ocrs_engine.rs`), then run:
+
+```sh
+python3 ../Arcade-link/tools/e2e.py run -- \
+  python3 scripts/verify-desktop.py --models target/lens-ocr-models
+python3 ../Arcade-link/tools/e2e.py run -- \
+  python3 scripts/verify-desktop.py --models target/lens-ocr-models --peers
+```
+
+This uses `arcade-lens --capture`, captures rendered text, waits for native
+OCR actions, checks ocrs's output and runs Copy Text. The first scenario has
+only Lens registered; the second starts real Box, Look, Wheel and Clipboard
+before Lens. Capture, palette and OCR screenshots are saved through the
+runner's `ARCADE_E2E_SHOTS` setting. Models are copied only into the temporary
+Lens profile. This check requires ImageMagick and the UI checker's Tesseract;
+Lens's recognition itself uses ocrs.
+
 ### Failure injection
 
 The `lens-actions` integration tests compare standalone palettes with no

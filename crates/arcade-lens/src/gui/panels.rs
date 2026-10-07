@@ -203,6 +203,13 @@ fn expanded(ov: &mut Overlay, ctx: &egui::Context, env: &Env, screen: egui::Rect
     let pos = place_side(screen, sel, size);
     let mut run: Option<PaletteEntry> = None;
     let mut new_filter = filter.clone();
+    // Bring the selected row into view only when the selection or the list
+    // changes (or the panel was just opened), so the mouse wheel can scroll.
+    let follow_id = egui::Id::new("lens-expanded-follow");
+    let pass = ctx.cumulative_pass_nr();
+    let shown = (cur, visible.len());
+    let follow = ctx.data(|d| d.get_temp::<((usize, usize), u64)>(follow_id)).is_none_or(|(last, at)| last != shown || at + 1 < pass);
+    ctx.data_mut(|d| d.insert_temp(follow_id, (shown, pass)));
     egui::Area::new(egui::Id::new("lens-expanded")).order(egui::Order::Foreground).fixed_pos(pos).show(ctx, |ui| {
         theme::panel_frame().inner_margin(egui::Margin::same(8)).show(ui, |ui| {
             ui.set_width(size.x - 16.0);
@@ -273,7 +280,7 @@ fn expanded(ov: &mut Overlay, ctx: &egui::Context, env: &Env, screen: egui::Rect
                         let color = if e.safety == SafetyClass::External { EXTERNAL } else { FAINT };
                         p.text(Pos2::new(x, y + 15.0), Align2::LEFT_CENTER, if peer { short } else { format!("sends: {short}") }, theme::font(10.5), color);
                     }
-                    if selected {
+                    if selected && follow {
                         row.scroll_to_me(None);
                     }
                     if row.clicked() && !disabled {

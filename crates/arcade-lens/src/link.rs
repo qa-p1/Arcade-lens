@@ -14,7 +14,7 @@
 
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{self, Sender};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::{Arc, Mutex, OnceLock, Weak};
 
 use arcade_link::server::{Handler, InvokeContext, Reply};
 use arcade_link::{ids, Action, Content, Handoff, InvokeRequest, InvokeResult, LinkError, Locations, Manifest, Presence};
@@ -61,22 +61,72 @@ pub struct Captured {
     pub monitor: Option<String>,
 }
 
+type CaptureSender = Mutex<Option<Sender<Captured>>>;
+
+/// The GUI owns the selection sender; a job cancellation can release it
+/// even before the GUI processes its queued request.
+#[derive(Clone, Debug)]
+pub struct CaptureReply(Arc<CaptureSender>);
+
+impl CaptureReply {
+    fn new(sender: Sender<Captured>) -> Self {
+        Self(Arc::new(Mutex::new(Some(sender))))
+    }
+
+    fn cancellation(&self) -> CaptureCancel {
+        CaptureCancel(Arc::downgrade(&self.0))
+    }
+
+    pub fn is_pending(&self) -> bool {
+        self.0.lock().unwrap_or_else(|e| e.into_inner()).is_some()
+    }
+
+    pub fn deliver(self, captured: Captured) {
+        if let Some(sender) = self.0.lock().unwrap_or_else(|e| e.into_inner()).take() {
+            let _ = sender.send(captured);
+        }
+    }
+}
+
+/// A weak reference keeps cancellation from retaining the selection sender
+/// after the user closes the picker. Its identity scopes GUI dismissal to
+/// this capture, so a late cancellation cannot close a newer overlay.
+#[derive(Clone, Debug)]
+pub struct CaptureCancel(Weak<CaptureSender>);
+
+impl CaptureCancel {
+    fn release(&self) {
+        if let Some(sender) = self.0.upgrade() {
+            sender.lock().unwrap_or_else(|e| e.into_inner()).take();
+        }
+    }
+
+    pub fn matches(&self, target: &PickTarget) -> bool {
+        matches!(target, PickTarget::Reply(reply) if self.0.ptr_eq(&Arc::downgrade(&reply.0)))
+    }
+}
+
 /// Where a capture's result goes: back to the waiting job (one process), or
 /// a file (a Wayland window process, which then exits).
 #[derive(Clone, Debug)]
 pub enum PickTarget {
-    Reply(Sender<Captured>),
+    Reply(CaptureReply),
     File(PathBuf),
 }
 
 impl PickTarget {
+    pub fn is_pending(&self) -> bool {
+        match self {
+            Self::Reply(reply) => reply.is_pending(),
+            Self::File(_) => true,
+        }
+    }
+
     /// Delivers the selection. For a file target, writes `<file>` (PNG) and
     /// `<file>.json` (`{rect, monitor}`).
     pub fn deliver(self, captured: Captured) {
         match self {
-            PickTarget::Reply(tx) => {
-                let _ = tx.send(captured);
-            }
+            PickTarget::Reply(reply) => reply.deliver(captured),
             PickTarget::File(path) => {
                 let meta = json!({ "rect": captured.rect, "monitor": captured.monitor });
                 if captured.image.save(&path).is_ok() {
@@ -123,6 +173,7 @@ impl CaptureMode {
 #[derive(Clone, Debug)]
 pub enum GuiRequest {
     Capture { target: PickTarget, mode: CaptureMode, act: bool },
+    CancelCapture(CaptureCancel),
     // Own decoded pixels before acknowledging the caller: its handoff can
     // disappear as soon as our job finishes, before the GUI drains its queue.
     Analyze(Arc<RgbaImage>),
@@ -284,13 +335,21 @@ impl Handler for LensHandler {
                 let act = request.action == "lens.capture_and_act";
                 if act {
                     let mode = CaptureMode::parse(request.options.get("mode").and_then(Value::as_str))?;
-                    show(GuiRequest::Capture { target: PickTarget::Reply(mpsc::channel().0), mode, act: true })?;
+                    show(GuiRequest::Capture { target: PickTarget::Reply(CaptureReply::new(mpsc::channel().0)), mode, act: true })?;
                     return Ok(Reply::Done(InvokeResult::message("Arcade Lens is open")));
                 }
                 let (tx, rx) = mpsc::channel();
-                show(GuiRequest::Capture { target: PickTarget::Reply(tx), mode: CaptureMode::Palette, act: false })?;
+                let reply = CaptureReply::new(tx);
+                let cancel = reply.cancellation();
+                show(GuiRequest::Capture { target: PickTarget::Reply(reply), mode: CaptureMode::Palette, act: false })?;
                 let job = ctx.start_job();
                 let ticket = job.ticket();
+                job.on_cancel(move || {
+                    // Wake the worker immediately, independently of GUI frame
+                    // timing. Job::finish maps this to Cancelled on the wire.
+                    cancel.release();
+                    let _ = show(GuiRequest::CancelCapture(cancel));
+                });
                 std::thread::spawn(move || {
                     // The overlay drops the sender if the user closes it.
                     let result = match rx.recv() {
@@ -408,6 +467,68 @@ pub fn analyze_canvas(image: &RgbaImage, monitor: &lens_core::geometry::MonitorI
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn capture_job_cancel_releases_the_picker_before_the_gui_drains_its_queue() {
+        use arcade_link::client::Client;
+        use arcade_link::server::{Server, ServerConfig};
+        use arcade_link::wire::{JobDone, PeerInfo};
+        use std::time::Duration;
+
+        struct Cleanup(PathBuf);
+        impl Drop for Cleanup {
+            fn drop(&mut self) {
+                *gui().lock().unwrap_or_else(|e| e.into_inner()) = None;
+                std::fs::remove_dir_all(&self.0).ok();
+            }
+        }
+        let dir = std::env::temp_dir().join(format!("lens-capture-cancel-{}", std::process::id()));
+        let _cleanup = Cleanup(dir.clone());
+        let locations = Locations::under(&dir);
+        let handler = LensHandler { paths: Paths { config: dir.join("config"), data: dir.join("data") }, background: true };
+        let (tx, requests) = mpsc::channel();
+        set_gui(move |request| tx.send(request).is_ok());
+        let server =
+            Server::start(ServerConfig { app: PeerInfo { id: ids::LENS.into(), version: "test".into() }, locations: locations.clone() }, Arc::new(handler))
+                .unwrap();
+        let mut client = Client::connect(&locations, ids::LENS, &PeerInfo { id: ids::BOX.into(), version: "test".into() }).unwrap();
+        let start = |client: &mut Client| {
+            client.call("invoke", serde_json::to_value(InvokeRequest::new("lens.capture", ids::BOX)).unwrap()).unwrap()["job"].as_str().unwrap().to_owned()
+        };
+        let done = |client: &mut Client| -> JobDone {
+            let event = client.next_notification(Some(Duration::from_secs(1))).unwrap();
+            assert_eq!(event.method.as_deref(), Some("job.done"));
+            serde_json::from_value(event.params().clone()).unwrap()
+        };
+
+        let job = start(&mut client);
+        client.call("job.cancel", json!({ "job": job })).unwrap();
+        let cancelled = done(&mut client);
+        assert_eq!(cancelled.status, "cancelled");
+        assert_eq!(cancelled.error.unwrap().code, arcade_link::ErrorCode::Cancelled);
+        // No GUI processing is needed for job.done. The queued capture is
+        // already inert, and a targeted dismissal follows it.
+        let GuiRequest::Capture { target, .. } = requests.recv_timeout(Duration::from_secs(1)).unwrap() else { panic!("capture request") };
+        assert!(!target.is_pending());
+        let GuiRequest::CancelCapture(cancel) = requests.recv_timeout(Duration::from_secs(1)).unwrap() else { panic!("capture dismissal") };
+        assert!(cancel.matches(&target));
+
+        let next = start(&mut client);
+        let GuiRequest::Capture { target: next_target, .. } = requests.recv_timeout(Duration::from_secs(1)).unwrap() else { panic!("next capture") };
+        assert!(next_target.is_pending());
+        assert!(!cancel.matches(&next_target), "a late cancellation must not dismiss a newer picker");
+        // User Escape drops the GUI's sender. A registered cancellation
+        // callback must not keep that sender alive and hang the next job.
+        drop(next_target);
+        let dismissed = done(&mut client);
+        assert_eq!(dismissed.job, next);
+        assert_eq!(dismissed.status, "error");
+        let error = dismissed.error.unwrap();
+        assert_eq!(error.code, arcade_link::ErrorCode::Denied);
+        assert_eq!(error.reason.as_deref(), Some(arcade_link::error::reason::USER_CANCELLED));
+        drop(client);
+        drop(server);
+    }
 
     #[test]
     fn queued_images_survive_the_creators_handoff_cleanup() {

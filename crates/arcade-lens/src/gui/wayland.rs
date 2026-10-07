@@ -155,7 +155,10 @@ fn link_request(request: crate::link::GuiRequest) -> bool {
     use crate::link::{GuiRequest, PickTarget};
     match request {
         GuiRequest::Capture { act: true, mode, .. } => return spawn_detached(&Solo::Capture(mode)),
-        GuiRequest::Capture { target: PickTarget::Reply(tx), .. } => {
+        GuiRequest::Capture { target: PickTarget::Reply(reply), .. } => {
+            if !reply.is_pending() {
+                return true;
+            }
             let out = temp_dir().join(format!(
                 "pick-{}-{}.png",
                 std::process::id(),
@@ -164,14 +167,26 @@ fn link_request(request: crate::link::GuiRequest) -> bool {
             let _ = std::fs::create_dir_all(temp_dir());
             let Some(mut child) = spawn(&Solo::Pick(out.clone())) else { return false };
             std::thread::spawn(move || {
+                // Only a pending picker needs this worker. Cancellation
+                // releases its sender immediately and stops this child.
+                while reply.is_pending() {
+                    match child.try_wait() {
+                        Ok(None) => std::thread::sleep(std::time::Duration::from_millis(20)),
+                        Ok(Some(_)) | Err(_) => break,
+                    }
+                }
+                if !reply.is_pending() {
+                    let _ = child.kill();
+                }
                 let _ = child.wait();
                 if let Some(c) = crate::link::read_captured_file(&out) {
-                    let _ = tx.send(c);
+                    reply.deliver(c);
                 }
                 let _ = std::fs::remove_file(&out);
                 let _ = std::fs::remove_file(out.with_extension("png.json"));
             });
         }
+        GuiRequest::CancelCapture(_) => {} // the picker worker observes the released sender
         GuiRequest::Capture { target: PickTarget::File(_), .. } => return false,
         GuiRequest::Analyze(image) => return open_image(Solo::Analyze, &image),
         GuiRequest::Pin(image) => return open_image(Solo::Pin, &image),

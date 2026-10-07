@@ -35,6 +35,11 @@ The value describes startup and is unchanged when a window is opened later.
 The mode reaches Wayland's window process as well. Unknown modes fail with
 `unsupported_input`. `lens.capture` always returns the selected pixels.
 
+Cancelling a `lens.capture` job releases its pending selection immediately
+and dismisses that capture's overlay. A cancelled request still waiting in
+the GUI queue never opens an overlay. Cancellation of an older job cannot
+dismiss a newer capture.
+
 `lens.pin` and `lens.analyze` decode and own the image before returning
 success. The caller may delete its handoff immediately after success; the
 GUI uses Lens's decoded pixels. Wayland copies those pixels into its own

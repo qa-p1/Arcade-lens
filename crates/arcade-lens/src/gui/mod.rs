@@ -196,6 +196,9 @@ impl LensApp {
         self.activity = true;
         match request {
             GuiRequest::Capture { target, mode, act } => {
+                if !act && !target.is_pending() {
+                    return;
+                }
                 self.begin_capture(ctx);
                 let mut st = self.state.lock().unwrap();
                 if let Some(ov) = &mut st.overlay {
@@ -205,6 +208,20 @@ impl LensApp {
                     } else {
                         ov.pick = Some(target);
                     }
+                }
+            }
+            GuiRequest::CancelCapture(cancel) => {
+                let dismissed = {
+                    let mut st = self.state.lock().unwrap();
+                    if st.overlay.as_ref().and_then(|ov| ov.pick.as_ref()).is_some_and(|pick| cancel.matches(pick)) {
+                        st.overlay = None;
+                        true
+                    } else {
+                        false
+                    }
+                };
+                if dismissed {
+                    self.hide_overlay(ctx);
                 }
             }
             GuiRequest::Analyze(image) => {

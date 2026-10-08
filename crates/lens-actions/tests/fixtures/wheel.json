@@ -1,0 +1,12 @@
+{
+  "id": "arcade.wheel",
+  "name": "Arcade Wheel",
+  "version": "0.0.0-mock",
+  "shortcuts": [{ "id": "trigger", "accelerator": "F8" }],
+  "actions": [
+    { "id": "wheel.add_action", "title": "Add to Wheel", "verb": "add",
+      "accepts": ["text/url", "text/plain;hint=command", "file/*", "structured/arcade-action"],
+      "effects": ["persists", "opens-ui"], "interactive": true, "mock": { "result": { "message": "Opened Wheel Settings" } } },
+    { "id": "wheel.show", "title": "Show the Wheel", "verb": "show", "effects": ["opens-ui"], "interactive": true }
+  ]
+}

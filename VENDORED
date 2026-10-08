@@ -3,3 +3,9 @@ Source: Arcade-link/tools/arcade-release.py
 Arcade-link commit: 539fa9174f88c3f95a9d84f41253ec2630f72021
 License: MIT OR Apache-2.0
 Local adaptation: -portable.exe assets are checksummed but excluded from the install manifest; they are not Inno installers.
+
+crates/lens-actions/tests/fixtures/{box,clipboard,look,wheel}.json
+Source: Arcade-link/fixtures
+Arcade-link tag: v0.1.0
+License: MIT OR Apache-2.0
+Local adaptation: none; refresh them when the Link tag in Cargo.toml changes.

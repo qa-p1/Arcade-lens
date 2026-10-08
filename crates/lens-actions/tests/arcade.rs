@@ -38,7 +38,8 @@ impl Drop for Temp {
 }
 
 fn fixture(name: &str) -> PathBuf {
-    Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../Arcade-link/fixtures").join(format!("{name}.json"))
+    // Copies of Arcade-link/fixtures at the Link tag in Cargo.toml (see VENDORED).
+    Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures").join(format!("{name}.json"))
 }
 
 fn manifest(loc: &Locations, name: &str) -> Manifest {

@@ -1,0 +1,12 @@
+{
+  "id": "arcade.look",
+  "name": "Arcade Look",
+  "version": "0.0.0-mock",
+  "oneshot": true,
+  "actions": [
+    { "id": "look.preview", "title": "Quick Look", "verb": "preview", "accepts": ["file/*", "file/*[]", "folder/reference", "text/url"],
+      "effects": ["opens-ui"], "interactive": true, "mock": { "result": { "message": "Previewing" } } },
+    { "id": "look.inspect", "title": "Inspect", "verb": "inspect", "accepts": ["file/*"], "produces": ["structured/file-info"],
+      "mock": { "result": { "outputs": [{ "type": "structured/file-info", "data": { "kind": "image", "width": 2, "height": 2 } }] } } }
+  ]
+}

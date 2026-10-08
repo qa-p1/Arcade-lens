@@ -1,0 +1,14 @@
+{
+  "id": "arcade.clipboard",
+  "name": "Arcade Clipboard",
+  "version": "0.0.0-mock",
+  "actions": [
+    { "id": "clipboard.add", "title": "Send to my devices", "verb": "send", "accepts": ["text/*", "file/image", "file/any[]"],
+      "effects": ["sends-to-device"], "maxBytes": 16777216 },
+    { "id": "clipboard.pick", "title": "Choose from clipboard history", "verb": "pick", "interactive": true,
+      "produces": ["text/*", "file/*"], "effects": ["opens-ui"],
+      "mock": { "result": { "outputs": [{ "type": "text/plain", "text": "picked clip" }] } } },
+    { "id": "clipboard.devices", "title": "My devices", "verb": "list", "produces": ["structured/devices"],
+      "mock": { "result": { "outputs": [{ "type": "structured/devices", "data": [{ "name": "Phone", "platform": "ios", "online": true }] }] } } }
+  ]
+}

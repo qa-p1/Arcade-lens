@@ -148,6 +148,11 @@ interactive-first pipelines and checks each first input type. Invocation
 sends `box.pipeline.run` with `options.pipeline`. The pipeline's declared
 effects feed Lens's existing confirmation and secret guard.
 
+An action that opens the owning app's own window (Quick Look, Add to Wheel,
+More in Arcade Box…) closes Lens's overlay once that window is up, so the
+overlay never covers it. Lens still waits for the result in the background;
+a failure arrives as a desktop notification.
+
 Owning apps have monochrome glyph badges. Outbound actions show ↗ and
 the payload preview. Image sends are removed when Lens finds a secret,
 including at execution time. Oversized inputs stay in More with the

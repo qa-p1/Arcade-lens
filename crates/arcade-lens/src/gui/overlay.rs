@@ -102,7 +102,14 @@ struct Job {
     entry: PaletteEntry,
     params: Params,
     cancel: CancelToken,
+    /// The action opens another Arcade app's own window (Wheel's Settings,
+    /// Look's preview…) and may wait there for the user.
+    opens_peer_ui: bool,
 }
+
+/// How long a peer-UI action may keep the overlay up. Confirmation and choice
+/// prompts come back well within this; after it the owner's window is up.
+const PEER_UI_HANDOFF: Duration = Duration::from_millis(250);
 
 impl Drop for Job {
     fn drop(&mut self) {
@@ -354,6 +361,13 @@ impl Overlay {
             if let Ok(out) = job.rx.try_recv() {
                 let job = self.job.take().unwrap();
                 self.finish_job(env, job, out);
+            } else if job.opens_peer_ui && job.started.elapsed() >= PEER_UI_HANDOFF {
+                // The owner app's window is open and may wait for the user
+                // there. A full-screen overlay would cover it, so finish the
+                // job in the background and get out of the way.
+                let job = self.job.take().unwrap();
+                hand_off(env, job);
+                self.close_requested = true;
             } else {
                 ctx.request_repaint_after(Duration::from_millis(30));
             }
@@ -397,6 +411,12 @@ impl Overlay {
         let host: Arc<GuiHost> = env.host.clone();
         let cancel = CancelToken::new();
         let token = cancel.clone();
+        let opens_peer_ui = match &entry.target {
+            Target::Action(id) => {
+                id.starts_with("arcade.") && registry.action(id).is_some_and(|a| a.descriptor().effects.contains(lens_core::Effects::LAUNCHES_APP))
+            }
+            Target::Chain(_) => false,
+        };
         match &entry.target {
             Target::Chain(id) => {
                 let Some(chain) = env.rt.chains.iter().find(|c| &c.id == id).cloned() else { return };
@@ -442,7 +462,7 @@ impl Overlay {
                 });
             }
         }
-        self.job = Some(Job { rx, started: Instant::now(), entry, params, cancel });
+        self.job = Some(Job { rx, started: Instant::now(), entry, params, cancel, opens_peer_ui });
     }
 
     fn finish_job(&mut self, env: &Env, job: Job, out: JobOutcome) {
@@ -1104,6 +1124,33 @@ pub fn describe(f: &Finding) -> (String, String) {
         _ => f.summary(),
     };
     (title, summary)
+}
+
+/// Waits for a peer-UI job the overlay no longer shows. Success is silent (the
+/// owner app shows its own result); a failure becomes a desktop notification.
+fn hand_off(env: &Env, job: Job) {
+    let usage = env.usage.clone();
+    let rt = env.rt.clone();
+    std::thread::spawn(move || {
+        let key = job.entry.target.usage_key();
+        match job.rx.recv() {
+            Ok(JobOutcome::Invocation(Ok(Invocation::Done(_)))) => {
+                crate::lens_debug!("completed action {key}");
+                if rt.settings.privacy.learn_action_usage {
+                    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_secs());
+                    let mut u = usage.lock().unwrap();
+                    u.record(job.entry.capability.as_str(), &key, now);
+                    let _ = crate::config::save_usage(&rt.paths, &u);
+                }
+            }
+            Ok(JobOutcome::Invocation(Err(e)) | JobOutcome::Chain(Err(e))) => {
+                crate::lens_debug!("failed action {key}");
+                super::notify(&format!("{}: {e}", job.entry.label));
+            }
+            Ok(_) => super::notify(&format!("{}: open Lens again to finish this action", job.entry.label)),
+            Err(_) => {}
+        }
+    });
 }
 
 #[cfg(test)]

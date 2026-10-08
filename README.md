@@ -95,7 +95,7 @@ URL is a screenshot, an image, a QR code *and* a URL at the same time, and
 you get actions for all of them: Open, Copy URL and Generate QR for the URL,
 alongside Copy, Save, Pin and Annotate for the image.
 
-There are 25 built-in recognizers forming a dataflow graph (pixels → OCR →
+There are 26 built-in recognizers forming a dataflow graph (pixels → OCR →
 text → URL, command, error…) and 156 built-in actions. Ranking picks the 4–6
 that matter, and learns locally which ones you prefer. See
 [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -171,10 +171,12 @@ recognizer. Arcade app connections are built into Lens.
 | Tray icon | StatusNotifierItem | StatusNotifierItem | notification area | menu bar |
 | Start at login | XDG autostart | XDG autostart | Run key | LaunchAgent |
 
-**Testing status.** The Linux X11 build is exercised end to end under Xvfb:
-shortcut, overlay, palette, pins, measure, annotate, settings and plugins.
-The Windows and macOS code paths compile and lint cleanly for their targets
-but have not yet been run on real machines.
+**Testing status** (2026-10-08). The Linux X11 build is exercised end to end
+under Xvfb: shortcut, overlay, palette, pins, measure, annotate, settings,
+plugins and the cross-app checks in Arcade Link's runner (all passing). CI
+builds, lints and runs the test suite on Linux, Windows and macOS; the
+Windows and macOS builds have not been run interactively. Current status and
+limits: [docs/STATUS.md](docs/STATUS.md).
 
 ## Building
 

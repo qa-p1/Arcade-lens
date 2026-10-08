@@ -63,7 +63,7 @@ arcade-link invoke lens lens.capture --json     # with the Arcade Link debug CLI
 
 | | Linux X11 | Linux Wayland | Windows | macOS |
 |---|---|---|---|---|
-| Exposed actions | tested (Xvfb) | build only (window processes, as for Lens's own windows) | build only | build only |
+| Exposed actions | tested (Xvfb, Arcade Link runner) | used daily on Hyprland; not in the isolated runner | CI-built and tested, not run interactively | CI-built and tested, not run interactively |
 
 ## Verification
 
@@ -171,7 +171,7 @@ opener. Look currently supports `file://` URLs; web URLs are hidden because
 its no-execution sandbox rejects them. Headless recognition starts no
 consumer watcher or peer. Linux X11 is exercised in the isolated runner;
 Linux Wayland uses the same cache in its existing window processes.
-Windows/macOS integration code is build only here and has not been run.
+Windows/macOS integration code is built and unit-tested in CI but has not been run interactively.
 
 The runner waits for Lens's full-size overlay, raises and focuses it, then
 waits for the application's focus acknowledgement before typing in Xvfb

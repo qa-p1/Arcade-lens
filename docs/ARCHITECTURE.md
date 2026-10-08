@@ -27,7 +27,7 @@ organized and why.
 | Crate | Responsibility |
 |---|---|
 | `lens-core` | Data model, capability graph, progressive engine, plugin registry, ranking, safety policy, chains, settings. No UI, no OS calls. |
-| `lens-recognizers` | The 25 built-in recognizers: OCR integration (the platform engine, or the user's Tesseract), structured text, context (git commits, documents, subtitles), colors/palettes, UI inspection, image kind, windows, media frames, QR/barcodes. |
+| `lens-recognizers` | The 26 built-in recognizers (25 when no OCR engine is available): OCR integration (the platform engine, or the user's Tesseract), structured text, context (git commits, documents, subtitles), colors/palettes, UI inspection, image kind, windows, media frames, QR/barcodes. |
 | `lens-actions` | The 156 built-in actions and the default chains. |
 | `lens-platform` | OS services: monitor enumeration and capture, cursor, window list and window commands, keyboard focus, global shortcut (and Hyprland bindings), single-instance IPC, tray icon, autostart and launcher entries, native OCR engines. |
 | `lens-plugins` | Out-of-process plugins: manifests, discovery, the JSON-lines protocol, and proxy recognizers/actions with permission enforcement. See [PLUGINS.md](PLUGINS.md). |
@@ -38,9 +38,15 @@ organized and why.
 Lens runs as one long-lived background instance, started at login
 (`arcade-lens --background`) or from the applications menu:
 
-* A **tray icon** (StatusNotifierItem on Linux) shows that it is running and
-  offers Capture, Settings, Start at Login, Restart and Quit. Restart starts
-  a successor (`--restarting`) that waits for the old instance to exit.
+* A **tray icon** (StatusNotifierItem on Linux) shows that it is running. A
+  click opens Settings; its menu is the one every Arcade app has: Open Lens
+  (a capture), Open Settings, Restart Arcade Lens and Quit Arcade Lens.
+  Restart starts a successor (`--restarting`) that waits for the old
+  instance to exit. Start at login is a Settings switch.
+* With **Connected apps** on, an Arcade Link server thread publishes Lens's
+  manifest and serves its `lens.*` actions; `--arcade-invoke` answers a
+  single request one-shot when Lens isn't running. See
+  [ARCADE_LINK.md](ARCADE_LINK.md).
 * On its first run outside a cargo `target` directory it turns on start at
   login, and at every start it keeps the login item and the
   applications-menu entry pointing at its executable.
@@ -66,6 +72,10 @@ Lens runs as one long-lived background instance, started at login
   the compositor at runtime and re-added after a config reload.
 * Recognition runs on the engine's thread pool. The UI polls the analysis
   stream each frame and only repaints while work is outstanding.
+* On Linux (glibc) Lens caps malloc arenas at two before any thread starts.
+  With rayon workers and a thread per Link connection, freed memory otherwise
+  scattered across per-thread arenas and RSS crept under sustained OCR load
+  (115 → 143 MiB over 600 requests); with two it holds at about 125 MiB.
 
 ## Core concepts
 
@@ -235,7 +245,7 @@ Every backend reports what it supports through `HostFeatures`, and actions
 whose requirements aren't met don't appear. A missing capability never
 produces a broken button.
 
-**Verification status.** Linux X11 is exercised end to end under Xvfb. The
-Windows and macOS backends compile and pass clippy for
-`x86_64-pc-windows-msvc` and `aarch64-apple-darwin`, and CI builds and tests
-on all three OSes, but they have not been run interactively.
+**Verification status** (2026-10-08). Linux X11 is exercised end to end under
+Xvfb, including the ecosystem checks in Arcade Link's runner, and Lens runs
+daily on Hyprland. CI builds, lints and tests on Linux, Windows and macOS;
+the Windows and macOS backends have not been run interactively.

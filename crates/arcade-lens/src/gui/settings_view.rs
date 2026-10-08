@@ -57,7 +57,7 @@ impl Section {
 
 pub enum SettingsRequest {
     Save { settings: Box<Settings>, chains: Vec<Chain> },
-    DownloadModels,
+    DownloadTesseract,
     ResetUsage,
     ClearHistory,
     Autostart(bool),
@@ -78,7 +78,7 @@ pub struct SettingsView {
     pub closed: bool,
     pub autostart: bool,
     pub launcher: bool,
-    pub models_busy: bool,
+    pub tesseract_busy: bool,
 }
 
 const REVERSE_IMAGE_PRESETS: &[(&str, &str)] = &[
@@ -127,7 +127,7 @@ impl SettingsView {
             closed: false,
             autostart: lens_platform::autostart::is_enabled(),
             launcher: lens_platform::autostart::launcher_installed(),
-            models_busy: false,
+            tesseract_busy: false,
         }
     }
 
@@ -261,10 +261,18 @@ impl SettingsView {
         ui.horizontal(|ui| {
             ui.add_sized([150.0, 20.0], egui::Label::new("Text recognition"));
             ui.label(RichText::new(&self.rt.ocr_name).color(ACCENT_SOFT));
-            if self.rt.ocr_name.contains("not installed")
-                && ui.add_enabled(!self.models_busy, egui::Button::new(if self.models_busy { "Downloading…" } else { "Download OCR models (12 MB)" })).clicked()
-            {
-                out.push(SettingsRequest::DownloadModels);
+            if self.rt.ocr_name == super::runtime::OCR_MISSING {
+                match arcade_link::engines::tesseract_source() {
+                    Some(source) => {
+                        let label = if self.tesseract_busy { "Downloading…".to_string() } else { format!("Download Tesseract ({} MB)", source.size_mb) };
+                        if ui.add_enabled(!self.tesseract_busy, egui::Button::new(label)).clicked() {
+                            out.push(SettingsRequest::DownloadTesseract);
+                        }
+                    }
+                    None => {
+                        ui.label(RichText::new("Install Tesseract from your package manager").color(MUTED).size(11.5));
+                    }
+                }
             }
         });
         ui.horizontal(|ui| {

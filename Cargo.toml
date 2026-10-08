@@ -17,7 +17,7 @@ lens-platform = { path = "crates/lens-platform" }
 lens-plugins = { path = "crates/lens-plugins" }
 # Arcade Link (the shared protocol). A relative path until Arcade-link has a
 # tagged release; then a git dependency with a local [patch] override.
-arcade-link = { path = "../Arcade-link/crates/arcade-link", features = ["watch"] }
+arcade-link = { path = "../Arcade-link/crates/arcade-link", features = ["watch", "engines"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 regex = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }

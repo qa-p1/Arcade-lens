@@ -17,7 +17,7 @@ prerelease has the latest build of `main`.
 | System | Package | Setup |
 |---|---|---|
 | Windows (x64) | `…-windows-x64-setup.exe` | Installs for your user (no admin), adds a Start menu entry, optionally starts Lens at sign-in, and launches it. Uninstall from Settings → Apps. A portable `.exe` is also provided. |
-| Linux (x86_64) | `…-linux-x86_64.AppImage` | `chmod +x` it and run it. On first start it adds itself to the applications menu and to login startup. OCR models are included. |
+| Linux (x86_64) | `…-linux-x86_64.AppImage` | `chmod +x` it and run it. On first start it adds itself to the applications menu and to login startup. Text recognition uses your Tesseract; see below. |
 | macOS 12.3+ (Apple silicon and Intel) | `…-macos-universal.dmg` | Drag Arcade Lens to Applications and open it. It lives in the menu bar and adds itself to login items. The app isn't notarized: the first time, right-click it and choose Open. |
 
 To build and install from source on Linux instead:
@@ -29,8 +29,11 @@ $ ./scripts/install.sh
 This builds Lens, installs it to `~/.local/bin` and starts it. Lens then
 lives in the tray, starts at login, and appears in the applications menu as
 **Arcade Lens**. Run the script again after pulling changes; the running
-instance restarts on the new build. Text recognition needs a one-time
-download (~12 MB): **Settings → General → Download OCR models**.
+instance restarts on the new build. On Linux, text recognition uses
+Tesseract: install it from your package manager (`tesseract` plus its English
+data), or let Lens fetch a private copy (~24 MB) from **Settings → General →
+Download Tesseract**. The copy is shared by every Arcade app. Windows and
+macOS use the OCR built into the system.
 
 ## Using it
 
@@ -162,7 +165,7 @@ recognizer. Arcade app connections are built into Lens.
 | Capture | X11 (RandR monitors, per-monitor scale) | screenshot portal | xcap | xcap (needs Screen Recording permission) |
 | Global shortcut | ✓ | Hyprland: automatic; elsewhere bind `arcade-lens --capture` | ✓ | ✓ |
 | Window detection & commands | ✓ (EWMH) | — | ✓ | detection only |
-| OCR | ocrs (local) | ocrs | Windows.Media.Ocr | Apple Vision |
+| OCR | Tesseract | Tesseract | Windows.Media.Ocr | Apple Vision |
 | Live pins | ✓ | — | ✓ | ✓ |
 | Window recording | ✓ (needs ffmpeg) | — | ✓ (needs ffmpeg) | — |
 | Tray icon | StatusNotifierItem | StatusNotifierItem | notification area | menu bar |
@@ -205,9 +208,9 @@ leave the login item and applications menu alone, as do builds run from
 
 ## Known limitations
 
-- **OCR accuracy.** On Linux, OCR uses ocrs, which misreads some glyphs (for
-  example `₹`, and `l`/`1` in small UI fonts). Recognizers downstream are
-  tolerant, but they cannot recover text OCR never produced.
+- **OCR accuracy.** On Linux, OCR uses Tesseract, which can misread small UI
+  fonts (`l`/`1`). Lens upscales small selections first; recognizers downstream
+  are tolerant, but they cannot recover text OCR never produced.
 - **Wayland** doesn't allow global shortcuts, window lists or freezing
   without the portal. There, the portal screenshot *is* the freeze. With
   Hyprland's `ecosystem.enforce_permissions` on, allow the portal's

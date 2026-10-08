@@ -11,10 +11,6 @@ build = "build.rs"
 name = "arcade-lens"
 path = "src/main.rs"
 
-[features]
-default = ["ocrs"]
-ocrs = ["lens-recognizers/ocrs"]
-
 [dependencies]
 lens-core.workspace = true
 lens-recognizers.workspace = true

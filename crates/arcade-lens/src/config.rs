@@ -37,9 +37,6 @@ impl Paths {
     pub fn usage(&self) -> PathBuf {
         self.data.join("usage.json")
     }
-    pub fn models(&self) -> PathBuf {
-        self.data.join("models")
-    }
     pub fn collections(&self) -> PathBuf {
         self.data.join("collections")
     }

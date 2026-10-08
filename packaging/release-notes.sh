@@ -31,7 +31,7 @@ cat <<NOTES
 ## Installing
 
 - **Windows:** run the setup. It installs for your user only (no administrator rights), adds Arcade Lens to the Start menu and, if you keep the option, starts it when you sign in. The installer isn't code-signed yet, so SmartScreen may warn: choose **More info → Run anyway**.
-- **Linux:** make the AppImage executable (\`chmod +x ArcadeLens-*.AppImage\`) and open it. On first start it adds itself to the applications menu and to login startup. Text recognition models are included.
+- **Linux:** make the AppImage executable (\`chmod +x ArcadeLens-*.AppImage\`) and open it. On first start it adds itself to the applications menu and to login startup. Text recognition uses Tesseract: install it from your package manager, or use **Settings → General → Download Tesseract**.
 - **macOS:** open the disk image and drag **Arcade Lens** to Applications. The app isn't notarized yet, so the first time, right-click it and choose **Open**. Screen capture needs the Screen Recording permission (System Settings → Privacy & Security).
 
 Arcade Lens then runs in the tray (menu bar on macOS). Press **Ctrl+Alt+Shift+L** (Ctrl+Option+Shift+L on macOS) to select anything on screen.

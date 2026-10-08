@@ -3,7 +3,7 @@
 #
 #   packaging/linux/build-appimage.sh target/release/arcade-lens dist/ArcadeLens-x86_64.AppImage
 #
-# The OCR models are bundled, so text recognition works without a download.
+# Nothing for OCR is bundled: Lens uses the user's Tesseract.
 # On its first start the AppImage adds itself to the applications menu and
 # to the apps started at login.
 set -euo pipefail
@@ -28,12 +28,6 @@ cat > "$app/AppRun" <<'RUN'
 exec "$(dirname "$(readlink -f "$0")")/usr/bin/arcade-lens" "$@"
 RUN
 chmod 755 "$app/AppRun"
-
-models=$app/usr/share/arcade-lens/models
-mkdir -p "$models"
-for m in text-detection text-recognition; do
-  curl -fsSL --retry 3 -o "$models/$m.onnx" "https://ocrs-models.s3-accelerate.amazonaws.com/$m.onnx"
-done
 
 tool=${APPIMAGETOOL:-}
 if [ -z "$tool" ]; then

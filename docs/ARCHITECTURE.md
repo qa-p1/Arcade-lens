@@ -27,7 +27,7 @@ organized and why.
 | Crate | Responsibility |
 |---|---|
 | `lens-core` | Data model, capability graph, progressive engine, plugin registry, ranking, safety policy, chains, settings. No UI, no OS calls. |
-| `lens-recognizers` | The 25 built-in recognizers: OCR integration (ocrs, or a platform engine), structured text, context (git commits, documents, subtitles), colors/palettes, UI inspection, image kind, windows, media frames, QR/barcodes. |
+| `lens-recognizers` | The 25 built-in recognizers: OCR integration (the platform engine, or the user's Tesseract), structured text, context (git commits, documents, subtitles), colors/palettes, UI inspection, image kind, windows, media frames, QR/barcodes. |
 | `lens-actions` | The 156 built-in actions and the default chains. |
 | `lens-platform` | OS services: monitor enumeration and capture, cursor, window list and window commands, keyboard focus, global shortcut (and Hyprland bindings), single-instance IPC, tray icon, autostart and launcher entries, native OCR engines. |
 | `lens-plugins` | Out-of-process plugins: manifests, discovery, the JSON-lines protocol, and proxy recognizers/actions with permission enforcement. See [PLUGINS.md](PLUGINS.md). |
@@ -204,7 +204,7 @@ are absent from `HostFeatures`, so actions needing them simply don't appear.
 
 ## Privacy
 
-* Recognition is entirely local: OCR (ocrs/ONNX, or platform engines),
+* Recognition is entirely local: OCR (the platform engine, or Tesseract),
   QR/barcodes (rxing), all text recognizers (deterministic rules).
 * Selections are ephemeral; nothing is persisted unless an action does so.
 * `Value`'s `Debug` never prints secrets or pixels; `Sensitive` wraps raw
@@ -223,7 +223,7 @@ Shared logic stays in the crates above. `lens-platform` implements:
 | Monitors & capture | RandR + `GetImage`, scale from `Xft.dpi` | `xdg-desktop-portal` Screenshot (ashpd) | xcap | xcap |
 | Global shortcut | `global-hotkey` (XGrabKey) | Hyprland: runtime compositor binding; elsewhere bind `arcade-lens --capture` | `global-hotkey` (RegisterHotKey) | `global-hotkey` (Carbon) |
 | Overlay | override-redirect viewports | portal image, fullscreen viewport | topmost viewports | topmost viewports |
-| OCR | ocrs | ocrs | Windows.Media.Ocr | Vision |
+| OCR | Tesseract | Tesseract | Windows.Media.Ocr | Vision |
 | Window list | EWMH `_NET_CLIENT_LIST` | unavailable | xcap | xcap |
 | Window commands | EWMH client messages | — | Win32 | — (needs Accessibility) |
 

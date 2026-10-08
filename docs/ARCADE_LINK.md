@@ -12,7 +12,7 @@ when no other Arcade app is installed.
 | `lens.capture` | — | `file/image` (PNG handoff file), `screen/region` (`{rect, monitor}`, physical pixels) | Lens's freeze overlay, multi-monitor and DPI-correct. The first selection is handed back; Esc cancels (`denied`, `user_cancelled`). |
 | `lens.capture_and_act` | — | — | The full Lens flow (select, then the palette). `options.mode` accepts `palette` (default), `measure`, `pin`, or `color`; see modes below. |
 | `lens.analyze` | `file/image` | — | The palette over an image, shown as Lens's frozen overlay with the image selected. |
-| `lens.recognize` | `file/image`, `text/plain` | `text/plain` (OCR text, if any), `structured/findings` | Headless. `options.ocrOnly: true` runs only OCR (Arcade Box's OCR provider). Also served one-shot (`arcade-lens --arcade-invoke`), so Lens needn't be running; the OCR model loads on first use. |
+| `lens.recognize` | `file/image`, `text/plain` | `text/plain` (OCR text, if any), `structured/findings` | Headless. `options.ocrOnly: true` runs only OCR (Arcade Box's OCR provider). Also served one-shot (`arcade-lens --arcade-invoke`), so Lens needn't be running. |
 | `lens.pin` | `file/image` | — | A floating pin. |
 
 Interactive actions start Lens in the background if it isn't running. On
@@ -76,7 +76,7 @@ Clipboard history sends and secret refusal, Look previews, Wheel's explicit
 command confirmation, Box presets and matching pipelines, Connected apps
 toggles, Get's release-page fallback and the cached shortcut warning.
 It does not use the live desktop or the user's profile. Those checks use
-generated PNGs and QR payloads without downloaded OCR models; they verify
+generated PNGs and QR payloads; they verify
 image and decoded-text findings rather than OCR inference.
 
 Run the full workspace suite with an empty `ARCADE_HOME` and clippy before
@@ -87,24 +87,22 @@ cargo test --workspace
 cargo clippy --workspace --all-targets -- -D warnings
 ```
 
-For a separate check of the normal release binary with real Linux OCR,
-place `text-detection.onnx` and `text-recognition.onnx` in a local model
-directory (the URLs are in `ocr/ocrs_engine.rs`), then run:
+For a separate check of the normal release binary with real Linux OCR
+(the system Tesseract), run:
 
 ```sh
 python3 ../Arcade-link/tools/e2e.py run -- \
-  python3 scripts/verify-desktop.py --models target/lens-ocr-models
+  python3 scripts/verify-desktop.py
 python3 ../Arcade-link/tools/e2e.py run -- \
-  python3 scripts/verify-desktop.py --models target/lens-ocr-models --peers
+  python3 scripts/verify-desktop.py --peers
 ```
 
 This uses `arcade-lens --capture`, captures rendered text, waits for native
-OCR actions, checks ocrs's output and runs Copy Text. The first scenario has
+OCR actions, checks Tesseract's output and runs Copy Text. The first scenario has
 only Lens registered; the second starts real Box, Look, Wheel and Clipboard
 before Lens. Capture, palette and OCR screenshots are saved through the
-runner's `ARCADE_E2E_SHOTS` setting. Models are copied only into the temporary
-Lens profile. This check requires ImageMagick and the UI checker's Tesseract;
-Lens's recognition itself uses ocrs.
+runner's `ARCADE_E2E_SHOTS` setting. This check requires ImageMagick and
+Tesseract.
 
 ### Failure injection
 

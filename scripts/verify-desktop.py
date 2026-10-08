@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """Verify the normal Linux release UI and OCR inside Arcade Link's runner.
 
-Run with tools/e2e.py run -- python3 scripts/verify-desktop.py --models DIR
+Run with tools/e2e.py run -- python3 scripts/verify-desktop.py
 and repeat with --peers. Never launches against the owner's desktop/profile.
-Requires ImageMagick, Tesseract, the built siblings and downloaded ocrs models.
+Requires ImageMagick, Tesseract and the built siblings.
 """
 
 import argparse
 import importlib.util
 import json
 import os
-import shutil
 import signal
 import subprocess
 from pathlib import Path
@@ -24,7 +23,7 @@ def load_module(name, path, **globals):
     return module
 
 
-def verify(models, peers):
+def verify(peers):
     assert os.environ.get("ARCADE_E2E_INNER") == "1", "use Arcade-link/tools/e2e.py run --"
     root = Path(os.environ["ARCADE_E2E_ROOT"])
     for key in ("HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "ARCADE_HOME", "ARCADE_LENS_HOME"):
@@ -40,10 +39,6 @@ def verify(models, peers):
     s = harness.Session.__new__(harness.Session)
     s.root, s.env, s.procs = root, dict(os.environ), {}
     label = "peers" if peers else "alone"
-    destination = Path(s.env["ARCADE_LENS_HOME"]) / "data/models"
-    destination.mkdir(parents=True, exist_ok=True)
-    for name in ("text-detection.onnx", "text-recognition.onnx"):
-        shutil.copyfile(models / name, destination / name)
     assert json.loads(s.cli("ls", "--json", check=True).stdout) == [], "session has existing peers"
     try:
         if peers:
@@ -98,7 +93,7 @@ def verify(models, peers):
         # Verify the real OCR engine and output as well as its native palette.
         code, result = s.invoke("lens", "lens.recognize", "--file", str(fixture),
                                 "--option", "ocrOnly=true", timeout=120)
-        assert code == 0 and result["data"]["ocrEngine"] == "ocrs", result
+        assert code == 0 and result["data"]["ocrEngine"] == "Tesseract", result
         text = "\n".join(o["text"] for o in result["outputs"] if o["type"] == "text/plain")
         assert "arcade lens reads this text" in text.lower(), text
         assert "capture and copy locally" in text.lower(), text
@@ -107,7 +102,7 @@ def verify(models, peers):
                      "native Copy Text did not complete")
         checks._closed(s)
         assert {row["id"] for row in json.loads(s.cli("ls", "--json", check=True).stdout)} == wanted
-        print(json.dumps({"scenario": label, "registered": sorted(wanted), "ocrEngine": "ocrs",
+        print(json.dumps({"scenario": label, "registered": sorted(wanted), "ocrEngine": "Tesseract",
                           "text": text, "capture": "840x210", "nativeCopyText": "passed"}), flush=True)
     except Exception:
         s.screenshot(f"lens-final-{label}-failed")
@@ -120,7 +115,6 @@ def verify(models, peers):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--models", type=Path, required=True)
     parser.add_argument("--peers", action="store_true")
     args = parser.parse_args()
-    verify(args.models.resolve(), args.peers)
+    verify(args.peers)

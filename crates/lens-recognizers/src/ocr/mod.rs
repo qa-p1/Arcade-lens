@@ -1,8 +1,8 @@
 //! OCR integration.
 //!
-//! OCR engines are pluggable: platform-native engines (Windows.Media.Ocr,
-//! Apple Vision) are the best local option where available, with a portable
-//! engine elsewhere. All of them run locally.
+//! OCR engines are pluggable: the engine built into the OS (Windows.Media.Ocr,
+//! Apple Vision) where there is one, otherwise the user's Tesseract. Nothing
+//! is bundled and everything runs locally.
 
 use std::sync::Arc;
 
@@ -84,5 +84,4 @@ impl Recognizer for OcrRecognizer {
     }
 }
 
-#[cfg(feature = "ocrs")]
-pub mod ocrs_engine;
+pub mod tesseract;

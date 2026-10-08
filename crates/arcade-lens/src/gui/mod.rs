@@ -57,7 +57,7 @@ struct AppState {
     settings_requests: Vec<settings_view::SettingsRequest>,
     notices: Vec<String>,
     next_id: u64,
-    models_rx: Option<Receiver<Result<(), String>>>,
+    tesseract_rx: Option<Receiver<Result<(), String>>>,
     /// One window per process (Wayland): new pins and editors open in their own process.
     solo: bool,
 }
@@ -310,18 +310,17 @@ impl LensApp {
                         v.status = Some((msg, ok));
                     }
                 }
-                settings_view::SettingsRequest::DownloadModels => {
+                settings_view::SettingsRequest::DownloadTesseract => {
                     let (tx, rx) = mpsc::channel();
-                    let dir = self.paths.models();
                     let c = ctx.clone();
                     std::thread::spawn(move || {
-                        let _ = tx.send(crate::net::download_models(&dir));
+                        let _ = tx.send(arcade_link::engines::download_tesseract().map(|_| ()));
                         c.request_repaint();
                     });
                     let mut st = self.state.lock().unwrap();
-                    st.models_rx = Some(rx);
+                    st.tesseract_rx = Some(rx);
                     if let Some(v) = &mut st.settings {
-                        v.models_busy = true;
+                        v.tesseract_busy = true;
                     }
                 }
                 settings_view::SettingsRequest::ResetUsage => {
@@ -433,17 +432,17 @@ impl LensApp {
                 }
             }
         }
-        if let Some(rx) = &st.models_rx {
+        if let Some(rx) = &st.tesseract_rx {
             if let Ok(r) = rx.try_recv() {
-                st.models_rx = None;
+                st.tesseract_rx = None;
                 drop(st);
                 match r {
                     Ok(()) => self.reload_runtime(ctx),
-                    Err(e) => notify(&format!("OCR model download failed: {e}")),
+                    Err(e) => notify(&format!("Tesseract download failed: {e}")),
                 }
                 let mut st = self.state.lock().unwrap();
                 if let Some(v) = &mut st.settings {
-                    v.models_busy = false;
+                    v.tesseract_busy = false;
                 }
                 return;
             }
@@ -836,7 +835,7 @@ fn send_trigger(tx: &Sender<Trigger>, t: Trigger) {
 /// Runs one window as this process's root window (Wayland), until it closes.
 pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
     use wayland::Solo;
-    // Settings, OCR models and plugins load while the screen is captured.
+    // Settings, the OCR engine and plugins load while the screen is captured.
     let started = std::time::Instant::now();
     let loading = std::thread::spawn(move || Runtime::load(paths));
     // Capture before anything of ours is on screen.
@@ -975,7 +974,7 @@ fn start_app(
                 settings_requests: Vec::new(),
                 notices: Vec::new(),
                 next_id: 0,
-                models_rx: None,
+                tesseract_rx: None,
                 solo,
             };
             Ok(Box::new(LensApp {

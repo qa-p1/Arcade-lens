@@ -8,7 +8,7 @@
 //! | monitors / capture | RandR + GetImage | screenshot portal | xcap (WGC/GDI) | xcap (ScreenCaptureKit) |
 //! | windows | EWMH | — (not exposed) | xcap + Win32 | xcap |
 //! | window control | EWMH messages | — | Win32 | — (needs Accessibility) |
-//! | OCR | ocrs | ocrs | Windows.Media.Ocr | Vision |
+//! | OCR | Tesseract | Tesseract | Windows.Media.Ocr | Vision |
 
 use std::sync::Arc;
 

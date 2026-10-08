@@ -35,6 +35,14 @@ Once running, press the activation shortcut (Ctrl+Alt+Shift+L by default)
 or use the tray icon.";
 
 fn main() -> ExitCode {
+    // glibc gives each allocating thread its own malloc arena. With rayon's
+    // workers and a thread per Link connection, freed memory scattered across
+    // them and RSS crept by ~25 MiB over a few hundred OCR calls; two arenas
+    // keep it flat. Must run before any thread starts.
+    #[cfg(all(target_os = "linux", target_env = "gnu"))]
+    unsafe {
+        libc::mallopt(libc::M_ARENA_MAX, 2);
+    }
     // Older macOS passes `-psn_…` to apps opened from Finder.
     let args: Vec<String> = std::env::args().skip(1).filter(|a| !a.starts_with("-psn_")).collect();
     match run(&args) {

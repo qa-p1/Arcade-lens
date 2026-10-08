@@ -26,9 +26,12 @@ other documents describe how it works.
 | CI (Linux, Windows, macOS) | passing at `5ae1789` |
 | Arcade Link e2e, `lens` group and cross-app flows | all passing (74/74 ecosystem checks) |
 | Stress: 180 concurrent `lens.recognize` calls (6 at a time) | 0 failures, p50 0.19 s; RSS flat at about 125 MiB |
-| Benchmark against the 2026-10-05 baseline | startup 2.9 → 3.0 ms, warm invoke 1.5 → 1.4 ms, idle RSS 80 → 82 MiB, idle CPU 0 |
+| Benchmark against the 2026-10-05 baseline | startup 2.9 → 3.0 ms, warm invoke 1.5 → 1.5 ms, idle RSS 80.2 → 81.4 MiB, idle CPU median 0 ms/5 s |
 
 ## Limits
+
+- The idle CPU median is zero, but two of five samples recorded 10 ms. It is
+  not proof of zero wakeups; see the [benchmark report](https://github.com/qa-p1/Arcade-Link/blob/main/COMPLETION_REPORT.md).
 
 - Windows and macOS are compiled and tested in CI but have not been run
   interactively.

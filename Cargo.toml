@@ -15,9 +15,11 @@ lens-recognizers = { path = "crates/lens-recognizers" }
 lens-actions = { path = "crates/lens-actions" }
 lens-platform = { path = "crates/lens-platform" }
 lens-plugins = { path = "crates/lens-plugins" }
-# Arcade Link (the shared protocol). A relative path until Arcade-link has a
-# tagged release; then a git dependency with a local [patch] override.
-arcade-link = { path = "../Arcade-link/crates/arcade-link", features = ["watch", "engines"] }
+# Arcade Link (the shared protocol), pinned to a release tag. To build
+# against a local checkout instead, add to .cargo/config.toml (not committed):
+#   [patch."https://github.com/qa-p1/Arcade-Link"]
+#   arcade-link = { path = "<path to>/Arcade-link/crates/arcade-link" }
+arcade-link = { git = "https://github.com/qa-p1/Arcade-Link", tag = "v0.1.0", features = ["watch", "engines"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 regex = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }

@@ -190,10 +190,8 @@ in [`packaging/`](packaging), and when the build passes:
 Pushing a `v<version>` tag, or publishing a release on GitHub (which
 creates the tag), builds that tag and attaches the packages to its release.
 Packages include `arcade-release.json` and `SHA256SUMS.txt` for Arcade Tools.
-CI checks out the shared Arcade Link dependency from the repository variables
-`ARCADE_LINK_REPOSITORY` and `ARCADE_LINK_REF`; their defaults pin the source
-recorded in [VENDORED](VENDORED). Publishing that dependency repository and
-replacing the local path dependency are release-owner steps.
+Arcade Link is a git dependency pinned to a release tag (`v0.1.0`, in
+`Cargo.toml`); a `[patch]` override builds against a local checkout instead.
 
 ```console
 $ cargo build --release

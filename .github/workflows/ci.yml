@@ -26,15 +26,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
-      - name: Checkout Arcade Link
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ vars.ARCADE_LINK_REPOSITORY || 'qa-p1/Arcade-link' }}
-          ref: ${{ vars.ARCADE_LINK_REF || '5e1b916b62beae60997ffe5fb2e9b31ac70b3f5e' }}
-          path: .arcade-link
-      - name: Place the shared dependency beside Lens
-        shell: bash
-        run: mv .arcade-link ../Arcade-link
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: clippy, rustfmt
@@ -81,15 +72,6 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v7
-      - name: Checkout Arcade Link
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ vars.ARCADE_LINK_REPOSITORY || 'qa-p1/Arcade-link' }}
-          ref: ${{ vars.ARCADE_LINK_REF || '5e1b916b62beae60997ffe5fb2e9b31ac70b3f5e' }}
-          path: .arcade-link
-      - name: Place the shared dependency beside Lens
-        shell: bash
-        run: mv .arcade-link ../Arcade-link
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -107,15 +89,6 @@ jobs:
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Checkout Arcade Link
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ vars.ARCADE_LINK_REPOSITORY || 'qa-p1/Arcade-link' }}
-          ref: ${{ vars.ARCADE_LINK_REF || '5e1b916b62beae60997ffe5fb2e9b31ac70b3f5e' }}
-          path: .arcade-link
-      - name: Place the shared dependency beside Lens
-        shell: bash
-        run: mv .arcade-link ../Arcade-link
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
         with:
@@ -142,15 +115,6 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
-      - name: Checkout Arcade Link
-        uses: actions/checkout@v7
-        with:
-          repository: ${{ vars.ARCADE_LINK_REPOSITORY || 'qa-p1/Arcade-link' }}
-          ref: ${{ vars.ARCADE_LINK_REF || '5e1b916b62beae60997ffe5fb2e9b31ac70b3f5e' }}
-          path: .arcade-link
-      - name: Place the shared dependency beside Lens
-        shell: bash
-        run: mv .arcade-link ../Arcade-link
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: aarch64-apple-darwin, x86_64-apple-darwin

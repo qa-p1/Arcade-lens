@@ -296,6 +296,27 @@ fn disabled_peers_and_live_unavailability_remove_cached_entries() {
     assert!(r.action("core.region.send").is_some());
 }
 
+#[test]
+fn shelf_and_find_are_connected_apps_and_leave_the_palette_unchanged() {
+    let temp = Temp::new();
+    let loc = temp.locations();
+    manifest(&loc, "shelf");
+    manifest(&loc, "find");
+    let base = Arc::new(lens_actions::standard_registry(None).unwrap());
+    let settings = Arc::new(Settings::default());
+    let service = Arcade::start(base.clone(), settings.clone(), loc.clone());
+    wait(|| service.revision() > 0);
+    let snap = service.snapshot();
+    assert_eq!(snap.peers.iter().map(|p| p.id.as_str()).collect::<Vec<_>>(), [ids::BOX, ids::LOOK, ids::WHEEL, ids::CLIPBOARD, ids::SHELF, ids::FIND]);
+    for peer in snap.peers.iter().filter(|p| [ids::SHELF, ids::FIND].contains(&p.id.as_str())) {
+        assert!(matches!(peer.state, arcade_link::client::AppState::Installed { .. }), "{}", peer.id);
+    }
+    // Peer actions are offered only for the apps Lens integrates with.
+    for findings in [vec![region()], vec![finding(2, caps::TEXT, Value::text("quarterly report"))]] {
+        assert_eq!(snapshot(&build(&base, &findings, &settings)), snapshot(&build(&snap.registry, &findings, &settings)));
+    }
+}
+
 struct Mock(Child);
 impl Drop for Mock {
     fn drop(&mut self) {

@@ -164,6 +164,11 @@ per-peer **Use with Arcade Lens** toggles. Save applies them. The master
 switch removes Lens's actions and stops its listener. Get delegates to
 `tools.install` with `options.app` if available, otherwise opens the app's
 releases page. Diagnostics and shortcut clash warnings use cached state.
+The page lists every app Arcade Link knows (`ids::APPS`): with Link
+`v0.2.0` that includes Arcade Shelf and Arcade Find, shown with their
+glyphs, Link's description and a Get link. Lens doesn't offer Shelf or
+Find actions in the palette yet; peer actions are offered only for the
+apps in the table above.
 
 Quick Look prefers the Link on all three desktop platforms. On Linux, an
 unsuccessful preview falls back to GNOME's D-Bus previewer, then the default

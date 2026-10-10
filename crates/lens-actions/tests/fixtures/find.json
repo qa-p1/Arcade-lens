@@ -1,0 +1,106 @@
+{
+  "id": "arcade.find",
+  "name": "Arcade Find",
+  "version": "0.1.0-mock",
+  "launch": {
+    "background": [
+      "--background"
+    ],
+    "invoke": [
+      "--arcade-invoke"
+    ]
+  },
+  "shortcuts": [
+    {
+      "id": "show",
+      "accelerator": "Ctrl+Alt+F"
+    }
+  ],
+  "actions": [
+    {
+      "id": "find.search",
+      "version": 1,
+      "title": "Find matching files",
+      "verb": "search",
+      "accepts": [
+        "text/plain"
+      ],
+      "produces": [
+        "file/*[]",
+        "folder/reference"
+      ],
+      "effects": [],
+      "interactive": false,
+      "privacy": "local",
+      "mock": {
+        "result": {
+          "outputs": [
+            {
+              "type": "file/document",
+              "path": "/tmp/arcade-mock/report-2024-q3.pdf",
+              "size": 20480
+            },
+            {
+              "type": "folder/reference",
+              "path": "/tmp/arcade-mock/Reports"
+            }
+          ],
+          "message": "2 matches",
+          "data": {
+            "query": "report",
+            "matched": 2,
+            "truncated": false,
+            "indexing": false,
+            "elapsedMs": 1.2,
+            "results": [
+              {
+                "path": "/tmp/arcade-mock/report-2024-q3.pdf",
+                "name": "report-2024-q3.pdf",
+                "parent": "/tmp/arcade-mock",
+                "type": "file/document",
+                "isDir": false,
+                "isSymlink": false,
+                "size": 20480,
+                "modified": 1760000000,
+                "score": 812
+              },
+              {
+                "path": "/tmp/arcade-mock/Reports",
+                "name": "Reports",
+                "parent": "/tmp/arcade-mock",
+                "type": "folder/reference",
+                "isDir": true,
+                "isSymlink": false,
+                "size": null,
+                "modified": 1760000000,
+                "score": 640
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "find.show",
+      "version": 1,
+      "title": "Search in Find",
+      "verb": "search",
+      "accepts": [
+        "text/plain",
+        "file/*",
+        "folder/reference"
+      ],
+      "produces": [],
+      "effects": [
+        "opens-ui"
+      ],
+      "interactive": true,
+      "privacy": "local",
+      "mock": {
+        "result": {
+          "message": "Showing Arcade Find"
+        }
+      }
+    }
+  ]
+}

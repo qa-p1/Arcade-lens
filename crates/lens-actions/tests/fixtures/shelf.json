@@ -1,0 +1,82 @@
+{
+  "id": "arcade.shelf",
+  "name": "Arcade Shelf",
+  "version": "0.1.0-mock",
+  "launch": {
+    "background": [
+      "--background"
+    ]
+  },
+  "shortcuts": [
+    {
+      "id": "show",
+      "accelerator": "Ctrl+Alt+S"
+    }
+  ],
+  "actions": [
+    {
+      "id": "shelf.add",
+      "version": 1,
+      "title": "Add to Shelf",
+      "verb": "add",
+      "accepts": [
+        "file/*",
+        "file/*[]",
+        "folder/reference",
+        "text/plain",
+        "text/url",
+        "text/rich"
+      ],
+      "produces": [],
+      "effects": [
+        "persists"
+      ],
+      "interactive": false,
+      "privacy": "local",
+      "mock": {
+        "result": {
+          "message": "Added 1 item to Quick Shelf",
+          "data": {
+            "shelf": {
+              "id": "quick",
+              "name": "Quick Shelf"
+            },
+            "added": [],
+            "skipped": []
+          }
+        }
+      }
+    },
+    {
+      "id": "shelf.show",
+      "version": 1,
+      "title": "Show Shelf",
+      "verb": "show",
+      "accepts": [],
+      "produces": [],
+      "effects": [
+        "opens-ui"
+      ],
+      "interactive": true,
+      "privacy": "local"
+    },
+    {
+      "id": "shelf.pick",
+      "version": 1,
+      "title": "Pick from Shelf",
+      "verb": "pick",
+      "accepts": [],
+      "produces": [
+        "file/*[]",
+        "folder/reference",
+        "text/plain",
+        "text/url"
+      ],
+      "effects": [
+        "opens-ui"
+      ],
+      "interactive": true,
+      "privacy": "local"
+    }
+  ]
+}

@@ -445,3 +445,121 @@ fn real_mock_peers_invoke_outputs_wheel_payloads_private_cancel_crash_and_timeou
         "real mocks: image output copied, Box open, Clipboard send/Private mode, Wheel command/preset, Look, cancellation, timeout, mid-job crash verified"
     );
 }
+
+struct Peer(Child);
+impl Drop for Peer {
+    fn drop(&mut self) {
+        self.0.kill().ok();
+        self.0.wait().ok();
+    }
+}
+
+/// The real apps, not mocks: Lens's "Add to Shelf" and "Search in Find"
+/// entries against running Arcade Shelf and Arcade Find binaries, in a
+/// private ARCADE_HOME. Find needs a display (Xvfb or a Wayland session).
+#[test]
+#[ignore = "real apps: set ARCADE_SHELF_BIN and ARCADE_FIND_BIN (and a display for Find)"]
+fn real_shelf_and_find_take_lens_entries() {
+    let (Some(shelf_bin), Some(find_bin)) = (std::env::var_os("ARCADE_SHELF_BIN"), std::env::var_os("ARCADE_FIND_BIN")) else {
+        panic!("set ARCADE_SHELF_BIN and ARCADE_FIND_BIN");
+    };
+    let temp = Temp::new();
+    let loc = temp.locations();
+    let run = temp.0.join("xdg-run");
+    let files = temp.0.join("files");
+    let find_home = temp.0.join("find");
+    let shelf_home = temp.0.join("shelf");
+    for dir in [&run, &files, &find_home.join("config"), &shelf_home] {
+        std::fs::create_dir_all(dir).unwrap();
+    }
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        std::fs::set_permissions(&run, std::fs::Permissions::from_mode(0o700)).unwrap();
+    }
+    std::fs::write(files.join("quarterly-report.txt"), "q3").unwrap();
+    std::fs::write(find_home.join("config/settings.json"), json!({"schema": 1, "roots": [files]}).to_string()).unwrap();
+    let command = |bin: &std::ffi::OsStr| {
+        let mut c = Command::new(bin);
+        c.env("ARCADE_HOME", temp.0.as_path())
+            .env("XDG_RUNTIME_DIR", &run)
+            .env("ARCADE_SHELF_HOME", &shelf_home)
+            .env("ARCADE_FIND_HOME", &find_home)
+            .env("QT_QPA_PLATFORM", "offscreen")
+            .stdin(Stdio::null())
+            .stdout(Stdio::null())
+            .stderr(Stdio::null());
+        c
+    };
+    let _shelf = Peer(command(&shelf_bin).arg("--background").spawn().unwrap());
+    let _find = Peer(command(&find_bin).arg("--background").spawn().unwrap());
+    let status = || -> serde_json::Value {
+        let out = command(&find_bin).arg("--status").stdout(Stdio::piped()).output().unwrap();
+        serde_json::from_slice(&out.stdout).unwrap_or_default()
+    };
+    let wait_long = |what: &str, mut ready: Box<dyn FnMut() -> bool + '_>| {
+        let end = Instant::now() + Duration::from_secs(20);
+        while !ready() {
+            assert!(Instant::now() < end, "timed out waiting for {what}");
+            std::thread::sleep(Duration::from_millis(50));
+        }
+    };
+    wait_long("Shelf and Find endpoints", Box::new(|| loc.endpoint(ids::SHELF).exists() && loc.endpoint(ids::FIND).exists()));
+    wait_long("Find's index", Box::new(|| status()["engine"]["phase"] == "ready"));
+
+    let base = Arc::new(lens_actions::standard_registry(None).unwrap());
+    let settings = Arc::new(Settings::default());
+    let service = Arcade::start(base, settings.clone(), loc.clone());
+    wait(|| service.actions().action("arcade.shelf.add").is_some() && service.actions().action("arcade.find.show").is_some());
+    let r = service.actions();
+    let host = RecordingHost::all();
+    let invoke = |id: &str, f: &Finding| match palette::invoke(
+        id,
+        f.id,
+        &InvokeContext {
+            registry: &r,
+            findings: std::slice::from_ref(f),
+            host: &host,
+            settings: &settings,
+            selection: None,
+            params: &Params::new(),
+            confirmed: true,
+            cancel: None,
+        },
+    ) {
+        Ok(Invocation::Done(outcome)) => outcome.message.unwrap_or_default(),
+        Ok(_) => panic!("{id} asked for more input"),
+        Err(e) => panic!("{id} failed: {e}"),
+    };
+    let text = finding(2, caps::TEXT, Value::text("quarterly report"));
+    let labels: Vec<_> = build(&r, std::slice::from_ref(&text), &settings).all.iter().map(|e| e.label.clone()).collect();
+    assert!(labels.iter().any(|l| l == "Add to Shelf") && labels.iter().any(|l| l == "Search in Find"), "{labels:?}");
+
+    // Shelf answers with its own message; the text and the capture are stored.
+    let text_added = invoke("arcade.shelf.add", &text);
+    assert!(text_added.starts_with("Added 1 item to"), "{text_added}");
+    let capture_added = invoke("arcade.shelf.add", &region());
+    assert!(capture_added.starts_with("Added 1 item to"), "{capture_added}");
+    let mut stored = Vec::new();
+    for entry in std::fs::read_dir(&shelf_home).unwrap().flatten() {
+        if entry.file_name().to_string_lossy().starts_with("shelf.sqlite3") {
+            stored.extend(std::fs::read(entry.path()).unwrap());
+        }
+    }
+    assert!(stored.windows(16).any(|w| w == b"quarterly report"), "the text is in Shelf's store");
+
+    // Find opens with the recognized text as its query and finds the file.
+    invoke("arcade.find.show", &text);
+    wait_long(
+        "Find's overlay",
+        Box::new(|| {
+            let ui = &status()["ui"];
+            ui["visible"] == true && ui["query"] == "quarterly report" && ui["rows"].as_u64().unwrap_or(0) >= 1
+        }),
+    );
+    let ui = &status()["ui"];
+    println!(
+        "real Shelf: text \"{text_added}\", capture \"{capture_added}\"; real Find: query {} with {} row(s), first {}",
+        ui["query"], ui["rows"], ui["selectedPath"]
+    );
+}

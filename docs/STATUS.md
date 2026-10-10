@@ -10,7 +10,15 @@ the palette ("Add to Shelf" for captures, text, links and files; "Search in
 Find" for text and paths). With
 that pin, `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D
 warnings` and `cargo test --workspace` (142 passed, 1 ignored) pass on Linux.
-The rest of this page was verified on `v0.1.0`.
+Against the real apps (2026-10-10, Arcade Shelf 0.1.0 and Arcade Find 0.2.1
+under Xvfb), `real_shelf_and_find_take_lens_entries` in
+`crates/lens-actions/tests/arcade.rs` passes: Lens's "Add to Shelf" stores a
+text finding and a capture ("Added 1 item to Quick Shelf" from Shelf, the text
+in Shelf's store), and "Search in Find" opens Find with the text as its query
+and the matching file listed. Run it with `ARCADE_SHELF_BIN` and
+`ARCADE_FIND_BIN` set (`cargo test -p lens-actions --test arcade --
+--ignored real_shelf_and_find`). The rest of this page was verified on
+`v0.1.0`.
 
 ## Implemented
 

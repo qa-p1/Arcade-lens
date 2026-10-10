@@ -169,7 +169,9 @@ releases page. Diagnostics and shortcut clash warnings use cached state.
 The page lists every app Arcade Link knows (`ids::APPS`): with Link
 `v0.2.0` that includes Arcade Shelf and Arcade Find, shown with their
 glyphs, Link's description and a Get link, and their actions appear in
-the palette as listed above.
+the palette as listed above. `real_shelf_and_find_take_lens_entries`
+(ignored by default; needs `ARCADE_SHELF_BIN`, `ARCADE_FIND_BIN` and a
+display) runs both entries against the real Shelf and Find binaries.
 
 Quick Look prefers the Link on all three desktop platforms. On Linux, an
 unsuccessful preview falls back to GNOME's D-Bus previewer, then the default

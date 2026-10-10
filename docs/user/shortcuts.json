@@ -1,0 +1,156 @@
+{
+  "schema": 1,
+  "app": "arcade.lens",
+  "version": "0.1.1",
+  "groups": [
+    {
+      "title": "Global",
+      "context": "global",
+      "shortcuts": [
+        {
+          "id": "capture",
+          "title": "Start a screen capture",
+          "keys": { "default": "Ctrl+Alt+Shift+L" },
+          "rebindable": true
+        }
+      ]
+    },
+    {
+      "title": "Screen selection",
+      "context": "selection",
+      "shortcuts": [
+        { "id": "move-selection", "title": "Move the selected region", "keys": { "default": ["Left", "Right", "Up", "Down"] } },
+        { "id": "resize-selection", "title": "Resize the selected region", "keys": { "default": ["Shift+Left", "Shift+Right", "Shift+Up", "Shift+Down"] } },
+        { "id": "move-selection-far", "title": "Move the selected region by a larger step", "keys": { "default": ["Ctrl+Left", "Ctrl+Right", "Ctrl+Up", "Ctrl+Down"], "macos": ["Super+Left", "Super+Right", "Super+Up", "Super+Down"] } },
+        { "id": "run-default-action", "title": "Run the highlighted action", "keys": { "default": "Enter" } },
+        { "id": "show-all-actions-space", "title": "Show all actions", "keys": { "default": "Space" } },
+        { "id": "show-all-actions-tab", "title": "Show all actions", "keys": { "default": "Tab" } },
+        { "id": "copy-selection", "title": "Copy the selected region as an image", "keys": { "default": "Ctrl+C", "macos": "Super+C" } },
+        { "id": "start-measuring", "title": "Enter measure mode", "keys": { "default": "M" } },
+        { "id": "close-selection", "title": "Close the capture or return to main actions", "keys": { "default": "Escape" } }
+      ]
+    },
+    {
+      "title": "Expanded action list",
+      "context": "expanded-actions",
+      "shortcuts": [
+        { "id": "next-action-down", "title": "Select the next action", "keys": { "default": "Down" } },
+        { "id": "next-action-tab", "title": "Select the next action", "keys": { "default": "Tab" } },
+        { "id": "previous-action-up", "title": "Select the previous action", "keys": { "default": "Up" } },
+        { "id": "previous-action-tab", "title": "Select the previous action", "keys": { "default": "Shift+Tab" } },
+        { "id": "next-action-page", "title": "Move down one page", "keys": { "default": "PageDown" } },
+        { "id": "previous-action-page", "title": "Move up one page", "keys": { "default": "PageUp" } },
+        { "id": "run-expanded-action", "title": "Run the selected action", "keys": { "default": "Enter" } },
+        { "id": "leave-expanded-actions", "title": "Return to the main action list", "keys": { "default": "Escape" } }
+      ]
+    },
+    {
+      "title": "Choose an option",
+      "context": "choice",
+      "shortcuts": [
+        { "id": "choice-up", "title": "Select the previous option", "keys": { "default": "Up" } },
+        { "id": "choice-down", "title": "Select the next option", "keys": { "default": "Down" } },
+        { "id": "choose-option", "title": "Choose the selected option", "keys": { "default": "Enter" } },
+        { "id": "choose-option-one", "title": "Choose the option numbered 1", "keys": { "default": "1" } },
+        { "id": "choose-option-two", "title": "Choose the option numbered 2", "keys": { "default": "2" } },
+        { "id": "choose-option-three", "title": "Choose the option numbered 3", "keys": { "default": "3" } },
+        { "id": "choose-option-four", "title": "Choose the option numbered 4", "keys": { "default": "4" } },
+        { "id": "choose-option-five", "title": "Choose the option numbered 5", "keys": { "default": "5" } },
+        { "id": "choose-option-six", "title": "Choose the option numbered 6", "keys": { "default": "6" } },
+        { "id": "choose-option-seven", "title": "Choose the option numbered 7", "keys": { "default": "7" } },
+        { "id": "choose-option-eight", "title": "Choose the option numbered 8", "keys": { "default": "8" } },
+        { "id": "choose-option-nine", "title": "Choose the option numbered 9", "keys": { "default": "9" } }
+      ]
+    },
+    {
+      "title": "Confirm an action",
+      "context": "confirmation",
+      "shortcuts": [
+        { "id": "confirm-safe-action", "title": "Continue with a safe action", "keys": { "default": "Enter" } },
+        { "id": "confirm-dangerous-action", "title": "Confirm a dangerous action", "keys": { "default": "Ctrl+Enter", "macos": "Super+Enter" } }
+      ]
+    },
+    {
+      "title": "Action result",
+      "context": "result",
+      "shortcuts": [
+        { "id": "copy-result-enter", "title": "Copy the action result", "keys": { "default": "Enter" } },
+        { "id": "copy-result-shortcut", "title": "Copy the action result", "keys": { "default": "Ctrl+C", "macos": "Super+C" } }
+      ]
+    },
+    {
+      "title": "Action chips",
+      "context": "palette-actions",
+      "shortcuts": [
+        { "id": "run-chip-a", "title": "Run the action marked A", "keys": { "default": "A" } },
+        { "id": "run-chip-c", "title": "Run the action marked C", "keys": { "default": "C" } },
+        { "id": "run-chip-d", "title": "Run the action marked D", "keys": { "default": "D" } },
+        { "id": "run-chip-e", "title": "Run the action marked E", "keys": { "default": "E" } },
+        { "id": "run-chip-f", "title": "Run the action marked F", "keys": { "default": "F" } },
+        { "id": "run-chip-h", "title": "Run the action marked H", "keys": { "default": "H" } },
+        { "id": "run-chip-l", "title": "Run the action marked L", "keys": { "default": "L" } },
+        { "id": "run-chip-m", "title": "Run the action marked M", "keys": { "default": "M" } },
+        { "id": "run-chip-o", "title": "Run the action marked O", "keys": { "default": "O" } },
+        { "id": "run-chip-p", "title": "Run the action marked P", "keys": { "default": "P" } },
+        { "id": "run-chip-q", "title": "Run the action marked Q", "keys": { "default": "Q" } },
+        { "id": "run-chip-r", "title": "Run the action marked R", "keys": { "default": "R" } },
+        { "id": "run-chip-s", "title": "Run the action marked S", "keys": { "default": "S" } },
+        { "id": "run-chip-t", "title": "Run the action marked T", "keys": { "default": "T" } },
+        { "id": "run-chip-v", "title": "Run the action marked V", "keys": { "default": "V" } },
+        { "id": "run-chip-w", "title": "Run the action marked W", "keys": { "default": "W" } },
+        { "id": "run-chip-x", "title": "Run the action marked X", "keys": { "default": "X" } },
+        { "id": "run-chip-y", "title": "Run the action marked Y", "keys": { "default": "Y" } }
+      ]
+    },
+    {
+      "title": "Measure mode",
+      "context": "measure",
+      "shortcuts": [
+        { "id": "leave-measure-mode", "title": "Leave measure mode", "keys": { "default": "M" } },
+        { "id": "copy-measurement", "title": "Copy the measured dimensions", "keys": { "default": "C" } },
+        { "id": "cancel-measurement", "title": "Cancel the current capture", "keys": { "default": "Escape" } }
+      ]
+    },
+    {
+      "title": "Annotation editor",
+      "context": "annotation-editor",
+      "shortcuts": [
+        { "id": "tool-pen", "title": "Select the pen tool", "keys": { "default": "1" } },
+        { "id": "tool-highlighter", "title": "Select the highlighter tool", "keys": { "default": "2" } },
+        { "id": "tool-line", "title": "Select the line tool", "keys": { "default": "3" } },
+        { "id": "tool-arrow", "title": "Select the arrow tool", "keys": { "default": "4" } },
+        { "id": "tool-rectangle", "title": "Select the rectangle tool", "keys": { "default": "5" } },
+        { "id": "tool-ellipse", "title": "Select the ellipse tool", "keys": { "default": "6" } },
+        { "id": "tool-text", "title": "Select the text tool", "keys": { "default": "7" } },
+        { "id": "tool-pixelate", "title": "Select the pixelate tool", "keys": { "default": "8" } },
+        { "id": "undo-annotation", "title": "Undo the last annotation", "keys": { "default": "Ctrl+Z", "macos": "Super+Z" } },
+        { "id": "redo-annotation-shift-z", "title": "Redo an annotation", "keys": { "default": "Ctrl+Shift+Z", "macos": "Shift+Super+Z" } },
+        { "id": "redo-annotation-y", "title": "Redo an annotation", "keys": { "default": "Ctrl+Y", "macos": "Super+Y" } },
+        { "id": "copy-annotated-image", "title": "Copy the annotated image", "keys": { "default": "Ctrl+C", "macos": "Super+C" } },
+        { "id": "save-annotated-image", "title": "Save the annotated image", "keys": { "default": "Ctrl+S", "macos": "Super+S" } }
+      ]
+    },
+    {
+      "title": "Annotation text",
+      "context": "annotation-text",
+      "shortcuts": [
+        { "id": "commit-text", "title": "Add the text annotation", "keys": { "default": "Enter" } },
+        { "id": "cancel-text", "title": "Cancel the text annotation", "keys": { "default": "Escape" } }
+      ]
+    },
+    {
+      "title": "Pinned image",
+      "context": "pin",
+      "shortcuts": [
+        { "id": "close-pin", "title": "Close the pin", "keys": { "default": "Escape" } }
+      ]
+    },
+    {
+      "title": "Shortcut settings",
+      "context": "settings-shortcut",
+      "shortcuts": [
+        { "id": "cancel-shortcut-recording", "title": "Cancel shortcut recording", "keys": { "default": "Escape" } }
+      ]
+    }
+  ]
+}

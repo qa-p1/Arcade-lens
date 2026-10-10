@@ -820,16 +820,6 @@ fn peer_description(app: &str) -> &'static str {
         arcade_link::ids::LOOK => "Preview file paths with Quick Look.",
         arcade_link::ids::WHEEL => "Save a URL, command, file or text as a Wheel action.",
         arcade_link::ids::CLIPBOARD => "Send selections to the history on your devices.",
-        _ => "Install and update your Arcade apps.",
-    }
-}
-
-pub fn releases_page(app: &str) -> &'static str {
-    match app {
-        arcade_link::ids::BOX => "https://github.com/qa-p1/Arcade-box/releases",
-        arcade_link::ids::LOOK => "https://github.com/qa-p1/Arcade-look/releases",
-        arcade_link::ids::WHEEL => "https://github.com/qa-p1/Arcade-wheel/releases",
-        arcade_link::ids::CLIPBOARD => "https://github.com/qa-p1/Arcade-clipboard/releases",
-        _ => "https://github.com/qa-p1/Arcade-tools/releases",
+        other => arcade_link::manifest::app_pitch(other),
     }
 }

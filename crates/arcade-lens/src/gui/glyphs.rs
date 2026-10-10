@@ -48,6 +48,15 @@ pub fn paint(p: &Painter, center: Pos2, app: &str, color: Color32) {
             line(&[(5.5, 8.0), (10.5, 8.0)]);
             line(&[(5.5, 10.75), (9.0, 10.75)]);
         }
+        "arcade.shelf" => {
+            line(&[(1.75, 10.75), (14.25, 10.75), (14.25, 14.25), (1.75, 14.25), (1.75, 10.75)]);
+            p.rect_stroke(egui::Rect::from_min_max(point(3.25, 4.75), point(6.75, 8.75)), 1, stroke, egui::StrokeKind::Middle);
+            p.rect_stroke(egui::Rect::from_min_max(point(8.75, 2.0), point(12.75, 8.75)), 1, stroke, egui::StrokeKind::Middle);
+        }
+        "arcade.find" => {
+            p.circle_stroke(point(7.0, 7.0), 4.75, stroke);
+            line(&[(10.5, 10.5), (14.25, 14.25)]);
+        }
         "arcade.tools" => {
             curve([(10.5, 1.9), (7.7, 1.0), (5.3, 3.8), (6.6, 6.6)]);
             line(&[(6.6, 6.6), (1.9, 11.3)]);

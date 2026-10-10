@@ -296,6 +296,38 @@ fn disabled_peers_and_live_unavailability_remove_cached_entries() {
     assert!(r.action("core.region.send").is_some());
 }
 
+#[test]
+fn shelf_and_find_are_connected_apps_with_their_actions() {
+    let temp = Temp::new();
+    let loc = temp.locations();
+    manifest(&loc, "shelf");
+    manifest(&loc, "find");
+    let base = Arc::new(lens_actions::standard_registry(None).unwrap());
+    let settings = Arc::new(Settings::default());
+    let service = Arcade::start(base.clone(), settings.clone(), loc.clone());
+    wait(|| service.revision() > 0);
+    let snap = service.snapshot();
+    assert_eq!(snap.peers.iter().map(|p| p.id.as_str()).collect::<Vec<_>>(), [ids::BOX, ids::LOOK, ids::WHEEL, ids::CLIPBOARD, ids::SHELF, ids::FIND]);
+    for peer in snap.peers.iter().filter(|p| [ids::SHELF, ids::FIND].contains(&p.id.as_str())) {
+        assert!(matches!(peer.state, arcade_link::client::AppState::Installed { .. }), "{}", peer.id);
+    }
+    assert!(snap.registry.action("arcade.shelf.add").is_some());
+    assert!(snap.registry.action("arcade.find.show").is_some());
+    let labels = |findings: &[Finding]| build(&snap.registry, findings, &settings).all.iter().map(|e| e.label.clone()).collect::<Vec<_>>();
+    // A capture can be collected (as a PNG handoff) but isn't a search.
+    let capture = labels(&[region()]);
+    assert!(capture.iter().any(|l| l == "Add to Shelf"), "{capture:?}");
+    assert!(!capture.iter().any(|l| l == "Search in Find"), "{capture:?}");
+    // Recognized text can be collected or searched for.
+    let text = labels(&[finding(2, caps::TEXT, Value::text("quarterly report"))]);
+    assert!(text.iter().any(|l| l == "Add to Shelf"), "{text:?}");
+    assert!(text.iter().any(|l| l == "Search in Find"), "{text:?}");
+    // Without them installed, the palette is Lens's own.
+    for findings in [vec![region()], vec![finding(2, caps::TEXT, Value::text("quarterly report"))]] {
+        assert!(!build(&base, &findings, &settings).all.iter().any(|e| e.label == "Add to Shelf" || e.label == "Search in Find"));
+    }
+}
+
 struct Mock(Child);
 impl Drop for Mock {
     fn drop(&mut self) {

@@ -367,7 +367,7 @@ impl LensApp {
                     let tx = st.ui_tx.clone();
                     let repaint = ctx.clone();
                     std::thread::spawn(move || {
-                        let result = arcade.get(&app).unwrap_or_else(|| host.open_uri(settings_view::releases_page(&app), false));
+                        let result = arcade.get(&app).unwrap_or_else(|| host.open_uri(arcade_link::manifest::releases_url(&app), false));
                         let (message, ok) = match result {
                             Ok(()) => ("Opened".into(), true),
                             Err(e) => (e.to_string(), false),

@@ -4,6 +4,14 @@ Verified 2026-10-08 on branch `arcade/link` (version 0.1.0, Arcade Link
 `v0.1.0`). This page records what is implemented and how it was checked; the
 other documents describe how it works.
 
+Arcade Link pin: `v0.2.0` since 2026-10-10, which adds Arcade Shelf and
+Arcade Find to the Connected apps page (glyphs, description, Get link) and
+the palette ("Add to Shelf" for captures, text, links and files; "Search in
+Find" for text and paths). With
+that pin, `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D
+warnings` and `cargo test --workspace` (142 passed, 1 ignored) pass on Linux.
+The rest of this page was verified on `v0.1.0`.
+
 ## Implemented
 
 - Freeze-first capture on every monitor, region and window selection, the

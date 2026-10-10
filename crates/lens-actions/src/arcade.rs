@@ -276,6 +276,8 @@ pub fn with_cached_peers(
                 ids::LOOK => a.id == "look.preview",
                 ids::CLIPBOARD => a.id == "clipboard.add",
                 ids::WHEEL => a.id == "wheel.add_action",
+                ids::SHELF => a.id == "shelf.add",
+                ids::FIND => a.id == "find.show",
                 ids::BOX => {
                     if a.preset.is_some() && a.featured_for.iter().any(|t| arcade_link::content::type_matches(t, "file/image")) && featured < 5 {
                         featured += 1;
@@ -440,6 +442,17 @@ impl PeerAction {
                 ],
             ),
             ids::WHEEL => ("Add to Wheel", ActionGroup::Save, None, 38, vec![caps::URL, caps::COMMAND, caps::PATH, caps::FILE, caps::TEXT]),
+            // A capture travels as a PNG handoff that Shelf keeps a copy of;
+            // text, links and paths go as they are.
+            ids::SHELF => (
+                "Add to Shelf",
+                ActionGroup::Save,
+                None,
+                40,
+                vec![caps::REGION, caps::IMAGE, caps::ICON, caps::TEXT, caps::URL, caps::CODE, caps::COMMAND, caps::PATH, caps::FILE],
+            ),
+            // Recognized text becomes the query; a path opens Find on it.
+            ids::FIND => ("Search in Find", ActionGroup::Search, None, 44, vec![caps::TEXT, caps::PATH, caps::FILE]),
             _ => (
                 if peer.id == "box.open" { "More in Arcade Box…" } else { peer.title.as_str() },
                 ActionGroup::Transform,

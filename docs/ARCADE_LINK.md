@@ -137,6 +137,8 @@ use the existing palette stabilizer and keep surviving actions in place.
 | Region or image | Box's featured image presets, plus **More in Arcade Box…** |
 | Text, URL, image, file | **Send to my devices ↗** (`M`) through Arcade Clipboard |
 | URL, command, path, text | **Add to Wheel**, confirmed in Wheel Settings |
+| Capture, text, URL, code, path, file | **Add to Shelf** in Arcade Shelf (a capture goes as a PNG handoff Shelf keeps a copy of) |
+| Text, path, file | **Search in Find**: Arcade Find opens with the text as its query, or on the file |
 | Finding matching a saved pipeline's first input | **▶ Pipeline name** in Arcade Box |
 
 Box's `box.pipelines` list is fetched on a registry worker when its manifest
@@ -166,9 +168,8 @@ switch removes Lens's actions and stops its listener. Get delegates to
 releases page. Diagnostics and shortcut clash warnings use cached state.
 The page lists every app Arcade Link knows (`ids::APPS`): with Link
 `v0.2.0` that includes Arcade Shelf and Arcade Find, shown with their
-glyphs, Link's description and a Get link. Lens doesn't offer Shelf or
-Find actions in the palette yet; peer actions are offered only for the
-apps in the table above.
+glyphs, Link's description and a Get link, and their actions appear in
+the palette as listed above.
 
 Quick Look prefers the Link on all three desktop platforms. On Linux, an
 unsuccessful preview falls back to GNOME's D-Bus previewer, then the default

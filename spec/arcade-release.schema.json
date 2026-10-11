@@ -1,0 +1,112 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/qa-p1/Arcade-link/spec/arcade-release.schema.json",
+  "title": "arcade-release.json (plan \u00a711)",
+  "type": "object",
+  "required": [
+    "schema",
+    "id",
+    "version",
+    "channel",
+    "linkProtocol",
+    "notes",
+    "assets"
+  ],
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^arcade\\.[a-z]+$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]"
+    },
+    "channel": {
+      "enum": [
+        "stable",
+        "nightly"
+      ]
+    },
+    "linkProtocol": {
+      "type": "array",
+      "items": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "minItems": 1
+    },
+    "notes": {
+      "type": "string"
+    },
+    "assets": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "os",
+          "arch",
+          "kind",
+          "file",
+          "sha256"
+        ],
+        "properties": {
+          "os": {
+            "enum": [
+              "linux",
+              "windows",
+              "macos"
+            ]
+          },
+          "arch": {
+            "enum": [
+              "x64",
+              "arm64",
+              "universal"
+            ]
+          },
+          "kind": {
+            "enum": [
+              "appimage",
+              "deb",
+              "rpm",
+              "tarball",
+              "nsis",
+              "inno",
+              "msi",
+              "dmg",
+              "portable"
+            ]
+          },
+          "file": {
+            "type": "string",
+            "pattern": "^[^/\\\\]+$"
+          },
+          "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          },
+          "size": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "silent": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "installArgs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

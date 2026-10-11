@@ -1,0 +1,1593 @@
+{
+  "valid": [
+    {
+      "name": "app-os-overrides-and-alternatives",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": "Ctrl+Alt+F"
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "markdown": "## Global\n\n| Action | Linux | Windows | macOS |\n| --- | --- | --- | --- |\n| Show or hide Find | Ctrl+Alt+F | Ctrl+Alt+F | ⌃⌥F |\n\n## Results\n\n| Action | Linux | Windows | macOS |\n| --- | --- | --- | --- |\n| Open with the default app | Shift+Enter | Shift+Enter | ⇧↩ |\n| Pin | Ctrl+Shift+P | Ctrl+Shift+P | ⇧⌘P |\n| Menu | Menu<br>Shift+F10 | — | ⌃M |\n\n",
+      "manifest": {
+        "id": "arcade.find",
+        "shortcuts": [
+          {
+            "id": "toggle",
+            "accelerator": "Ctrl+Alt+F"
+          }
+        ]
+      }
+    },
+    {
+      "name": "unknown-fields",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": "Ctrl+Alt+F"
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M",
+                  "futureOS": {
+                    "ignored": true
+                  }
+                }
+              }
+            ]
+          }
+        ],
+        "future": {
+          "ignored": true
+        }
+      },
+      "markdown": "## Global\n\n| Action | Linux | Windows | macOS |\n| --- | --- | --- | --- |\n| Show or hide Find | Ctrl+Alt+F | Ctrl+Alt+F | ⌃⌥F |\n\n## Results\n\n| Action | Linux | Windows | macOS |\n| --- | --- | --- | --- |\n| Open with the default app | Shift+Enter | Shift+Enter | ⇧↩ |\n| Pin | Ctrl+Shift+P | Ctrl+Shift+P | ⇧⌘P |\n| Menu | Menu<br>Shift+F10 | — | ⌃M |\n\n"
+    },
+    {
+      "name": "third-party-sheet",
+      "sheet": {
+        "schema": 1,
+        "id": "firefox",
+        "name": "Firefox",
+        "checkedVersion": "143",
+        "sources": [
+          "https://support.mozilla.org/kb/keyboard-shortcuts-perform-firefox-tasks-quickly"
+        ],
+        "match": {
+          "linux": {
+            "class": [
+              "firefox",
+              "org.mozilla.firefox"
+            ]
+          },
+          "windows": {
+            "exe": [
+              "firefox.exe"
+            ]
+          },
+          "macos": {
+            "bundle": [
+              "org.mozilla.firefox"
+            ]
+          }
+        },
+        "groups": [
+          {
+            "title": "Browser",
+            "context": "browser",
+            "shortcuts": [
+              {
+                "id": "search",
+                "title": "Search",
+                "keys": {
+                  "default": "Ctrl+K",
+                  "macos": "Super+K"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "markdown": "## Browser\n\n| Action | Linux | Windows | macOS |\n| --- | --- | --- | --- |\n| Search | Ctrl+K | Ctrl+K | ⌘K |\n\n"
+    },
+    {
+      "name": "microphone and horizontal scroll",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Hardware",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "micmute",
+                "title": "MicMute",
+                "keys": {
+                  "default": "MicMute"
+                }
+              },
+              {
+                "id": "wheelleft",
+                "title": "WheelLeft",
+                "keys": {
+                  "default": "WheelLeft"
+                }
+              },
+              {
+                "id": "wheelright",
+                "title": "WheelRight",
+                "keys": {
+                  "default": "WheelRight"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "markdown": "## Hardware\n\n| Action | Linux | Windows | macOS |\n| --- | --- | --- | --- |\n| MicMute | MicMute | MicMute | MicMute |\n| WheelLeft | WheelLeft | WheelLeft | WheelLeft |\n| WheelRight | WheelRight | WheelRight | WheelRight |\n\n"
+    },
+    {
+      "name": "windows-system-global-context",
+      "sheet": {
+        "schema": 1,
+        "id": "windows-system",
+        "name": "windows-system",
+        "checkedVersion": "143",
+        "sources": [
+          "https://support.mozilla.org/kb/keyboard-shortcuts-perform-firefox-tasks-quickly"
+        ],
+        "match": {
+          "linux": {
+            "class": [
+              "firefox",
+              "org.mozilla.firefox"
+            ]
+          },
+          "windows": {
+            "exe": [
+              "firefox.exe"
+            ]
+          },
+          "macos": {
+            "bundle": [
+              "org.mozilla.firefox"
+            ]
+          }
+        },
+        "groups": [
+          {
+            "title": "Browser",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "search",
+                "title": "Search",
+                "keys": {
+                  "default": "Ctrl+K",
+                  "macos": "Super+K"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "markdown": "## Browser\n\n| Action | Linux | Windows | macOS |\n| --- | --- | --- | --- |\n| Search | Ctrl+K | Ctrl+K | ⌘K |\n\n"
+    },
+    {
+      "name": "macos-system-global-context",
+      "sheet": {
+        "schema": 1,
+        "id": "macos-system",
+        "name": "macos-system",
+        "checkedVersion": "143",
+        "sources": [
+          "https://support.mozilla.org/kb/keyboard-shortcuts-perform-firefox-tasks-quickly"
+        ],
+        "match": {
+          "linux": {
+            "class": [
+              "firefox",
+              "org.mozilla.firefox"
+            ]
+          },
+          "windows": {
+            "exe": [
+              "firefox.exe"
+            ]
+          },
+          "macos": {
+            "bundle": [
+              "org.mozilla.firefox"
+            ]
+          }
+        },
+        "groups": [
+          {
+            "title": "Browser",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "search",
+                "title": "Search",
+                "keys": {
+                  "default": "Ctrl+K",
+                  "macos": "Super+K"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "markdown": "## Browser\n\n| Action | Linux | Windows | macOS |\n| --- | --- | --- | --- |\n| Search | Ctrl+K | Ctrl+K | ⌘K |\n\n"
+    },
+    {
+      "name": "microphone-and-horizontal-scroll-sheet",
+      "sheet": {
+        "schema": 1,
+        "id": "firefox",
+        "name": "Firefox",
+        "checkedVersion": "143",
+        "sources": [
+          "https://support.mozilla.org/kb/keyboard-shortcuts-perform-firefox-tasks-quickly"
+        ],
+        "match": {
+          "linux": {
+            "class": [
+              "firefox",
+              "org.mozilla.firefox"
+            ]
+          },
+          "windows": {
+            "exe": [
+              "firefox.exe"
+            ]
+          },
+          "macos": {
+            "bundle": [
+              "org.mozilla.firefox"
+            ]
+          }
+        },
+        "groups": [
+          {
+            "title": "Hardware",
+            "context": "app",
+            "shortcuts": [
+              {
+                "id": "mic",
+                "title": "Mute microphone",
+                "keys": {
+                  "default": "MicMute"
+                }
+              },
+              {
+                "id": "left",
+                "title": "Scroll left",
+                "keys": {
+                  "default": "WheelLeft"
+                }
+              },
+              {
+                "id": "right",
+                "title": "Scroll right",
+                "keys": {
+                  "default": "WheelRight"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "markdown": "## Hardware\n\n| Action | Linux | Windows | macOS |\n| --- | --- | --- | --- |\n| Mute microphone | MicMute | MicMute | MicMute |\n| Scroll left | WheelLeft | WheelLeft | WheelLeft |\n| Scroll right | WheelRight | WheelRight | WheelRight |\n\n"
+    }
+  ],
+  "invalid": [
+    {
+      "name": "schema",
+      "document": {
+        "schema": 2,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": "Ctrl+Alt+F"
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "duplicate-id",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": "Ctrl+Alt+F"
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "bad-id",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "Toggle_1",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": "Ctrl+Alt+F"
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "long-title",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                "keys": {
+                  "default": "Ctrl+Alt+F"
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "noncanonical",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": "alt+ctrl+f"
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "modifier-order",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": "Ctrl+Alt+F"
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Super+Shift+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "unknown-key",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": "Ctrl+Unknown"
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "null-only",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": null
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "empty-alternatives",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": []
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "nonglobal-rebindable",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": "Ctrl+Alt+F"
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                },
+                "rebindable": true
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "invalid-context",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": "Ctrl+Alt+F"
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "My Editor",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "same-context-across-groups",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": "Ctrl+Alt+F"
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              }
+            ]
+          },
+          {
+            "title": "More",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "other",
+                "title": "Other",
+                "keys": {
+                  "default": "Ctrl+Alt+F"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "sequence-prefix",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": "Ctrl+Alt+F"
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              },
+              {
+                "id": "prefix",
+                "title": "Prefix",
+                "keys": {
+                  "default": "Ctrl+K"
+                }
+              },
+              {
+                "id": "sequence",
+                "title": "Sequence",
+                "keys": {
+                  "default": "Ctrl+K Ctrl+S"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "duplicate-alternative",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": [
+                    "Ctrl+Alt+F",
+                    "Ctrl+Alt+F"
+                  ]
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "manifest-mismatch",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": "Ctrl+Alt+F"
+                },
+                "rebindable": true
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "manifest": {
+        "id": "arcade.find",
+        "shortcuts": []
+      }
+    },
+    {
+      "name": "insecure-source",
+      "sheet": {
+        "schema": 1,
+        "id": "firefox",
+        "name": "Firefox",
+        "checkedVersion": "143",
+        "sources": [
+          "http://example.invalid"
+        ],
+        "match": {
+          "linux": {
+            "class": [
+              "firefox",
+              "org.mozilla.firefox"
+            ]
+          },
+          "windows": {
+            "exe": [
+              "firefox.exe"
+            ]
+          },
+          "macos": {
+            "bundle": [
+              "org.mozilla.firefox"
+            ]
+          }
+        },
+        "groups": [
+          {
+            "title": "Browser",
+            "context": "browser",
+            "shortcuts": [
+              {
+                "id": "search",
+                "title": "Search",
+                "keys": {
+                  "default": "Ctrl+K",
+                  "macos": "Super+K"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "empty-match",
+      "sheet": {
+        "schema": 1,
+        "id": "firefox",
+        "name": "Firefox",
+        "checkedVersion": "143",
+        "sources": [
+          "https://support.mozilla.org/kb/keyboard-shortcuts-perform-firefox-tasks-quickly"
+        ],
+        "match": {},
+        "groups": [
+          {
+            "title": "Browser",
+            "context": "browser",
+            "shortcuts": [
+              {
+                "id": "search",
+                "title": "Search",
+                "keys": {
+                  "default": "Ctrl+K",
+                  "macos": "Super+K"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "sheet-rebindable",
+      "sheet": {
+        "schema": 1,
+        "id": "firefox",
+        "name": "Firefox",
+        "checkedVersion": "143",
+        "sources": [
+          "https://support.mozilla.org/kb/keyboard-shortcuts-perform-firefox-tasks-quickly"
+        ],
+        "match": {
+          "linux": {
+            "class": [
+              "firefox",
+              "org.mozilla.firefox"
+            ]
+          },
+          "windows": {
+            "exe": [
+              "firefox.exe"
+            ]
+          },
+          "macos": {
+            "bundle": [
+              "org.mozilla.firefox"
+            ]
+          }
+        },
+        "groups": [
+          {
+            "title": "Browser",
+            "context": "browser",
+            "shortcuts": [
+              {
+                "id": "search",
+                "title": "Search",
+                "keys": {
+                  "default": "Ctrl+K",
+                  "macos": "Super+K"
+                },
+                "rebindable": false
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "rebindable-must-be-boolean",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": "Ctrl+Alt+F"
+                },
+                "rebindable": null
+              }
+            ]
+          },
+          {
+            "title": "Results",
+            "context": "overlay",
+            "shortcuts": [
+              {
+                "id": "open",
+                "title": "Open with the default app",
+                "keys": {
+                  "default": "Shift+Enter"
+                }
+              },
+              {
+                "id": "pin",
+                "title": "Pin",
+                "keys": {
+                  "default": "Ctrl+Shift+P",
+                  "macos": "Shift+Super+P"
+                },
+                "description": "Optional longer text."
+              },
+              {
+                "id": "menu",
+                "title": "Menu",
+                "keys": {
+                  "linux": [
+                    "Menu",
+                    "Shift+F10"
+                  ],
+                  "windows": null,
+                  "macos": "Ctrl+M"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "third-party-global-is-reserved-for-system-sheets",
+      "sheet": {
+        "schema": 1,
+        "id": "firefox",
+        "name": "Firefox",
+        "checkedVersion": "143",
+        "sources": [
+          "https://support.mozilla.org/kb/keyboard-shortcuts-perform-firefox-tasks-quickly"
+        ],
+        "match": {
+          "linux": {
+            "class": [
+              "firefox",
+              "org.mozilla.firefox"
+            ]
+          },
+          "windows": {
+            "exe": [
+              "firefox.exe"
+            ]
+          },
+          "macos": {
+            "bundle": [
+              "org.mozilla.firefox"
+            ]
+          }
+        },
+        "groups": [
+          {
+            "title": "Browser",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "search",
+                "title": "Search",
+                "keys": {
+                  "default": "Ctrl+K",
+                  "macos": "Super+K"
+                }
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "duplicate-alternatives",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": [
+                    "Ctrl+K",
+                    "Ctrl+K"
+                  ]
+                },
+                "rebindable": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "prefix-alternatives",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": [
+                    "Ctrl+K",
+                    "Ctrl+K Ctrl+S"
+                  ]
+                },
+                "rebindable": true
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "name": "shadowed-default-alternatives",
+      "document": {
+        "schema": 1,
+        "app": "arcade.find",
+        "version": "0.3.0",
+        "groups": [
+          {
+            "title": "Global",
+            "context": "global",
+            "shortcuts": [
+              {
+                "id": "toggle",
+                "title": "Show or hide Find",
+                "keys": {
+                  "default": [
+                    "Ctrl+K",
+                    "Ctrl+K Ctrl+S"
+                  ],
+                  "linux": "Ctrl+J",
+                  "windows": "Ctrl+J",
+                  "macos": "Ctrl+J"
+                },
+                "rebindable": true
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
+}

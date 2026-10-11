@@ -60,10 +60,14 @@ def arch_of(name: str) -> str:
     return "x64"
 
 
-def classify(name: str, windows_installer: str) -> dict | None:
+def classify(name: str, windows_installer: str, portable: bool = False) -> dict | None:
     """`{os, arch, kind[, silent]}` for an installable file, else None."""
     n = name.lower()
-    if n.endswith(".appimage"):
+    if (portable or "portable" in n) and n.endswith((".exe", ".zip")):
+        os_, kind = "windows", "portable"
+    elif n.endswith(".zip") and any(s in n for s in ("wheel", "windows", "win32", "win64")):
+        os_, kind = "windows", "portable"
+    elif n.endswith(".appimage"):
         os_, kind = "linux", "appimage"
     elif n.endswith(".deb"):
         os_, kind = "linux", "deb"
@@ -73,10 +77,6 @@ def classify(name: str, windows_installer: str) -> dict | None:
         os_, kind = "linux", "tarball"
     elif n.endswith(".msi"):
         os_, kind = "windows", "msi"
-    elif n.endswith("-portable.exe"):
-        # Lens publishes this download alongside its actual Inno installer.
-        # Keep its checksum, but never ask Arcade Tools to install it.
-        return None
     elif n.endswith(".exe"):
         os_, kind = "windows", windows_installer
     elif n.endswith(".dmg"):
@@ -86,18 +86,24 @@ def classify(name: str, windows_installer: str) -> dict | None:
     entry = {"os": os_, "arch": arch_of(name), "kind": kind}
     if kind in SILENT:
         entry["silent"] = SILENT[kind]
+    if kind in ("appimage", "dmg"):
+        entry["installArgs"] = ["--install", "--silent"]
     return entry
 
 
-def build(app_id: str, version: str, channel: str, notes: str, assets: Path, windows_installer: str) -> tuple[dict, str]:
+def build(app_id: str, version: str, channel: str, notes: str, assets: Path, windows_installer: str,
+          portable_assets: set[str] | None = None) -> tuple[dict, str]:
     files = sorted(p for p in assets.iterdir() if p.is_file() and p.name not in OUTPUTS)
     if not files:
         raise SystemExit(f"arcade-release: no files in {assets}")
+    portable_assets = portable_assets or set()
+    if portable_assets - {p.name for p in files}:
+        raise SystemExit("arcade-release: --portable names must exist in the assets directory")
     sums, listed = [], []
     for p in files:
         digest = sha256(p)
         sums.append(f"{digest}  {p.name}")
-        entry = classify(p.name, windows_installer)
+        entry = classify(p.name, windows_installer, p.name in portable_assets)
         if entry:
             listed.append({**entry, "file": p.name, "sha256": digest, "size": p.stat().st_size})
     if not listed:
@@ -122,13 +128,15 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--notes", required=True, help="release notes URL")
     p.add_argument("--windows-installer", default="nsis", choices=["nsis", "inno"],
                    help="installer technology of *.exe assets")
+    p.add_argument("--portable", action="append", default=[], metavar="FILE",
+                   help="mark a Windows exe/zip as portable (repeatable); Tools ignores it")
     p.add_argument("assets", type=Path, help="directory holding the release files; outputs are written here")
     a = p.parse_args(argv)
     if not re.fullmatch(r"arcade\.[a-z]+", a.id):
         raise SystemExit(f"arcade-release: {a.id!r} is not a canonical app ID")
     if a.version.startswith("v"):
         raise SystemExit("arcade-release: pass the version without the leading v")
-    manifest, sums = build(a.id, a.version, a.channel, a.notes, a.assets, a.windows_installer)
+    manifest, sums = build(a.id, a.version, a.channel, a.notes, a.assets, a.windows_installer, set(a.portable))
     (a.assets / "arcade-release.json").write_text(json.dumps(manifest, indent=2) + "\n")
     (a.assets / "SHA256SUMS.txt").write_text(sums)
     print(f"arcade-release: {len(manifest['assets'])} installable assets, {sums.count(chr(10))} checksums")

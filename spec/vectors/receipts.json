@@ -1,0 +1,241 @@
+{
+  "valid": [
+    {
+      "name": "linux",
+      "receipt": {
+        "schema": 1,
+        "id": "arcade.find",
+        "version": "0.3.0",
+        "channel": "stable",
+        "method": "appimage",
+        "managedBy": "self",
+        "path": "/home/u/Applications/Arcade/Arcade-Find.AppImage",
+        "integration": {
+          "desktopEntry": "/home/u/.local/share/applications/arcade-find.desktop",
+          "icons": [
+            "/home/u/.local/share/icons/hicolor/256x256/apps/arcade-find.png"
+          ],
+          "cli": "/home/u/.local/bin/arcade-find",
+          "autostart": null,
+          "uninstaller": null
+        },
+        "previous": {
+          "version": "0.2.1",
+          "path": "/home/u/Applications/Arcade/.previous/Arcade-Find.AppImage"
+        },
+        "installedAt": "2026-10-12T10:00:00Z",
+        "updatedAt": "2026-10-12T10:00:00Z"
+      }
+    },
+    {
+      "name": "windows-unknown-fields",
+      "receipt": {
+        "schema": 1,
+        "id": "arcade.find",
+        "version": "0.3.0",
+        "channel": "stable",
+        "method": "windows-installer",
+        "managedBy": "tools",
+        "path": "C:\\Users\\u\\AppData\\Local\\Programs\\Arcade Find\\arcade-find.exe",
+        "integration": {
+          "cli": "C:\\Users\\u\\AppData\\Local\\Arcade\\bin\\arcade-find.cmd"
+        },
+        "previous": null,
+        "installedAt": "2026-10-12T10:00:00Z",
+        "updatedAt": "2026-10-12T10:00:00Z",
+        "future": true
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "schema",
+      "receipt": {
+        "schema": 0,
+        "id": "arcade.find",
+        "version": "0.3.0",
+        "channel": "stable",
+        "method": "appimage",
+        "managedBy": "self",
+        "path": "/home/u/Applications/Arcade/Arcade-Find.AppImage",
+        "integration": {
+          "desktopEntry": "/home/u/.local/share/applications/arcade-find.desktop",
+          "icons": [
+            "/home/u/.local/share/icons/hicolor/256x256/apps/arcade-find.png"
+          ],
+          "cli": "/home/u/.local/bin/arcade-find",
+          "autostart": null,
+          "uninstaller": null
+        },
+        "previous": {
+          "version": "0.2.1",
+          "path": "/home/u/Applications/Arcade/.previous/Arcade-Find.AppImage"
+        },
+        "installedAt": "2026-10-12T10:00:00Z",
+        "updatedAt": "2026-10-12T10:00:00Z"
+      }
+    },
+    {
+      "name": "traversal-id",
+      "receipt": {
+        "schema": 1,
+        "id": "arcade../find",
+        "version": "0.3.0",
+        "channel": "stable",
+        "method": "appimage",
+        "managedBy": "self",
+        "path": "/home/u/Applications/Arcade/Arcade-Find.AppImage",
+        "integration": {
+          "desktopEntry": "/home/u/.local/share/applications/arcade-find.desktop",
+          "icons": [
+            "/home/u/.local/share/icons/hicolor/256x256/apps/arcade-find.png"
+          ],
+          "cli": "/home/u/.local/bin/arcade-find",
+          "autostart": null,
+          "uninstaller": null
+        },
+        "previous": {
+          "version": "0.2.1",
+          "path": "/home/u/Applications/Arcade/.previous/Arcade-Find.AppImage"
+        },
+        "installedAt": "2026-10-12T10:00:00Z",
+        "updatedAt": "2026-10-12T10:00:00Z"
+      }
+    },
+    {
+      "name": "method",
+      "receipt": {
+        "schema": 1,
+        "id": "arcade.find",
+        "version": "0.3.0",
+        "channel": "stable",
+        "method": "installer",
+        "managedBy": "self",
+        "path": "/home/u/Applications/Arcade/Arcade-Find.AppImage",
+        "integration": {
+          "desktopEntry": "/home/u/.local/share/applications/arcade-find.desktop",
+          "icons": [
+            "/home/u/.local/share/icons/hicolor/256x256/apps/arcade-find.png"
+          ],
+          "cli": "/home/u/.local/bin/arcade-find",
+          "autostart": null,
+          "uninstaller": null
+        },
+        "previous": {
+          "version": "0.2.1",
+          "path": "/home/u/Applications/Arcade/.previous/Arcade-Find.AppImage"
+        },
+        "installedAt": "2026-10-12T10:00:00Z",
+        "updatedAt": "2026-10-12T10:00:00Z"
+      }
+    },
+    {
+      "name": "owner",
+      "receipt": {
+        "schema": 1,
+        "id": "arcade.find",
+        "version": "0.3.0",
+        "channel": "stable",
+        "method": "appimage",
+        "managedBy": "root",
+        "path": "/home/u/Applications/Arcade/Arcade-Find.AppImage",
+        "integration": {
+          "desktopEntry": "/home/u/.local/share/applications/arcade-find.desktop",
+          "icons": [
+            "/home/u/.local/share/icons/hicolor/256x256/apps/arcade-find.png"
+          ],
+          "cli": "/home/u/.local/bin/arcade-find",
+          "autostart": null,
+          "uninstaller": null
+        },
+        "previous": {
+          "version": "0.2.1",
+          "path": "/home/u/Applications/Arcade/.previous/Arcade-Find.AppImage"
+        },
+        "installedAt": "2026-10-12T10:00:00Z",
+        "updatedAt": "2026-10-12T10:00:00Z"
+      }
+    },
+    {
+      "name": "relative-path",
+      "receipt": {
+        "schema": 1,
+        "id": "arcade.find",
+        "version": "0.3.0",
+        "channel": "stable",
+        "method": "appimage",
+        "managedBy": "self",
+        "path": "find.AppImage",
+        "integration": {
+          "desktopEntry": "/home/u/.local/share/applications/arcade-find.desktop",
+          "icons": [
+            "/home/u/.local/share/icons/hicolor/256x256/apps/arcade-find.png"
+          ],
+          "cli": "/home/u/.local/bin/arcade-find",
+          "autostart": null,
+          "uninstaller": null
+        },
+        "previous": {
+          "version": "0.2.1",
+          "path": "/home/u/Applications/Arcade/.previous/Arcade-Find.AppImage"
+        },
+        "installedAt": "2026-10-12T10:00:00Z",
+        "updatedAt": "2026-10-12T10:00:00Z"
+      }
+    },
+    {
+      "name": "bad-time",
+      "receipt": {
+        "schema": 1,
+        "id": "arcade.find",
+        "version": "0.3.0",
+        "channel": "stable",
+        "method": "appimage",
+        "managedBy": "self",
+        "path": "/home/u/Applications/Arcade/Arcade-Find.AppImage",
+        "integration": {
+          "desktopEntry": "/home/u/.local/share/applications/arcade-find.desktop",
+          "icons": [
+            "/home/u/.local/share/icons/hicolor/256x256/apps/arcade-find.png"
+          ],
+          "cli": "/home/u/.local/bin/arcade-find",
+          "autostart": null,
+          "uninstaller": null
+        },
+        "previous": {
+          "version": "0.2.1",
+          "path": "/home/u/Applications/Arcade/.previous/Arcade-Find.AppImage"
+        },
+        "installedAt": "2026-10-12T10:00:00Z",
+        "updatedAt": "2026-02-30T10:00:00Z"
+      }
+    },
+    {
+      "name": "reversed-time",
+      "receipt": {
+        "schema": 1,
+        "id": "arcade.find",
+        "version": "0.3.0",
+        "channel": "stable",
+        "method": "appimage",
+        "managedBy": "self",
+        "path": "/home/u/Applications/Arcade/Arcade-Find.AppImage",
+        "integration": {
+          "desktopEntry": "/home/u/.local/share/applications/arcade-find.desktop",
+          "icons": [
+            "/home/u/.local/share/icons/hicolor/256x256/apps/arcade-find.png"
+          ],
+          "cli": "/home/u/.local/bin/arcade-find",
+          "autostart": null,
+          "uninstaller": null
+        },
+        "previous": {
+          "version": "0.2.1",
+          "path": "/home/u/Applications/Arcade/.previous/Arcade-Find.AppImage"
+        },
+        "installedAt": "2026-10-12T10:00:00Z",
+        "updatedAt": "2025-10-12T10:00:00Z"
+      }
+    }
+  ]
+}

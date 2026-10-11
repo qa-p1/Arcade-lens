@@ -1,0 +1,305 @@
+{
+  "protocol": 1,
+  "cases": [
+    {
+      "name": "app.settings",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "opened": true
+        }
+      }
+    },
+    {
+      "name": "app.restart",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.restart",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "restarting": true
+        }
+      }
+    },
+    {
+      "name": "app.restart",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.restart",
+        "params": {
+          "mode": "force"
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "restarting": true
+        }
+      }
+    },
+    {
+      "name": "app.menu",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.menu",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "items": [
+            {
+              "id": "private",
+              "title": "Private mode",
+              "kind": "toggle",
+              "checked": false,
+              "enabled": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "app.menu.invoke",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.menu.invoke",
+        "params": {
+          "id": "private"
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "done": true
+        }
+      }
+    },
+    {
+      "name": "app.shortcuts.set",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.shortcuts.set",
+        "params": {
+          "id": "toggle",
+          "accelerator": "Ctrl+Alt+F"
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "applied": true,
+          "via": "native"
+        }
+      }
+    },
+    {
+      "name": "app.shortcuts.set",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.shortcuts.set",
+        "params": {
+          "id": "toggle",
+          "accelerator": "Ctrl+Alt+F"
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "applied": false,
+          "via": "manual",
+          "hint": "Bind arcade-find --toggle in Settings → Keyboard"
+        }
+      }
+    },
+    {
+      "name": "app.settings.export",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings.export",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "outputs": [
+            {
+              "type": "file/any",
+              "path": "/isolated/handoff/settings.json"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "app.settings.import",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings.import",
+        "params": {
+          "inputs": [
+            {
+              "type": "file/any",
+              "path": "/isolated/handoff/settings.json"
+            }
+          ]
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "imported": true,
+          "restartRequired": false
+        }
+      }
+    },
+    {
+      "name": "describe",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "describe",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "actions": [],
+          "methods": [
+            "app.settings",
+            "app.menu"
+          ]
+        }
+      }
+    },
+    {
+      "name": "app.settings-unsupported",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "unsupported",
+          "message": "unsupported"
+        }
+      }
+    },
+    {
+      "name": "app.restart-busy",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.restart",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "busy",
+          "message": "busy"
+        }
+      }
+    },
+    {
+      "name": "app.menu.invoke-denied",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.menu.invoke",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "denied"
+        }
+      }
+    },
+    {
+      "name": "app.shortcuts.set-denied",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.shortcuts.set",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "denied"
+        }
+      }
+    },
+    {
+      "name": "app.shortcuts.set-unavailable",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.shortcuts.set",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "unavailable",
+          "message": "unavailable"
+        }
+      }
+    },
+    {
+      "name": "app.settings.import-denied",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings.import",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "denied"
+        }
+      }
+    }
+  ]
+}

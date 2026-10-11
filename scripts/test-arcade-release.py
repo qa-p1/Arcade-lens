@@ -38,13 +38,18 @@ class ReleaseFixture(unittest.TestCase):
             self.assertEqual(manifest["channel"], "stable")
             self.assertEqual(manifest["linkProtocol"], [1])
             self.assertEqual(manifest["notes"], command[-2])
-            assets = {a["os"]: a for a in manifest["assets"]}
-            self.assertEqual(len(manifest["assets"]), 3)
-            self.assertEqual((assets["linux"]["kind"], assets["linux"]["arch"]), ("appimage", "x64"))
-            self.assertEqual((assets["macos"]["kind"], assets["macos"]["arch"]), ("dmg", "universal"))
-            self.assertEqual((assets["windows"]["kind"], assets["windows"]["arch"]), ("inno", "x64"))
-            self.assertEqual(assets["windows"]["silent"],
+            assets = {a["kind"]: a for a in manifest["assets"]}
+            self.assertEqual(len(manifest["assets"]), 4)
+            self.assertEqual((assets["appimage"]["os"], assets["appimage"]["arch"]), ("linux", "x64"))
+            self.assertEqual((assets["dmg"]["os"], assets["dmg"]["arch"]), ("macos", "universal"))
+            self.assertEqual((assets["inno"]["os"], assets["inno"]["arch"]), ("windows", "x64"))
+            self.assertEqual(assets["inno"]["silent"],
                              ["/VERYSILENT", "/SUPPRESSMSGBOXES", "/NORESTART", "/CURRENTUSER"])
+            self.assertEqual((assets["portable"]["os"], assets["portable"]["arch"]), ("windows", "x64"))
+            self.assertNotIn("silent", assets["portable"])
+            self.assertNotIn("installArgs", assets["portable"])
+            self.assertEqual(assets["appimage"]["installArgs"], ["--install", "--silent"])
+            self.assertEqual(assets["dmg"]["installArgs"], ["--install", "--silent"])
             for asset in assets.values():
                 self.assertEqual(asset["sha256"], hashlib.sha256(files[asset["file"]]).hexdigest())
                 self.assertEqual(asset["size"], len(files[asset["file"]]))

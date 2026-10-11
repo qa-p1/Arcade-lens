@@ -38,9 +38,20 @@ use runtime::Runtime;
 #[derive(Debug, Clone)]
 pub enum Trigger {
     Capture,
+    CaptureText,
+    PickColor,
     Settings,
     Restart,
     Quit,
+    TrayState(arcade_link::trayhost::TrayState),
+    ShortcutSet {
+        accelerator: String,
+        reply: std::sync::mpsc::SyncSender<Result<arcade_link::app::ShortcutSetResult, arcade_link::LinkError>>,
+    },
+    SettingsImport {
+        inputs: Vec<arcade_link::Content>,
+        reply: std::sync::mpsc::SyncSender<Result<arcade_link::app::ImportResult, arcade_link::LinkError>>,
+    },
     /// An interactive request from another Arcade app.
     Link(crate::link::GuiRequest),
 }
@@ -133,6 +144,7 @@ struct LensApp {
     state: Arc<Mutex<AppState>>,
     paths: Paths,
     triggers: Receiver<Trigger>,
+    trigger_sender: Sender<Trigger>,
     shortcuts: Option<lens_platform::shortcut::Shortcuts>,
     tray: Option<lens_platform::tray::Tray>,
     one_shot: bool,
@@ -174,7 +186,79 @@ fn make_overlay(ctx: &egui::Context, captures: Vec<lens_platform::Capture>) -> O
 }
 
 impl LensApp {
+    fn apply_live_shortcut(&mut self, accelerator: Option<&str>) -> Result<arcade_link::app::ShortcutSetResult, arcade_link::LinkError> {
+        use arcade_link::app::ShortcutVia;
+        let shortcuts = self.shortcuts.as_mut().ok_or_else(|| arcade_link::LinkError::unavailable("native shortcuts are unavailable"))?;
+        shortcuts.set(accelerator).map_err(arcade_link::LinkError::unavailable)?;
+        Ok(crate::app::hub::apply_result(ShortcutVia::Native, None))
+    }
+
+    fn apply_tray_state(&mut self, state: arcade_link::trayhost::TrayState) {
+        use arcade_link::trayhost::TrayState;
+        crate::link::set_tray_state(state);
+        match state {
+            TrayState::Own if self.tray.is_none() => {
+                let shortcut = self.state.lock().unwrap_or_else(|e| e.into_inner()).env.rt.settings.activation_shortcut.clone();
+                let tx = self.trigger_sender.clone();
+                self.tray = background::tray(shortcut, move |event| {
+                    use lens_platform::tray::TrayEvent;
+                    let trigger = match event {
+                        TrayEvent::Capture => Trigger::Capture,
+                        TrayEvent::CaptureText => Trigger::CaptureText,
+                        TrayEvent::PickColor => Trigger::PickColor,
+                        TrayEvent::Settings => Trigger::Settings,
+                        TrayEvent::Restart => Trigger::Restart,
+                        TrayEvent::Quit => Trigger::Quit,
+                    };
+                    let _ = tx.send(trigger);
+                });
+                if self.tray.is_none() {
+                    crate::link::set_tray_state(TrayState::None);
+                }
+            }
+            TrayState::Own => {
+                if let Some(tray) = &self.tray {
+                    tray.set_visible(true);
+                }
+            }
+            TrayState::Hosted => {
+                if let Some(tray) = &self.tray {
+                    tray.set_visible(false);
+                }
+            }
+            TrayState::None => self.tray = None,
+        }
+    }
+
+    fn apply_hub_shortcut(&mut self, ctx: &egui::Context, accelerator: &str) -> Result<arcade_link::app::ShortcutSetResult, arcade_link::LinkError> {
+        let paths = self.paths.clone();
+        let result = crate::app::hub::set_shortcut(&paths, accelerator, |a| self.apply_live_shortcut(a))?;
+        if let Some(tray) = &self.tray {
+            let settings = config::load_settings(&self.paths).map_err(arcade_link::LinkError::unavailable)?;
+            tray.set_shortcut(settings.activation_shortcut);
+        }
+        self.reload_runtime(ctx);
+        Ok(result)
+    }
+
+    fn import_hub_settings(&mut self, ctx: &egui::Context, inputs: &[arcade_link::Content]) -> Result<arcade_link::app::ImportResult, arcade_link::LinkError> {
+        let paths = self.paths.clone();
+        let result = crate::app::hub::import_settings(&paths, inputs, |a| self.apply_live_shortcut(a))?;
+        if result.imported {
+            self.reload_runtime(ctx);
+            if let Some(tray) = &self.tray {
+                let settings = config::load_settings(&self.paths).map_err(arcade_link::LinkError::unavailable)?;
+                tray.set_shortcut(settings.activation_shortcut);
+            }
+        }
+        Ok(result)
+    }
+
     fn begin_capture(&mut self, ctx: &egui::Context) {
+        self.begin_capture_mode(ctx, crate::link::CaptureMode::Palette);
+    }
+
+    fn begin_capture_mode(&mut self, ctx: &egui::Context, mode: crate::link::CaptureMode) {
         {
             let st = self.state.lock().unwrap();
             if st.overlay.is_some() {
@@ -188,6 +272,10 @@ impl LensApp {
             Err(e) => return notify(&format!("screen capture failed: {e}")),
         };
         self.show_overlay(ctx, captures);
+        if let Some(overlay) = self.state.lock().unwrap().overlay.as_mut() {
+            overlay.mode = mode;
+            overlay.measure = mode == crate::link::CaptureMode::Measure;
+        }
     }
 
     /// Requests from other Arcade apps (Arcade Link).
@@ -506,6 +594,8 @@ impl eframe::App for LensApp {
         while let Ok(t) = self.triggers.try_recv() {
             match t {
                 Trigger::Capture => self.begin_capture(ctx),
+                Trigger::CaptureText => self.begin_capture_mode(ctx, crate::link::CaptureMode::Text),
+                Trigger::PickColor => self.begin_capture_mode(ctx, crate::link::CaptureMode::Color),
                 Trigger::Settings => self.open_settings(ctx),
                 Trigger::Restart => {
                     if background::restart() {
@@ -513,6 +603,15 @@ impl eframe::App for LensApp {
                     }
                 }
                 Trigger::Quit => ctx.send_viewport_cmd(ViewportCommand::Close),
+                Trigger::TrayState(state) => self.apply_tray_state(state),
+                Trigger::ShortcutSet { accelerator, reply } => {
+                    let result = self.apply_hub_shortcut(ctx, &accelerator);
+                    let _ = reply.send(result);
+                }
+                Trigger::SettingsImport { inputs, reply } => {
+                    let result = self.import_hub_settings(ctx, &inputs);
+                    let _ = reply.send(result);
+                }
                 Trigger::Link(request) => self.link_request(ctx, request),
             }
         }
@@ -783,10 +882,20 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
     }
     let (tx, rx) = mpsc::channel::<Trigger>();
     let t = tx.clone();
+    let hub_tx = Mutex::new(tx.clone());
     lens_platform::ipc::serve(&paths.endpoint(), move |cmd| {
+        if let Some(reply) = hub_command(cmd, |trigger| {
+            let tx = hub_tx.lock().unwrap_or_else(|e| e.into_inner()).clone();
+            send_trigger(&tx, trigger);
+            true
+        }) {
+            return reply;
+        }
         let trig = match cmd {
             "ping" => return "pong".into(),
             "capture" => Trigger::Capture,
+            "capture-text" => Trigger::CaptureText,
+            "pick-color" => Trigger::PickColor,
             "settings" => Trigger::Settings,
             "restart" => Trigger::Restart,
             "quit" => Trigger::Quit,
@@ -820,8 +929,31 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
         .with_override_redirect(x11);
     let mode = Mode { daemon: true, one_shot: false, solo: false };
     let r = start_app(rt, root, (tx, rx), mode, |_, _| {});
+    crate::app::trayhost::stop();
     crate::link::stop();
     r
+}
+
+/// `shortcut-set` and `settings-import` from Link workers: answered by the
+/// UI thread, which owns the native shortcut, and returned as a Link result.
+pub(crate) fn hub_command(cmd: &str, send: impl Fn(Trigger) -> bool) -> Option<String> {
+    use crate::app::hub::{ask, encode_reply};
+    if let Some(json) = cmd.strip_prefix("shortcut-set ") {
+        let accelerator = serde_json::from_str::<serde_json::Value>(json).ok().and_then(|v| v["accelerator"].as_str().map(str::to_string));
+        let result = match accelerator {
+            Some(accelerator) => ask(|reply| send(Trigger::ShortcutSet { accelerator, reply })),
+            None => Err(arcade_link::LinkError::denied("missing accelerator")),
+        };
+        return Some(encode_reply(result));
+    }
+    if let Some(json) = cmd.strip_prefix("settings-import ") {
+        let result = match serde_json::from_str::<Vec<arcade_link::Content>>(json) {
+            Ok(inputs) => ask(|reply| send(Trigger::SettingsImport { inputs, reply })),
+            Err(e) => Err(arcade_link::LinkError::denied(&format!("invalid settings input: {e}"))),
+        };
+        return Some(encode_reply(result));
+    }
+    None
 }
 
 /// Queues `t` for the app and wakes its event loop.
@@ -926,21 +1058,15 @@ fn start_app(
             let _ = CONTEXT.set(ctx.clone());
             theme::apply_style(&ctx);
             let mut shortcuts = None;
-            let mut tray = None;
+            let tray = None;
             if daemon {
+                // The icon appears on the watcher's first answer: at once
+                // without Tools, never while Tools hosts it (300 ms cap).
                 let t = tx.clone();
-                tray = background::tray(rt.settings.activation_shortcut.clone(), move |e| {
-                    use lens_platform::tray::TrayEvent;
-                    send_trigger(
-                        &t,
-                        match e {
-                            TrayEvent::Capture => Trigger::Capture,
-                            TrayEvent::Settings => Trigger::Settings,
-                            TrayEvent::Restart => Trigger::Restart,
-                            TrayEvent::Quit => Trigger::Quit,
-                        },
-                    )
-                });
+                if let Err(e) = crate::app::trayhost::start(&rt.settings, move |state| send_trigger(&t, Trigger::TrayState(state))) {
+                    crate::lens_debug!("tray host watcher: {e}");
+                    send_trigger(&tx, Trigger::TrayState(arcade_link::trayhost::TrayState::Own));
+                }
                 match lens_platform::shortcut::Shortcuts::new() {
                     Ok(mut s) => {
                         if let Err(e) = s.set(rt.settings.activation_shortcut.as_deref()) {
@@ -981,6 +1107,7 @@ fn start_app(
                 state: Arc::new(Mutex::new(state)),
                 paths: rt.paths.clone(),
                 triggers: rx,
+                trigger_sender: tx,
                 shortcuts,
                 tray,
                 one_shot,

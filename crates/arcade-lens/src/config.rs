@@ -10,7 +10,7 @@ use lens_core::chain::Chain;
 use lens_core::usage::UsageStore;
 use lens_core::Settings;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Paths {
     pub config: PathBuf,
     pub data: PathBuf,

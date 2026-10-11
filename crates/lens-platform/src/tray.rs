@@ -9,6 +9,8 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrayEvent {
     Capture,
+    CaptureText,
+    PickColor,
     Settings,
     Restart,
     Quit,
@@ -58,6 +60,16 @@ impl Tray {
         #[cfg(not(any(target_os = "linux", windows, target_os = "macos")))]
         let _ = shortcut;
     }
+
+    /// Keeps the native object alive while Link temporarily owns its icon.
+    pub fn set_visible(&self, visible: bool) {
+        #[cfg(target_os = "linux")]
+        self.handle.update(|t| t.visible = visible);
+        #[cfg(any(windows, target_os = "macos"))]
+        self.native.set_visible(visible);
+        #[cfg(not(any(target_os = "linux", windows, target_os = "macos")))]
+        let _ = visible;
+    }
 }
 
 impl Drop for Tray {
@@ -77,6 +89,7 @@ mod sni {
     pub struct Item {
         icons: Vec<Icon>,
         pub shortcut: Option<String>,
+        pub visible: bool,
         on_event: Box<dyn Fn(TrayEvent) + Send + Sync>,
     }
 
@@ -91,7 +104,7 @@ mod sni {
                     data: i.rgba.as_chunks::<4>().0.iter().flat_map(|&[r, g, b, a]| [a, r, g, b]).collect(),
                 })
                 .collect();
-            Item { icons, shortcut, on_event }
+            Item { icons, shortcut, visible: true, on_event }
         }
 
         fn action(label: &str, event: TrayEvent) -> MenuItem<Item> {
@@ -106,6 +119,10 @@ mod sni {
 
         fn title(&self) -> String {
             "Arcade Lens".into()
+        }
+
+        fn status(&self) -> ksni::Status {
+            if self.visible { ksni::Status::Active } else { ksni::Status::Passive }
         }
 
         fn icon_pixmap(&self) -> Vec<Icon> {
@@ -132,6 +149,8 @@ mod sni {
             // The same menu as every Arcade app: open, settings, restart, quit.
             vec![
                 Self::action("Open Lens", TrayEvent::Capture),
+                Self::action("Capture text", TrayEvent::CaptureText),
+                Self::action("Pick color", TrayEvent::PickColor),
                 Self::action("Open Settings", TrayEvent::Settings),
                 Self::action("Restart Arcade Lens", TrayEvent::Restart),
                 MenuItem::Separator,
@@ -165,14 +184,18 @@ mod native {
         pub fn new(icons: Vec<TrayIcon>, shortcut: Option<String>, on_event: Box<dyn Fn(TrayEvent) + Send + Sync>) -> Result<Native, String> {
             let on_event: Arc<dyn Fn(TrayEvent) + Send + Sync> = on_event.into();
             let capture = MenuItem::new("Open Lens", true, None);
+            let capture_text = MenuItem::new("Capture text", true, None);
+            let pick_color = MenuItem::new("Pick color", true, None);
             let settings = MenuItem::new("Open Settings", true, None);
             let restart = MenuItem::new("Restart Arcade Lens", true, None);
             let quit = MenuItem::new("Quit Arcade Lens", true, None);
             let menu = Menu::new();
-            menu.append_items(&[&capture, &settings, &restart, &PredefinedMenuItem::separator(), &quit]).map_err(|e| e.to_string())?;
+            menu.append_items(&[&capture, &capture_text, &pick_color, &settings, &restart, &PredefinedMenuItem::separator(), &quit]).map_err(|e| e.to_string())?;
 
             let actions: Vec<(MenuId, TrayEvent)> = vec![
                 (capture.id().clone(), TrayEvent::Capture),
+                (capture_text.id().clone(), TrayEvent::CaptureText),
+                (pick_color.id().clone(), TrayEvent::PickColor),
                 (settings.id().clone(), TrayEvent::Settings),
                 (restart.id().clone(), TrayEvent::Restart),
                 (quit.id().clone(), TrayEvent::Quit),
@@ -208,6 +231,10 @@ mod native {
 
         pub fn set_shortcut(&self, shortcut: Option<String>) {
             let _ = self.icon.set_tooltip(Some(tooltip(shortcut.as_deref())));
+        }
+
+        pub fn set_visible(&self, visible: bool) {
+            let _ = self.icon.set_visible(visible);
         }
     }
 }

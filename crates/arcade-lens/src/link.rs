@@ -27,17 +27,37 @@ use serde_json::{json, Value};
 use crate::config::Paths;
 use crate::gui::runtime::Runtime;
 
+pub const ME: &str = ids::LENS;
+pub const NAME: &str = "Arcade Lens";
+
 /// The manifest for these settings (also printed by `--arcade-manifest`).
 pub fn manifest(settings: &Settings) -> Manifest {
     let mut m = Manifest::new(ids::LENS, env!("CARGO_PKG_VERSION"), &arcade_link::manifest::current_executable());
     m.launch.background = vec!["--background".into()];
     m.launch.invoke = Some(vec![arcade_link::oneshot::FLAG.into()]);
     if let Some(s) = &settings.activation_shortcut {
-        m.shortcuts.push(arcade_link::manifest::Shortcut { id: "capture".into(), accelerator: s.clone() });
+        if let Ok(accelerator) = arcade_link::accelerator::normalize(s) {
+            m.shortcuts.push(arcade_link::manifest::Shortcut { id: "capture".into(), accelerator });
+        }
     }
     m.settings.link_enabled = settings.link.enabled;
     m.actions = actions();
     m
+}
+
+/// Full cached manifest document used by Link and `--arcade-manifest`.
+pub fn document(settings: &Settings, paths: &Paths) -> arcade_link::manifest::ManifestDocument {
+    use arcade_link::manifest::{Docs, ManifestAdditions, ManifestDocument};
+    ManifestDocument {
+        manifest: manifest(settings),
+        additions: ManifestAdditions {
+            menu: crate::app::hub::menu_items(),
+            logs: Some(paths.data.join("logs").to_string_lossy().into_owned()),
+            docs: Some(Docs { version: env!("CARGO_PKG_VERSION").into() }),
+            install: Some(crate::app::installer::method()),
+            ..Default::default()
+        },
+    }
 }
 
 /// The actions Lens exposes.
@@ -138,7 +158,7 @@ impl PickTarget {
 }
 
 /// What `lens.capture_and_act` opens: the palette, or one tool directly
-/// (`options.mode`: `palette`, `measure`, `pin`, `color`).
+/// (`options.mode`: `palette`, `measure`, `pin`, `color`, `text`).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub enum CaptureMode {
     #[default]
@@ -146,6 +166,8 @@ pub enum CaptureMode {
     Measure,
     Pin,
     Color,
+    /// Select, then copy the recognized text (tray "Capture text").
+    Text,
 }
 
 impl CaptureMode {
@@ -155,6 +177,7 @@ impl CaptureMode {
             Some("measure") => Ok(Self::Measure),
             Some("pin") => Ok(Self::Pin),
             Some("color") => Ok(Self::Color),
+            Some("text") => Ok(Self::Text),
             Some(_) => Err(LinkError::unsupported("Unknown Lens capture mode")),
         }
     }
@@ -165,6 +188,7 @@ impl CaptureMode {
             Self::Measure => "measure",
             Self::Pin => "pin",
             Self::Color => "color",
+            Self::Text => "text",
         }
     }
 }
@@ -307,9 +331,82 @@ struct LensHandler {
     background: bool,
 }
 
+fn tray_state_slot() -> &'static Mutex<arcade_link::trayhost::TrayState> {
+    static STATE: OnceLock<Mutex<arcade_link::trayhost::TrayState>> = OnceLock::new();
+    STATE.get_or_init(|| Mutex::new(arcade_link::trayhost::TrayState::None))
+}
+
+pub fn set_tray_state(state: arcade_link::trayhost::TrayState) {
+    *tray_state_slot().lock().unwrap_or_else(|e| e.into_inner()) = state;
+}
+
+fn tray_state_name() -> &'static str {
+    match *tray_state_slot().lock().unwrap_or_else(|e| e.into_inner()) {
+        arcade_link::trayhost::TrayState::Own => "own",
+        arcade_link::trayhost::TrayState::Hosted => "hosted",
+        arcade_link::trayhost::TrayState::None => "none",
+    }
+}
+
+fn ipc_command(paths: &Paths, command: &str) -> Result<String, LinkError> {
+    lens_platform::ipc::send(&paths.endpoint(), command).map_err(|e| LinkError::unavailable(e.to_string()))
+}
+
 impl Handler for LensHandler {
     fn status(&self) -> Value {
-        json!({ "mode": if self.background { "background" } else { "foreground" } })
+        json!({ "mode": if self.background { "background" } else { "foreground" }, "tray": tray_state_name() })
+    }
+
+    fn methods(&self) -> Vec<String> {
+        crate::app::hub::methods()
+    }
+
+    fn settings(&self) -> Result<(), LinkError> {
+        self.activate()
+    }
+
+    fn restart(&self, mode: &str) -> Result<(), LinkError> {
+        if !matches!(mode, "normal" | "force") {
+            return Err(LinkError::denied("unknown restart mode"));
+        }
+        if ipc_command(&self.paths, "restart").is_ok() {
+            return Ok(());
+        }
+        let executable = crate::app::installer::current_executable(&self.paths).map_err(|e| LinkError::unavailable(e.to_string()))?;
+        std::process::Command::new(executable).arg("--restarting").spawn().map_err(|e| LinkError::unavailable(e.to_string()))?;
+        Ok(())
+    }
+
+    fn menu(&self) -> Result<Vec<arcade_link::manifest::MenuItem>, LinkError> {
+        Ok(crate::app::hub::menu_items())
+    }
+
+    fn menu_invoke(&self, id: &str) -> Result<(), LinkError> {
+        let command = match id {
+            crate::app::hub::CAPTURE_MENU => "capture",
+            crate::app::hub::CAPTURE_TEXT_MENU => "capture-text",
+            crate::app::hub::PICK_COLOR_MENU => "pick-color",
+            _ => return Err(LinkError::denied("unknown Lens menu item")),
+        };
+        ipc_command(&self.paths, command).map(|_| ())
+    }
+
+    fn shortcuts_set(&self, id: &str, accelerator: &str) -> Result<arcade_link::app::ShortcutSetResult, LinkError> {
+        if id != "capture" {
+            return Err(LinkError::denied("unknown Lens global shortcut"));
+        }
+        let command = serde_json::to_string(&json!({ "accelerator": accelerator })).map_err(|e| LinkError::internal(e.to_string()))?;
+        crate::app::hub::decode_reply(&ipc_command(&self.paths, &format!("shortcut-set {command}"))?)
+    }
+
+    fn settings_export(&self) -> Result<Vec<Content>, LinkError> {
+        let settings = crate::config::load_settings(&self.paths).map_err(LinkError::unavailable)?;
+        crate::app::portable_settings::export_file(&Locations::discover(), &settings)
+    }
+
+    fn settings_import(&self, inputs: &[Content]) -> Result<arcade_link::app::ImportResult, LinkError> {
+        let encoded = serde_json::to_string(inputs).map_err(|e| LinkError::internal(e.to_string()))?;
+        crate::app::hub::decode_reply(&ipc_command(&self.paths, &format!("settings-import {encoded}"))?)
     }
 
     fn describe(&self) -> Vec<Action> {
@@ -373,7 +470,10 @@ impl Handler for LensHandler {
     }
 
     fn activate(&self) -> Result<(), LinkError> {
-        let _ = std::process::Command::new(lens_platform::autostart::current_exe().map_err(|e| LinkError::internal(e.to_string()))?).arg("--settings").spawn();
+        if ipc_command(&self.paths, "settings").is_err() {
+            let exe = crate::app::installer::current_executable(&self.paths).map_err(|e| LinkError::unavailable(e.to_string()))?;
+            std::process::Command::new(exe).arg("--settings").spawn().map_err(|e| LinkError::unavailable(e.to_string()))?;
+        }
         Ok(())
     }
 
@@ -421,11 +521,12 @@ fn slot() -> &'static Mutex<Option<Arc<Presence>>> {
 
 /// Starts Lens's presence on a background thread.
 pub fn start(settings: &Settings, background: bool) {
-    let m = manifest(settings);
+    let paths = Paths::discover();
+    let document = document(settings, &paths);
     std::thread::Builder::new()
         .name("lens-link".into())
         .spawn(move || {
-            let p = Presence::start(Locations::discover(), m, Arc::new(LensHandler { paths: Paths::discover(), background }));
+            let p = Presence::start_document(Locations::discover(), document, Arc::new(LensHandler { paths, background }));
             if let Some(e) = p.last_error() {
                 crate::lens_debug!("arcade link: {e}");
             }
@@ -436,11 +537,30 @@ pub fn start(settings: &Settings, background: bool) {
 
 /// Rewrites the manifest after a settings change (shortcut, the Link switch).
 pub fn refresh(settings: &Settings) {
-    let m = manifest(settings);
+    let paths = Paths::discover();
+    let doc = document(settings, &paths);
     let p = slot().lock().unwrap_or_else(|e| e.into_inner()).clone();
     if let Some(p) = p {
-        std::thread::spawn(move || p.update(m));
+        std::thread::spawn(move || p.update_document(doc));
     }
+}
+
+/// Publishes a settings change synchronously and verifies the resulting file.
+/// `Presence::update_document` intentionally returns no status.
+pub fn publish_settings(settings: &Settings, paths: &Paths) -> Result<(), LinkError> {
+    let document = document(settings, paths);
+    if let Some(p) = slot().lock().unwrap_or_else(|e| e.into_inner()).clone() {
+        p.update_document(document.clone());
+    } else {
+        arcade_link::manifest::write_document(&Locations::discover(), &document).map_err(crate::app::portable_settings::io_error)?;
+    }
+    let text = std::fs::read_to_string(Locations::discover().manifest(ME)).map_err(crate::app::portable_settings::io_error)?;
+    let mut written = arcade_link::manifest::ManifestDocument::from_json(&text).map_err(LinkError::unavailable)?;
+    written.manifest.written_at = document.manifest.written_at.clone();
+    if written != document {
+        return Err(LinkError::unavailable("couldn't publish Lens settings in the manifest"));
+    }
+    Ok(())
 }
 
 /// Stops listening and removes the endpoint file (the manifest stays).

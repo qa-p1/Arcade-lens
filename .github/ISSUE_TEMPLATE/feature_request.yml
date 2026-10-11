@@ -1,0 +1,24 @@
+name: Arcade Lens feature request
+description: Suggest a way to make Arcade Lens more useful.
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem would this solve?
+      description: Describe what you are trying to do and what gets in your way.
+      placeholder: Tell us about the task or need.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like to happen?
+      description: Describe your idea, if you have one.
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives you have considered
+      description: Other approaches or tools you use today, if any.

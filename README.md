@@ -1,230 +1,87 @@
 # Arcade Lens
 
-**Select anything on your screen. Do something useful with it.**
+Arcade Lens lets you select something visible on your screen and choose a useful next step. It can recognize text, links, codes, colors, tables, and other common screen content, then offer relevant actions beside the selection.
 
-Press a shortcut and draw a rectangle around anything visible: text, a QR
-code, an error, a color, a table, a file path or a window. Arcade Lens works
-out everything the selection *is* and offers the few actions that matter,
-right next to it. You never have to decide which utility to open first.
+## Install
 
-## Installing
-
-Download the package for your system from the
-[latest release](https://github.com/qa-p1/Arcade-lens/releases/latest). The
-[nightly](https://github.com/qa-p1/Arcade-lens/releases/tag/nightly)
-prerelease has the latest build of `main`.
-
-| System | Package | Setup |
-|---|---|---|
-| Windows (x64) | `…-windows-x64-setup.exe` | Installs for your user (no admin), adds a Start menu entry, optionally starts Lens at sign-in, and launches it. Uninstall from Settings → Apps. A portable `.exe` is also provided. |
-| Linux (x86_64) | `…-linux-x86_64.AppImage` | `chmod +x` it and run it. On first start it adds itself to the applications menu and to login startup. Text recognition uses your Tesseract; see below. |
-| macOS 12.3+ (Apple silicon and Intel) | `…-macos-universal.dmg` | Drag Arcade Lens to Applications and open it. It lives in the menu bar and adds itself to login items. The app isn't notarized: the first time, right-click it and choose Open. |
-
-To build and install from source on Linux instead:
-
-```console
-$ ./scripts/install.sh
-```
-
-This builds Lens, installs it to `~/.local/bin` and starts it. Lens then
-lives in the tray, starts at login, and appears in the applications menu as
-**Arcade Lens**. Run the script again after pulling changes; the running
-instance restarts on the new build. On Linux, text recognition uses
-Tesseract: install it from your package manager (`tesseract` plus its English
-data), or let Lens fetch a private copy (~24 MB) from **Settings → General →
-Download Tesseract**. The copy is shared by every Arcade app. Windows and
-macOS use the OCR built into the system.
-
-## Using it
-
-Press **Ctrl+Alt+Shift+L**, which you can change in Settings. Lens captures
-every monitor first and then freezes the screen, so menus and tooltips can be
-selected.
-
-| Input | Effect |
-|---|---|
-| drag | select a region (handles to resize, drag inside to move) |
-| click on a highlighted window | select that window |
-| arrows / Shift+arrows | nudge / resize the selection (Ctrl: ×10) |
-| the key shown on an action, or click | run it |
-| Enter | run the default (highlighted) action |
-| Space / Tab | all actions, grouped by what they apply to; type to filter |
-| Ctrl+C | copy the region as an image |
-| M | measure mode: drag to measure, snaps to edges; C copies the size |
-| Esc | back / close |
-
-The palette works progressively:
-- Copy, Save, Pin and Annotate are available the instant the selection is
-  made.
-- OCR-based results (links, commands, errors, tables…) slot in as their
-  recognizers finish. Entries already on screen don't move.
-- Outbound actions are marked ↗, and the expanded list shows exactly what
-  each one would send.
-
-The **tray icon** shows that Lens is running. Click it for Settings, or
-open its menu for **Open Lens** (start a capture), **Open Settings**,
-**Restart Arcade Lens** and **Quit Arcade Lens**, the same menu every Arcade
-app has. Start at login is in Settings. Opening Arcade Lens from the applications menu
-opens Settings; its right-click menu has Capture Screen and Quit.
-
-For a compositor or launcher binding, the same commands are available as
-options, and they reach the running instance:
-
-```console
-$ arcade-lens                 # Settings (starts Lens if it isn't running)
-$ arcade-lens --capture       # select something now
-$ arcade-lens --background    # start without a window (what login uses)
-$ arcade-lens --restart
-$ arcade-lens --quit
-```
-
-**Pins** float above other windows:
-- Drag to move, scroll to zoom, and Ctrl+scroll to change opacity.
-- Right-click for copy, save, annotate, a live refresh (where supported) and
-  close.
-- Double-click or Esc closes a pin.
-
-**Annotate** opens the selection in an editor with a pen, a highlighter,
-lines, arrows, rectangles, ellipses, text and pixelation (for redaction),
-plus undo/redo. From there it can be copied, saved or pinned.
-
-## How it works
-
-A selection is never classified into a single type. A QR code containing a
-URL is a screenshot, an image, a QR code *and* a URL at the same time, and
-you get actions for all of them: Open, Copy URL and Generate QR for the URL,
-alongside Copy, Save, Pin and Annotate for the image.
-
-There are 26 built-in recognizers forming a dataflow graph (pixels → OCR →
-text → URL, command, error…) and 156 built-in actions. Ranking picks the 4–6
-that matter, and learns locally which ones you prefer. See
-[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
-
-## What it recognizes
-
-| Pixels | Text (from OCR, QR payloads or plugins) |
-|---|---|
-| any region (always) | URLs, emails, phone numbers, postal addresses |
-| single colors, palettes | dates & times (ambiguity preserved), timecodes, timestamps |
-| UI elements: size, background/foreground, WCAG contrast | shell commands, with risk analysis |
-| photos/illustrations, icons | source code + language, line-number gutter removal |
-| QR codes, barcodes (EAN/UPC/Code 128/…) | errors & stack traces → cleaned, privacy-safe search |
-| windows (X11, Windows, macOS) | file paths (checked for existence), IPv4/IPv6, domains |
-| video frames (media-player windows) | hashes (never over-claimed), UUIDs, secrets/tokens |
-| | currency, physical quantities (local unit conversion), coordinates |
-| | tables (CSV / TSV / Markdown), git commits on a forge page |
-| | document text (clean copy, PDF, print), subtitles |
-
-## Safety and privacy
-
-- Everything is recognized **locally**. There is no account and no cloud
-  inference.
-- If a selection contains something that looks like a secret, actions that
-  would send it anywhere are removed, and the engine refuses them even if
-  they are invoked directly.
-- Commands read from the screen are **never** run without confirmation:
-  - Dangerous actions need Ctrl+Enter or a click; a plain Enter is not
-    enough.
-  - "Open Terminal + Paste" pre-fills an editable prompt and runs nothing.
-- Ambiguous values (e.g. `05/03/2024`) are never silently resolved.
-- Selections are ephemeral. History is off unless enabled in Settings.
-  Usage learning stores only "which action for which kind of thing"
-  counters, and can be reset.
-- Debug logging (`LENS_DEBUG=1`) never includes selection content.
+Install Lens from **Arcade Tools → Apps**, or install it by hand using the [getting-started guide](docs/user/getting-started.md).
 
 ## Works with other Arcade apps
 
-When the other Arcade apps are installed, Lens offers Quick Look for paths,
-Box's image presets and saved pipelines, Send to my devices through
-Clipboard, and Add to Wheel. The expanded palette shows what each action
-sends. Selections containing secrets cannot be sent.
+Lens can send a selection to Box, Clipboard, Look, Shelf, Wheel, or Find. See [how Lens works with other Arcade apps](docs/user/with-other-apps.md).
 
-Manage these connections in **Settings → Connected apps**, with a master
-switch and a **Use with Arcade Lens** switch for each installed app. Lens
-keeps its capture, palette and local recognition when used alone.
+Read the [Arcade Lens user guide](docs/user/) for setup, features, shortcuts, and help.
 
-Other apps can ask Lens to capture, recognize, analyze or pin an image.
-See [the exposed actions, capture modes and platform status](docs/ARCADE_LINK.md).
+## Development
 
-## Plugins
+### Architecture and recognition
 
-Third-party recognizers and actions run out of process with declared
-permissions, and stay disabled until the user enables them:
+Lens captures a frozen image and runs built-in recognizers over it. There are 26 recognizers and 156 built-in actions; the result is a ranked, keyboard-addressable palette. Recognition is local. See [architecture](docs/ARCHITECTURE.md) for the dataflow and safety model.
 
-Copy a plugin's directory into the plugins folder (**Settings → Plugins →
-Open plugins folder**), then enable it there.
+A selection can produce several findings at once. For example, a QR image may offer image actions, QR decoding, and actions for a URL in its payload. OCR text can lead to URL, command, error, table, path, date, time, quantity, and other recognizers.
 
-[docs/PLUGINS.md](docs/PLUGINS.md) documents the manifest, protocol and
-security model. The [`isbn` example](examples/plugins/isbn) shows a small
-recognizer. Arcade app connections are built into Lens.
+### Plugins
 
-## Platform support
+Third-party recognizers and actions run out of process with declared permissions. They remain disabled until a user enables them. Copy a plugin directory into the folder opened from **Settings → Plugins → Open plugins folder**, then enable it in Settings.
+
+See [plugin manifests, protocol, and security](docs/PLUGINS.md) and the [ISBN example](examples/plugins/isbn).
+
+### Command line and source install
+
+The launcher commands reach the running instance:
+
+    arcade-lens                 # open Settings, or start Lens
+    arcade-lens --capture       # start a capture
+    arcade-lens --background    # start without a window
+    arcade-lens --restart
+    arcade-lens --quit
+
+For a Linux source install, run **./scripts/install.sh**. It builds Lens, installs it in **~/.local/bin**, starts it, and registers the tray and application-menu entries. Run it again after pulling changes to rebuild and restart. Linux OCR uses Tesseract with English language data; the explicit Settings download is a private copy shared by Arcade apps.
+
+### Platform implementation
 
 | | Linux X11 | Linux Wayland | Windows | macOS |
 |---|---|---|---|---|
-| Capture | X11 (RandR monitors, per-monitor scale) | screenshot portal | xcap | xcap (needs Screen Recording permission) |
-| Global shortcut | ✓ | Hyprland: automatic; elsewhere bind `arcade-lens --capture` | ✓ | ✓ |
-| Window detection & commands | ✓ (EWMH) | — | ✓ | detection only |
+| Capture | X11, per-monitor scale | screenshot portal | xcap | xcap, Screen Recording permission |
+| Global shortcut | Native | Hyprland runtime binding; bind the command elsewhere | Native | Native |
+| Window detection and commands | EWMH | Not available | Available | Detection only |
 | OCR | Tesseract | Tesseract | Windows.Media.Ocr | Apple Vision |
-| Live pins | ✓ | — | ✓ | ✓ |
-| Window recording | ✓ (needs ffmpeg) | — | ✓ (needs ffmpeg) | — |
-| Tray icon | StatusNotifierItem | StatusNotifierItem | notification area | menu bar |
-| Start at login | XDG autostart | XDG autostart | Run key | LaunchAgent |
+| Live pins | Available | Not available | Available | Available |
+| Window recording | FFmpeg required | Not available | FFmpeg required | Not available |
+| Tray | StatusNotifierItem | StatusNotifierItem | Notification area | Menu bar |
+| Login startup | XDG autostart | XDG autostart | Run key | LaunchAgent |
 
-**Testing status** (2026-10-08). The Linux X11 build is exercised end to end
-under Xvfb: shortcut, overlay, palette, pins, measure, annotate, settings,
-plugins and the cross-app checks in Arcade Link's runner (all passing). CI
-builds, lints and runs the test suite on Linux, Windows and macOS; the
-Windows and macOS builds have not been run interactively. Current status and
-limits: [docs/STATUS.md](docs/STATUS.md).
+Linux Hyprland actions are used daily. Windows and macOS are built and tested in CI but have not been run interactively. See [status](docs/STATUS.md) for the current evidence and limits.
 
-## Building
+### Build and release
 
-Requires Rust 1.95+. CI (`.github/workflows/ci.yml`) checks every push on
-all three systems. Pushes to `main` also build the packages with the scripts
-in [`packaging/`](packaging), and when the build passes:
+Requires Rust 1.95 or newer. CI checks pushes on Linux, Windows, and macOS. Pushes to main build the packages from **packaging/**. When a version has no release yet, CI tags it and publishes it as the latest release; otherwise it replaces the nightly prerelease. Pushing a version tag or publishing a GitHub release builds that tag and attaches its packages. Packages include **arcade-release.json** and **SHA256SUMS.txt** for Arcade Tools.
 
-- if the `version` in `Cargo.toml` has no release yet, CI tags it
-  `v<version>` and publishes it as the latest release (so to release, bump
-  the version);
-- otherwise it replaces the `nightly` prerelease.
+    cargo build --release
+    cargo test --workspace
+    cargo clippy --workspace --all-targets -- -D warnings
 
-Pushing a `v<version>` tag, or publishing a release on GitHub (which
-creates the tag), builds that tag and attaches the packages to its release.
-Packages include `arcade-release.json` and `SHA256SUMS.txt` for Arcade Tools.
-Arcade Link is a git dependency pinned to a release tag (`v0.2.0`, in
-`Cargo.toml`); a `[patch]` override builds against a local checkout instead.
+Arcade Link is pinned to a release tag in Cargo.toml. A local dependency override can point to a checkout for development.
 
-```console
-$ cargo build --release
-$ cargo test --workspace
-$ cargo clippy --workspace --all-targets -- -D warnings
-```
+Configuration lives in **settings.toml** at the path shown in Settings → About. **ARCADE_LENS_HOME** overrides the location. Isolated profiles and builds run from target do not register a login item or application-menu entry.
 
-Configuration lives in `settings.toml` (its location is shown in Settings →
-About). `ARCADE_LENS_HOME` overrides the location; instances started with it
-leave the login item and applications menu alone, as do builds run from
-`target/`.
+### Known limitations
 
-## Known limitations
+- Tesseract can misread small interface text such as lowercase “l” and the digit “1”. Lens enlarges small selections before OCR, but it cannot recover characters the engine did not detect.
+- On Wayland, the screenshot portal provides the frozen image; Lens has no window list or window commands, and live pins and window recording are unavailable. With Hyprland permission enforcement enabled, allow the screenshot tools in `hyprland.lua` to avoid repeated prompts:
 
-- **OCR accuracy.** On Linux, OCR uses Tesseract, which can misread small UI
-  fonts (`l`/`1`). Lens upscales small selections first; recognizers downstream
-  are tolerant, but they cannot recover text OCR never produced.
-- **Wayland** doesn't allow global shortcuts, window lists or freezing
-  without the portal. There, the portal screenshot *is* the freeze. With
-  Hyprland's `ecosystem.enforce_permissions` on, allow the portal's
-  screenshot tool in `hyprland.lua` or Hyprland asks before every capture:
+      hl.permission("/usr/(bin|local/bin)/grim", "screencopy", "allow")
+      hl.permission("/usr/(lib|libexec|lib64)/xdg-desktop-portal-hyprland", "screencopy", "allow")
 
-  ```lua
-  hl.permission("/usr/(bin|local/bin)/grim", "screencopy", "allow")
-  hl.permission("/usr/(lib|libexec|lib64)/xdg-desktop-portal-hyprland", "screencopy", "allow")
-  ```
-- **Missing features:**
-  - Share (a system share sheet) is not implemented on any platform.
-  - Send to device uses Arcade Clipboard when available, with KDE Connect
-    as the Linux fallback.
-  - macOS window commands need the Accessibility API, which is not
-    implemented yet.
-- **No accessibility metadata yet.** UI inspection is pixel-based; it doesn't
-  read element names from accessibility APIs.
+- A system share sheet and accessibility-based UI inspection are not implemented. macOS window commands need an Accessibility API integration that is not implemented yet.
+- The Send to my devices action uses Arcade Clipboard when available; on Linux, KDE Connect is the fallback.
+- Debug logging with **LENS_DEBUG=1** does not include selected screen content.
+
+### Technical references
+
+- [Arcade Link](docs/ARCADE_LINK.md): actions, capture modes, and peer integration.
+- [Plugins](docs/PLUGINS.md): plugin API and permissions.
+- [Status](docs/STATUS.md): verification record and remaining limits.
+- [Vendored files](VENDORED): source and license details for copied files.
+
+The project license is MIT OR Apache-2.0.

@@ -1,11 +1,22 @@
-scripts/arcade-release.py
-Source: Arcade-link/tools/arcade-release.py
-Arcade-link commit: 539fa9174f88c3f95a9d84f41253ec2630f72021
-License: MIT OR Apache-2.0
-Local adaptation: -portable.exe assets are checksummed but excluded from the install manifest; they are not Inno installers.
+Vendored shared tools and packaging assets
 
-crates/lens-actions/tests/fixtures/{box,clipboard,find,look,shelf,wheel}.json
-Source: Arcade-link/fixtures
-Arcade-link tag: v0.2.0
-License: MIT OR Apache-2.0
-Local adaptation: none; refresh them when the Link tag in Cargo.toml changes.
+| Files | Source | Pin | License | Local adaptation |
+| --- | --- | --- | --- | --- |
+| `packaging/windows/arcade.iss`, `packaging/windows/arcade-integration.ps1` | Arcade Link `packaging/windows/` | branch `arcade/tools-hub`, commit `f458e49a192c2a96b9fdc75fdb5724e49b29498f` | MIT OR Apache-2.0 | none |
+| `scripts/arcade-release.py`, `scripts/validate_shortcuts.py` | Arcade Link `tools/` | same commit `f458e49a192c2a96b9fdc75fdb5724e49b29498f` | MIT OR Apache-2.0 | none; Lens's `-portable.exe` is listed as `kind: portable` and is not a Tools installer |
+| `crates/lens-actions/tests/fixtures/{box,clipboard,find,look,shelf,wheel}.json` | Arcade Link `fixtures/` | tag `v0.2.0`, commit `bedee71dd98475810fd43a7da23d45316389b4e5` | MIT OR Apache-2.0 | none; runtime integration owns refreshing protocol fixtures |
+
+SHA-256 checksums of the vendored packaging and shared tools:
+
+```text
+8a3419c09b0f0a4ca16cac91420512d4ed450ed968e65011421dfc5a46ee2ae8  packaging/windows/arcade.iss
+e66ddb7411cffd67ef04d7e736db5c319e1ae5084f5daaa592218f21f0d4bb59  packaging/windows/arcade-integration.ps1
+8f360855419930730c486d0978acaecf7a8179cc063465c9f8324878dcf6c2fd  scripts/arcade-release.py
+3b5d2981ab87fdf07437daa294dce825d59b63580430e9ffa2b58e87d5d72cf0  scripts/validate_shortcuts.py
+```
+
+The copied installer helper is bundled into the Inno installer. It uses only
+Windows PowerShell 5.1 and is never downloaded during install. The source
+repository licenses Lens under MIT OR Apache-2.0; these shared files carry the
+same license. Refresh the source pin and hashes together when Link publishes
+the v0.3.0 tag.

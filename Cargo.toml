@@ -15,11 +15,9 @@ lens-recognizers = { path = "crates/lens-recognizers" }
 lens-actions = { path = "crates/lens-actions" }
 lens-platform = { path = "crates/lens-platform" }
 lens-plugins = { path = "crates/lens-plugins" }
-# Arcade Link (the shared protocol), pinned to a release tag. To build
-# against a local checkout instead, add to .cargo/config.toml (not committed):
-#   [patch."https://github.com/qa-p1/Arcade-Link"]
-#   arcade-link = { path = "<path to>/Arcade-link/crates/arcade-link" }
-arcade-link = { git = "https://github.com/qa-p1/Arcade-Link", tag = "v0.2.0", features = ["watch", "engines"] }
+# Arcade Link (the shared protocol). The tools-hub branch carries the additive
+# install, tray-host and app-settings APIs until the orchestrator pins v0.3.0.
+arcade-link = { git = "https://github.com/qa-p1/Arcade-Link", branch = "arcade/tools-hub", features = ["watch", "engines", "install", "trayhost"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 regex = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }

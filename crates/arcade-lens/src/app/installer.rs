@@ -101,6 +101,7 @@ fn identity(path: &Path) -> io::Result<FileIdentity> {
     Ok(FileIdentity { path: path.into(), size: meta.len(), modified: meta.modified()?.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos() })
 }
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 pub fn dismissed(paths: &Paths, path: &Path) -> bool {
     identity(path).ok().is_some_and(|id| {
         fs::read(paths.config.join("install-dismissed.json"))

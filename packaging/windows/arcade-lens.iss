@@ -47,13 +47,6 @@ Name: "{userprograms}\Arcade Lens\Arcade Lens Settings"; Filename: "{app}\arcade
 [Run]
 Filename: "{app}\arcade-lens.exe"; Description: "{cm:LaunchProgram,Arcade Lens}"; Flags: nowait postinstall skipifsilent
 
-[UninstallDelete]
-; The manifest and settings shortcut are shared integration. An old
-; uninstaller removes them only while its receipt still owns the install.
-Type: files; Name: "{code:LensArcadeRoot}\apps\arcade.lens.json"; Check: ArcadeOwnsSharedIntegration
-Type: files; Name: "{userprograms}\Arcade Lens\Arcade Lens Settings.lnk"; Check: ArcadeOwnsSharedIntegration
-Type: dirifempty; Name: "{userprograms}\Arcade Lens"; Check: ArcadeOwnsSharedIntegration
-
 [Code]
 var
   LensOwnsIntegration: Boolean;
@@ -122,6 +115,12 @@ begin
     if ArcadeOwnsSharedIntegration then
     begin
       QuitRunningLens();
+      // UninstallDelete Check parameters are evaluated during setup, before
+      // ownership is known. Delete these only after the helper proves this
+      // uninstaller owns the receipt; preserve a successor's integration.
+      DeleteFile(LensArcadeRoot('') + '\apps\arcade.lens.json');
+      DeleteFile(ExpandConstant('{userprograms}\Arcade Lens\Arcade Lens Settings.lnk'));
+      RemoveDir(ExpandConstant('{userprograms}\Arcade Lens'));
       RegDeleteValue(HKEY_CURRENT_USER,
         'Software\Microsoft\Windows\CurrentVersion\Run', 'ArcadeLens');
     end;

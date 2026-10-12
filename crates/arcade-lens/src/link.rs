@@ -687,7 +687,7 @@ mod tests {
         let paths = Paths { config: "unused-config".into(), data: "unused-data".into() };
         for (background, mode) in [(true, "background"), (false, "foreground")] {
             let handler = LensHandler { paths: paths.clone(), background };
-            assert_eq!(handler.status(), json!({ "mode": mode }));
+            assert_eq!(handler.status(), json!({ "mode": mode, "tray": tray_state_name() }));
         }
     }
 

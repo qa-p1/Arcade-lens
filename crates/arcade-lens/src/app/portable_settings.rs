@@ -73,11 +73,9 @@ impl PortableSettings {
             return Err(LinkError::denied("invalid Arcade Lens settings document"));
         }
         if let Some(shortcut) = &self.activation_shortcut {
-            let normalized = arcade_link::accelerator::normalize(shortcut).map_err(|e| LinkError::denied(&e.to_string()))?;
-            if normalized.contains(' ') {
-                return Err(LinkError::denied("Lens supports a single-chord activation shortcut"));
-            }
-            lens_platform::shortcut::parse(&normalized).map_err(|e| LinkError::denied(&e))?;
+            // The same rules as rebinding from Tools: one chord, a modifier or
+            // function key, and never a reserved system shortcut.
+            crate::app::hub::validate_shortcut(shortcut)?;
         }
         if let Some(currency) = &self.home_currency {
             if currency.len() != 3 || !currency.chars().all(|c| c.is_ascii_uppercase()) {
@@ -183,7 +181,9 @@ mod tests {
         };
         let value = PortableSettings::export(&settings);
         let text = serde_json::to_string(&value).unwrap();
-        for forbidden in ["browser", "screenshot", "providers", "duckduckgo", "enabledPlugins", "disabledPeers", "usage", "history"] {
+        // Privacy toggles (history/usage learning on or off) are preferences;
+        // paths, services, plugins and Link peers are machine-local.
+        for forbidden in ["browser", "screenshot", "providers", "duckduckgo", "enabledPlugins", "local-plugin", "disabledPeers", "arcade.box"] {
             assert!(!text.contains(forbidden), "{forbidden}");
         }
         let parsed: PortableSettings = serde_json::from_str(&text).unwrap();

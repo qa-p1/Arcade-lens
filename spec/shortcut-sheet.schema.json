@@ -1,0 +1,352 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "required": [
+    "schema",
+    "id",
+    "name",
+    "checkedVersion",
+    "sources",
+    "match",
+    "groups"
+  ],
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "groups": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/group"
+      }
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+    },
+    "name": {
+      "type": "string",
+      "minLength": 1
+    },
+    "checkedVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string",
+        "pattern": "^https://[^/\\s]+[^\\s]*$"
+      },
+      "uniqueItems": true
+    },
+    "match": {
+      "type": "object",
+      "anyOf": [
+        {
+          "required": [
+            "linux"
+          ]
+        },
+        {
+          "required": [
+            "windows"
+          ]
+        },
+        {
+          "required": [
+            "macos"
+          ]
+        }
+      ],
+      "properties": {
+        "linux": {
+          "type": "object",
+          "required": [
+            "class"
+          ],
+          "properties": {
+            "class": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "windows": {
+          "type": "object",
+          "required": [
+            "exe"
+          ],
+          "properties": {
+            "exe": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "macos": {
+          "type": "object",
+          "required": [
+            "bundle"
+          ],
+          "properties": {
+            "bundle": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "group": {
+      "type": "object",
+      "required": [
+        "title",
+        "context",
+        "shortcuts"
+      ],
+      "properties": {
+        "title": {
+          "type": "string",
+          "minLength": 1
+        },
+        "context": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+        },
+        "shortcuts": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/shortcut"
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "context": {
+                "const": "global"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "shortcuts": {
+                "items": {
+                  "properties": {
+                    "rebindable": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "shortcut": {
+      "type": "object",
+      "required": [
+        "id",
+        "title",
+        "keys"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9.-]*$"
+        },
+        "title": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "description": {
+          "type": "string"
+        },
+        "keys": {
+          "type": "object",
+          "properties": {
+            "default": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(?:(?:Ctrl\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:Super\\+)?(?:Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Backquote|Comma|Period|Slash|Print|Pause|ScrollLock|CapsLock|NumLock|Menu|NumpadAdd|NumpadSubtract|NumpadMultiply|NumpadDivide|NumpadDecimal|NumpadEnter|VolumeUp|VolumeDown|VolumeMute|MicMute|MediaPlayPause|MediaNext|MediaPrevious|MediaStop|BrightnessUp|BrightnessDown|MouseLeft|MouseRight|MouseMiddle|MouseBack|MouseForward|WheelUp|WheelDown|WheelLeft|WheelRight|[A-Z]|[0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Code(?:0|[1-9][0-9]*))|Ctrl|Alt|Shift|Super)(?: (?:(?:Ctrl\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:Super\\+)?(?:Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Backquote|Comma|Period|Slash|Print|Pause|ScrollLock|CapsLock|NumLock|Menu|NumpadAdd|NumpadSubtract|NumpadMultiply|NumpadDivide|NumpadDecimal|NumpadEnter|VolumeUp|VolumeDown|VolumeMute|MicMute|MediaPlayPause|MediaNext|MediaPrevious|MediaStop|BrightnessUp|BrightnessDown|MouseLeft|MouseRight|MouseMiddle|MouseBack|MouseForward|WheelUp|WheelDown|WheelLeft|WheelRight|[A-Z]|[0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Code(?:0|[1-9][0-9]*))|Ctrl|Alt|Shift|Super))*$"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^(?:(?:Ctrl\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:Super\\+)?(?:Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Backquote|Comma|Period|Slash|Print|Pause|ScrollLock|CapsLock|NumLock|Menu|NumpadAdd|NumpadSubtract|NumpadMultiply|NumpadDivide|NumpadDecimal|NumpadEnter|VolumeUp|VolumeDown|VolumeMute|MicMute|MediaPlayPause|MediaNext|MediaPrevious|MediaStop|BrightnessUp|BrightnessDown|MouseLeft|MouseRight|MouseMiddle|MouseBack|MouseForward|WheelUp|WheelDown|WheelLeft|WheelRight|[A-Z]|[0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Code(?:0|[1-9][0-9]*))|Ctrl|Alt|Shift|Super)(?: (?:(?:Ctrl\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:Super\\+)?(?:Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Backquote|Comma|Period|Slash|Print|Pause|ScrollLock|CapsLock|NumLock|Menu|NumpadAdd|NumpadSubtract|NumpadMultiply|NumpadDivide|NumpadDecimal|NumpadEnter|VolumeUp|VolumeDown|VolumeMute|MicMute|MediaPlayPause|MediaNext|MediaPrevious|MediaStop|BrightnessUp|BrightnessDown|MouseLeft|MouseRight|MouseMiddle|MouseBack|MouseForward|WheelUp|WheelDown|WheelLeft|WheelRight|[A-Z]|[0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Code(?:0|[1-9][0-9]*))|Ctrl|Alt|Shift|Super))*$"
+                  },
+                  "uniqueItems": true
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "linux": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(?:(?:Ctrl\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:Super\\+)?(?:Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Backquote|Comma|Period|Slash|Print|Pause|ScrollLock|CapsLock|NumLock|Menu|NumpadAdd|NumpadSubtract|NumpadMultiply|NumpadDivide|NumpadDecimal|NumpadEnter|VolumeUp|VolumeDown|VolumeMute|MicMute|MediaPlayPause|MediaNext|MediaPrevious|MediaStop|BrightnessUp|BrightnessDown|MouseLeft|MouseRight|MouseMiddle|MouseBack|MouseForward|WheelUp|WheelDown|WheelLeft|WheelRight|[A-Z]|[0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Code(?:0|[1-9][0-9]*))|Ctrl|Alt|Shift|Super)(?: (?:(?:Ctrl\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:Super\\+)?(?:Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Backquote|Comma|Period|Slash|Print|Pause|ScrollLock|CapsLock|NumLock|Menu|NumpadAdd|NumpadSubtract|NumpadMultiply|NumpadDivide|NumpadDecimal|NumpadEnter|VolumeUp|VolumeDown|VolumeMute|MicMute|MediaPlayPause|MediaNext|MediaPrevious|MediaStop|BrightnessUp|BrightnessDown|MouseLeft|MouseRight|MouseMiddle|MouseBack|MouseForward|WheelUp|WheelDown|WheelLeft|WheelRight|[A-Z]|[0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Code(?:0|[1-9][0-9]*))|Ctrl|Alt|Shift|Super))*$"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^(?:(?:Ctrl\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:Super\\+)?(?:Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Backquote|Comma|Period|Slash|Print|Pause|ScrollLock|CapsLock|NumLock|Menu|NumpadAdd|NumpadSubtract|NumpadMultiply|NumpadDivide|NumpadDecimal|NumpadEnter|VolumeUp|VolumeDown|VolumeMute|MicMute|MediaPlayPause|MediaNext|MediaPrevious|MediaStop|BrightnessUp|BrightnessDown|MouseLeft|MouseRight|MouseMiddle|MouseBack|MouseForward|WheelUp|WheelDown|WheelLeft|WheelRight|[A-Z]|[0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Code(?:0|[1-9][0-9]*))|Ctrl|Alt|Shift|Super)(?: (?:(?:Ctrl\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:Super\\+)?(?:Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Backquote|Comma|Period|Slash|Print|Pause|ScrollLock|CapsLock|NumLock|Menu|NumpadAdd|NumpadSubtract|NumpadMultiply|NumpadDivide|NumpadDecimal|NumpadEnter|VolumeUp|VolumeDown|VolumeMute|MicMute|MediaPlayPause|MediaNext|MediaPrevious|MediaStop|BrightnessUp|BrightnessDown|MouseLeft|MouseRight|MouseMiddle|MouseBack|MouseForward|WheelUp|WheelDown|WheelLeft|WheelRight|[A-Z]|[0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Code(?:0|[1-9][0-9]*))|Ctrl|Alt|Shift|Super))*$"
+                  },
+                  "uniqueItems": true
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "windows": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(?:(?:Ctrl\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:Super\\+)?(?:Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Backquote|Comma|Period|Slash|Print|Pause|ScrollLock|CapsLock|NumLock|Menu|NumpadAdd|NumpadSubtract|NumpadMultiply|NumpadDivide|NumpadDecimal|NumpadEnter|VolumeUp|VolumeDown|VolumeMute|MicMute|MediaPlayPause|MediaNext|MediaPrevious|MediaStop|BrightnessUp|BrightnessDown|MouseLeft|MouseRight|MouseMiddle|MouseBack|MouseForward|WheelUp|WheelDown|WheelLeft|WheelRight|[A-Z]|[0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Code(?:0|[1-9][0-9]*))|Ctrl|Alt|Shift|Super)(?: (?:(?:Ctrl\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:Super\\+)?(?:Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Backquote|Comma|Period|Slash|Print|Pause|ScrollLock|CapsLock|NumLock|Menu|NumpadAdd|NumpadSubtract|NumpadMultiply|NumpadDivide|NumpadDecimal|NumpadEnter|VolumeUp|VolumeDown|VolumeMute|MicMute|MediaPlayPause|MediaNext|MediaPrevious|MediaStop|BrightnessUp|BrightnessDown|MouseLeft|MouseRight|MouseMiddle|MouseBack|MouseForward|WheelUp|WheelDown|WheelLeft|WheelRight|[A-Z]|[0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Code(?:0|[1-9][0-9]*))|Ctrl|Alt|Shift|Super))*$"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^(?:(?:Ctrl\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:Super\\+)?(?:Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Backquote|Comma|Period|Slash|Print|Pause|ScrollLock|CapsLock|NumLock|Menu|NumpadAdd|NumpadSubtract|NumpadMultiply|NumpadDivide|NumpadDecimal|NumpadEnter|VolumeUp|VolumeDown|VolumeMute|MicMute|MediaPlayPause|MediaNext|MediaPrevious|MediaStop|BrightnessUp|BrightnessDown|MouseLeft|MouseRight|MouseMiddle|MouseBack|MouseForward|WheelUp|WheelDown|WheelLeft|WheelRight|[A-Z]|[0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Code(?:0|[1-9][0-9]*))|Ctrl|Alt|Shift|Super)(?: (?:(?:Ctrl\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:Super\\+)?(?:Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Backquote|Comma|Period|Slash|Print|Pause|ScrollLock|CapsLock|NumLock|Menu|NumpadAdd|NumpadSubtract|NumpadMultiply|NumpadDivide|NumpadDecimal|NumpadEnter|VolumeUp|VolumeDown|VolumeMute|MicMute|MediaPlayPause|MediaNext|MediaPrevious|MediaStop|BrightnessUp|BrightnessDown|MouseLeft|MouseRight|MouseMiddle|MouseBack|MouseForward|WheelUp|WheelDown|WheelLeft|WheelRight|[A-Z]|[0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Code(?:0|[1-9][0-9]*))|Ctrl|Alt|Shift|Super))*$"
+                  },
+                  "uniqueItems": true
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "macos": {
+              "oneOf": [
+                {
+                  "type": "string",
+                  "pattern": "^(?:(?:Ctrl\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:Super\\+)?(?:Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Backquote|Comma|Period|Slash|Print|Pause|ScrollLock|CapsLock|NumLock|Menu|NumpadAdd|NumpadSubtract|NumpadMultiply|NumpadDivide|NumpadDecimal|NumpadEnter|VolumeUp|VolumeDown|VolumeMute|MicMute|MediaPlayPause|MediaNext|MediaPrevious|MediaStop|BrightnessUp|BrightnessDown|MouseLeft|MouseRight|MouseMiddle|MouseBack|MouseForward|WheelUp|WheelDown|WheelLeft|WheelRight|[A-Z]|[0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Code(?:0|[1-9][0-9]*))|Ctrl|Alt|Shift|Super)(?: (?:(?:Ctrl\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:Super\\+)?(?:Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Backquote|Comma|Period|Slash|Print|Pause|ScrollLock|CapsLock|NumLock|Menu|NumpadAdd|NumpadSubtract|NumpadMultiply|NumpadDivide|NumpadDecimal|NumpadEnter|VolumeUp|VolumeDown|VolumeMute|MicMute|MediaPlayPause|MediaNext|MediaPrevious|MediaStop|BrightnessUp|BrightnessDown|MouseLeft|MouseRight|MouseMiddle|MouseBack|MouseForward|WheelUp|WheelDown|WheelLeft|WheelRight|[A-Z]|[0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Code(?:0|[1-9][0-9]*))|Ctrl|Alt|Shift|Super))*$"
+                },
+                {
+                  "type": "array",
+                  "minItems": 1,
+                  "items": {
+                    "type": "string",
+                    "pattern": "^(?:(?:Ctrl\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:Super\\+)?(?:Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Backquote|Comma|Period|Slash|Print|Pause|ScrollLock|CapsLock|NumLock|Menu|NumpadAdd|NumpadSubtract|NumpadMultiply|NumpadDivide|NumpadDecimal|NumpadEnter|VolumeUp|VolumeDown|VolumeMute|MicMute|MediaPlayPause|MediaNext|MediaPrevious|MediaStop|BrightnessUp|BrightnessDown|MouseLeft|MouseRight|MouseMiddle|MouseBack|MouseForward|WheelUp|WheelDown|WheelLeft|WheelRight|[A-Z]|[0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Code(?:0|[1-9][0-9]*))|Ctrl|Alt|Shift|Super)(?: (?:(?:Ctrl\\+)?(?:Alt\\+)?(?:Shift\\+)?(?:Super\\+)?(?:Space|Enter|Tab|Escape|Backspace|Delete|Insert|Home|End|PageUp|PageDown|Up|Down|Left|Right|Minus|Equal|BracketLeft|BracketRight|Backslash|Semicolon|Quote|Backquote|Comma|Period|Slash|Print|Pause|ScrollLock|CapsLock|NumLock|Menu|NumpadAdd|NumpadSubtract|NumpadMultiply|NumpadDivide|NumpadDecimal|NumpadEnter|VolumeUp|VolumeDown|VolumeMute|MicMute|MediaPlayPause|MediaNext|MediaPrevious|MediaStop|BrightnessUp|BrightnessDown|MouseLeft|MouseRight|MouseMiddle|MouseBack|MouseForward|WheelUp|WheelDown|WheelLeft|WheelRight|[A-Z]|[0-9]|F(?:[1-9]|1[0-9]|2[0-4])|Numpad[0-9]|Code(?:0|[1-9][0-9]*))|Ctrl|Alt|Shift|Super))*$"
+                  },
+                  "uniqueItems": true
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "anyOf": [
+            {
+              "required": [
+                "default"
+              ],
+              "properties": {
+                "default": {
+                  "not": {
+                    "type": "null"
+                  }
+                }
+              }
+            },
+            {
+              "required": [
+                "linux"
+              ],
+              "properties": {
+                "linux": {
+                  "not": {
+                    "type": "null"
+                  }
+                }
+              }
+            },
+            {
+              "required": [
+                "windows"
+              ],
+              "properties": {
+                "windows": {
+                  "not": {
+                    "type": "null"
+                  }
+                }
+              }
+            },
+            {
+              "required": [
+                "macos"
+              ],
+              "properties": {
+                "macos": {
+                  "not": {
+                    "type": "null"
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "rebindable": false
+      }
+    }
+  },
+  "$comment": "Global context is reserved for windows-system and macos-system. Semantic validation checks unique IDs, conflicting alternatives and context/OS prefix conflicts.",
+  "$id": "https://github.com/qa-p1/Arcade-link/spec/shortcut-sheet.schema.json",
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "id": {
+            "enum": [
+              "windows-system",
+              "macos-system"
+            ]
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "groups": {
+            "items": {
+              "properties": {
+                "context": {
+                  "not": {
+                    "const": "global"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  ]
+}

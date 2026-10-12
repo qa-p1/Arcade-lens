@@ -35,10 +35,7 @@ pub fn integrate(paths: &Paths, shortcut: Option<String>) {
         // An installer (the self-installing AppImage, the Windows installer,
         // the macOS move) owns the entries of a copy with a receipt; an
         // AppImage without one asks first (see `first_run_install`).
-        let installed = arcade_link::install::Environment::discover()
-            .ok()
-            .and_then(|e| e.receipts().read(crate::link::ME).ok().flatten())
-            .is_some();
+        let installed = arcade_link::install::Environment::discover().ok().and_then(|e| e.receipts().read(crate::link::ME).ok().flatten()).is_some();
         if !installed && std::env::var_os("APPIMAGE").is_none() {
             if first_run || autostart::is_enabled() {
                 if let Err(e) = autostart::enable(&exe) {

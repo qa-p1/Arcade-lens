@@ -7,15 +7,22 @@ use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
-use arcade_link::install::{self, AppInfo, Detection, Environment, Runtime, State};
-use arcade_link::receipt::{InstallMethod, ManagedBy, Receipt};
+#[cfg(target_os = "linux")]
+use arcade_link::install::AppInfo;
+use arcade_link::install::{self, Detection, Environment, Runtime, State};
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+use arcade_link::receipt::ManagedBy;
+use arcade_link::receipt::{InstallMethod, Receipt};
 use serde::{Deserialize, Serialize};
 
 use crate::config::Paths;
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 pub const CLI_NAME: &str = "arcade-lens";
+#[cfg(target_os = "linux")]
 pub const DESKTOP_ID: &str = "arcade-lens";
 
+#[cfg(target_os = "linux")]
 pub fn app_info() -> AppInfo {
     AppInfo {
         id: crate::link::ME.into(),
@@ -55,7 +62,11 @@ pub fn dialog_state(d: &Detection, version: &str) -> Option<DialogState> {
         State::NotInstalled => Some(DialogState::Install),
         State::InstalledElsewhere { version: installed } => {
             let older = semver::Version::parse(installed).ok().zip(semver::Version::parse(version).ok()).is_some_and(|(a, b)| a < b);
-            if older { Some(DialogState::Update { from: installed.clone() }) } else { Some(DialogState::OpenInstalled { version: installed.clone() }) }
+            if older {
+                Some(DialogState::Update { from: installed.clone() })
+            } else {
+                Some(DialogState::OpenInstalled { version: installed.clone() })
+            }
         }
     }
 }
@@ -71,7 +82,7 @@ pub struct Options {
 impl Options {
     pub fn defaults(environment: &Environment) -> Self {
         let receipt = environment.receipts().read(crate::link::ME).ok().flatten();
-        let start_at_login = receipt.as_ref().map_or(true, |r| r.integration.autostart.as_ref().is_some_and(|p| p.exists()));
+        let start_at_login = receipt.as_ref().is_none_or(|r| r.integration.autostart.as_ref().is_some_and(|p| p.exists()));
         let install_cli = environment.path.as_ref().is_some_and(|p| std::env::split_paths(p).any(|p| p == environment.bin));
         Self { channel: "stable".into(), start_at_login, remove_download: true, install_cli }
     }
@@ -87,16 +98,15 @@ struct FileIdentity {
 
 fn identity(path: &Path) -> io::Result<FileIdentity> {
     let meta = fs::metadata(path)?;
-    Ok(FileIdentity {
-        path: path.into(),
-        size: meta.len(),
-        modified: meta.modified()?.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos(),
-    })
+    Ok(FileIdentity { path: path.into(), size: meta.len(), modified: meta.modified()?.duration_since(std::time::UNIX_EPOCH).unwrap_or_default().as_nanos() })
 }
 
 pub fn dismissed(paths: &Paths, path: &Path) -> bool {
     identity(path).ok().is_some_and(|id| {
-        fs::read(paths.config.join("install-dismissed.json")).ok().and_then(|b| serde_json::from_slice::<Vec<FileIdentity>>(&b).ok()).is_some_and(|v| v.contains(&id))
+        fs::read(paths.config.join("install-dismissed.json"))
+            .ok()
+            .and_then(|b| serde_json::from_slice::<Vec<FileIdentity>>(&b).ok())
+            .is_some_and(|v| v.contains(&id))
     })
 }
 
@@ -114,15 +124,23 @@ pub fn dismiss(paths: &Paths, path: &Path) -> io::Result<()> {
 
 /// Only AppImages and first-run macOS bundles prompt. The checks before the
 /// platform-specific discovery are cheap and keep normal startup untouched.
-pub fn automatic_prompt(
-    paths: &Paths,
-    args: &[String],
-    environment: &Environment,
-    runtime: &Runtime,
-) -> io::Result<Option<(Detection, DialogState)>> {
+pub fn automatic_prompt(paths: &Paths, args: &[String], environment: &Environment, runtime: &Runtime) -> io::Result<Option<(Detection, DialogState)>> {
     const SKIP: &[&str] = &[
-        "--background", "--arcade-invoke", "--arcade-manifest", "--version", "-V", "--install", "--uninstall", "--repair", "--integration-status",
-        "--settings-window", "--window", "--quit", "--restart", "--help", "-h",
+        "--background",
+        "--arcade-invoke",
+        "--arcade-manifest",
+        "--version",
+        "-V",
+        "--install",
+        "--uninstall",
+        "--repair",
+        "--integration-status",
+        "--settings-window",
+        "--window",
+        "--quit",
+        "--restart",
+        "--help",
+        "-h",
     ];
     if std::env::var("ARCADE_NO_INSTALL_PROMPT").as_deref() == Ok("1") || args.iter().any(|a| SKIP.contains(&a.split('=').next().unwrap_or(a))) {
         return Ok(None);
@@ -344,15 +362,16 @@ pub fn uninstall(environment: &Environment, paths: &Paths, remove_data: bool) ->
 }
 
 pub fn tools_installed(environment: &Environment) -> bool {
-    arcade_link::Registry::load(&environment.locations)
-        .get(arcade_link::manifest::ids::TOOLS)
-        .is_some_and(|m| m.executable_exists() && m.settings.link_enabled)
+    arcade_link::Registry::load(&environment.locations).get(arcade_link::manifest::ids::TOOLS).is_some_and(|m| m.executable_exists() && m.settings.link_enabled)
 }
 
 pub fn handoff_to_tools(environment: &Environment) -> Result<(), arcade_link::LinkError> {
     let registry = arcade_link::Registry::load(&environment.locations);
     let tools = registry.get(arcade_link::manifest::ids::TOOLS).ok_or_else(|| arcade_link::LinkError::unavailable("Arcade Tools isn't installed"))?;
-    let action = tools.action("tools.install").filter(|a| a.available).ok_or_else(|| arcade_link::LinkError::unavailable("This version of Arcade Tools cannot install Lens"))?;
+    let action = tools
+        .action("tools.install")
+        .filter(|a| a.available)
+        .ok_or_else(|| arcade_link::LinkError::unavailable("This version of Arcade Tools cannot install Lens"))?;
     let request = arcade_link::InvokeRequest::new(action.id.split('#').next().unwrap_or(&action.id), crate::link::ME)
         .input(arcade_link::Content::text("text/plain", crate::link::ME))
         .options(serde_json::json!({ "app": crate::link::ME }));
@@ -365,7 +384,9 @@ pub fn launch_args(args: &[String]) -> Vec<std::ffi::OsString> {
     let mut it = args.iter();
     while let Some(arg) = it.next() {
         match arg.as_str() {
-            "--channel" => { it.next(); }
+            "--channel" => {
+                it.next();
+            }
             "--install" | "--silent" | "--no-launch" => {}
             _ => result.push(arg.into()),
         }
@@ -373,11 +394,12 @@ pub fn launch_args(args: &[String]) -> Vec<std::ffi::OsString> {
     result
 }
 
+#[cfg(target_os = "linux")]
 fn icon_svg() -> &'static str {
     "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 256 256\"><defs><linearGradient id=\"g\" x2=\"1\" y2=\"1\"><stop stop-color=\"#a78bfa\"/><stop offset=\"1\" stop-color=\"#6d28d9\"/></linearGradient></defs><rect width=\"256\" height=\"256\" rx=\"54\" fill=\"url(#g)\"/><g fill=\"none\" stroke=\"white\" stroke-linecap=\"round\" stroke-width=\"17\"><path d=\"M60 99V60h39m58 0h39v39m0 58v39h-39m-58 0H60v-39\"/><circle cx=\"116\" cy=\"116\" r=\"35\"/><path d=\"m142 142 44 44\"/></g></svg>"
 }
 
-#[cfg(not(windows))]
+#[cfg(target_os = "linux")]
 fn remove_file(path: &Path) -> io::Result<()> {
     match fs::remove_file(path) {
         Err(e) if e.kind() != io::ErrorKind::NotFound => Err(e),
@@ -396,8 +418,14 @@ mod tests {
     #[test]
     fn install_dialog_state_covers_new_update_and_development_copies() {
         assert_eq!(dialog_state(&detection(State::NotInstalled), "0.1.1"), Some(DialogState::Install));
-        assert_eq!(dialog_state(&detection(State::InstalledElsewhere { version: "0.1.0".into() }), "0.1.1"), Some(DialogState::Update { from: "0.1.0".into() }));
-        assert_eq!(dialog_state(&detection(State::InstalledElsewhere { version: "0.1.1".into() }), "0.1.1"), Some(DialogState::OpenInstalled { version: "0.1.1".into() }));
+        assert_eq!(
+            dialog_state(&detection(State::InstalledElsewhere { version: "0.1.0".into() }), "0.1.1"),
+            Some(DialogState::Update { from: "0.1.0".into() })
+        );
+        assert_eq!(
+            dialog_state(&detection(State::InstalledElsewhere { version: "0.1.1".into() }), "0.1.1"),
+            Some(DialogState::OpenInstalled { version: "0.1.1".into() })
+        );
         assert_eq!(dialog_state(&detection(State::InstalledHere), "0.1.1"), None);
         assert_eq!(dialog_state(&detection(State::DevBuild), "0.1.1"), None);
     }

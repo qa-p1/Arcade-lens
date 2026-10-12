@@ -8,5 +8,3 @@ pub mod installer;
 pub mod installer_ui;
 pub mod portable_settings;
 pub mod trayhost;
-
-pub use installer::{method, Options};

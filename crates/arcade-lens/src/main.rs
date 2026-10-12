@@ -7,8 +7,8 @@
 // No console window on Windows: Lens is a desktop app.
 #![cfg_attr(windows, windows_subsystem = "windows")]
 
-mod config;
 mod app;
+mod config;
 mod gui;
 mod host;
 mod icon;

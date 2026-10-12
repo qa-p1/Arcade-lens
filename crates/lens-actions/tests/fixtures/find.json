@@ -102,5 +102,8 @@
         }
       }
     }
-  ]
+  ],
+  "menu": [{"id": "rescan", "title": "Rescan index", "kind": "action", "enabled": true}],
+  "docs": {"version": "0.1.0-mock"},
+  "methods": ["app.settings", "app.restart", "app.menu", "app.menu.invoke", "app.shortcuts.set", "app.settings.export", "app.settings.import"]
 }

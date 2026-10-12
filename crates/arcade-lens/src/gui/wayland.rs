@@ -169,7 +169,8 @@ impl Shortcut {
         self.clear();
         if let Some(s) = accelerator {
             let exe = exe().map(|e| e.to_string_lossy().into_owned()).unwrap_or_else(|_| "arcade-lens".into());
-            let binding = hyprland::bind(s, &format!("{} --capture", hyprland::shell_quote(&exe))).map_err(|e| arcade_link::LinkError::unavailable(e.to_string()))?;
+            let binding =
+                hyprland::bind(s, &format!("{} --capture", hyprland::shell_quote(&exe))).map_err(|e| arcade_link::LinkError::unavailable(e.to_string()))?;
             self.bound = Some((s.to_string(), binding));
         }
         Ok(crate::app::hub::apply_result(ShortcutVia::HyprlandRuntime, None))
@@ -371,140 +372,6 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
     }
     shortcut.clear();
     crate::app::trayhost::stop();
-    crate::link::stop();
-    drop(tray);
-    Ok(())
-}
-
-/// Requests from other Arcade apps: each opens its own window process.
-fn link_request(request: crate::link::GuiRequest) -> bool {
-    use crate::link::{GuiRequest, PickTarget};
-    match request {
-        GuiRequest::Capture { act: true, mode, .. } => return spawn_detached(&Solo::Capture(mode)),
-        GuiRequest::Capture { target: PickTarget::Reply(reply), .. } => {
-            if !reply.is_pending() {
-                return true;
-            }
-            let out = temp_dir().join(format!(
-                "pick-{}-{}.png",
-                std::process::id(),
-                std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos())
-            ));
-            let _ = std::fs::create_dir_all(temp_dir());
-            let Some(mut child) = spawn(&Solo::Pick(out.clone())) else { return false };
-            std::thread::spawn(move || {
-                // Only a pending picker needs this worker. Cancellation
-                // releases its sender immediately and stops this child.
-                while reply.is_pending() {
-                    match child.try_wait() {
-                        Ok(None) => std::thread::sleep(std::time::Duration::from_millis(20)),
-                        Ok(Some(_)) | Err(_) => break,
-                    }
-                }
-                if !reply.is_pending() {
-                    let _ = child.kill();
-                }
-                let _ = child.wait();
-                if let Some(c) = crate::link::read_captured_file(&out) {
-                    reply.deliver(c);
-                }
-                let _ = std::fs::remove_file(&out);
-                let _ = std::fs::remove_file(out.with_extension("png.json"));
-            });
-        }
-        GuiRequest::CancelCapture(_) => {} // the picker worker observes the released sender
-        GuiRequest::Capture { target: PickTarget::File(_), .. } => return false,
-        GuiRequest::Analyze(image) => return open_image(Solo::Analyze, &image),
-        GuiRequest::Pin(image) => return open_image(Solo::Pin, &image),
-    }
-    true
-}
-
-/// Starts `solo`, or brings the previous one to the front if it is still open.
-fn open_once(slot: &mut Option<Child>, solo: &Solo) {
-    if let Some(c) = slot {
-        if matches!(c.try_wait(), Ok(None)) {
-            if hyprland::active() {
-                hyprland::focus_pid(c.id());
-            }
-            return;
-        }
-    }
-    *slot = spawn(solo);
-}
-
-/// The background instance: IPC, the shortcut and the tray icon, no window.
-pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
-    let background = initial.is_none();
-    let (tx, rx) = mpsc::channel::<&'static str>();
-    let t = tx.clone();
-    lens_platform::ipc::serve(&paths.endpoint(), move |cmd| {
-        let cmd = match cmd {
-            "ping" => return "pong".into(),
-            "capture" => "capture",
-            "settings" => "settings",
-            "reload" => "reload",
-            "restart" => "restart",
-            "quit" => "quit",
-            _ => return "unknown command".into(),
-        };
-        let _ = t.send(cmd);
-        "ok".into()
-    })
-    .map_err(|e| e.to_string())?;
-    match initial {
-        Some(Trigger::Capture) => tx.send("capture"),
-        Some(Trigger::Settings) => tx.send("settings"),
-        Some(Trigger::Restart | Trigger::Quit | Trigger::Link(_)) | None => Ok(()),
-    }
-    .ok();
-    let t = tx.clone();
-    if hyprland::active() {
-        hyprland::add_window_rules(WINDOW_RULES);
-        hyprland::on_config_reloaded(move || {
-            let _ = tx.send("rebind");
-        });
-    }
-    crate::link::set_gui(link_request);
-    crate::link::start(&config::load_settings(paths).unwrap_or_default(), background);
-    let mut shortcut = Shortcut { bound: None, warned: false };
-    shortcut.apply(paths);
-    let bound = || shortcut.bound.as_ref().map(|(s, _)| s.clone());
-    background::integrate(paths, bound());
-    let tray = background::tray(bound(), move |e| {
-        let _ = t.send(match e {
-            TrayEvent::Capture => "capture",
-            TrayEvent::Settings => "settings",
-            TrayEvent::Restart => "restart",
-            TrayEvent::Quit => "quit",
-        });
-    });
-    let mut capture = None;
-    let mut settings = None;
-    for cmd in rx {
-        crate::lens_debug!("command {cmd}");
-        match cmd {
-            "capture" => open_once(&mut capture, &Solo::Capture(crate::link::CaptureMode::Palette)),
-            "settings" => open_once(&mut settings, &Solo::Settings),
-            "reload" => {
-                crate::link::refresh(&config::load_settings(paths).unwrap_or_default());
-                shortcut.apply(paths);
-                if let Some(t) = &tray {
-                    t.set_shortcut(shortcut.bound.as_ref().map(|(s, _)| s.clone()));
-                }
-            }
-            "rebind" => {
-                // The reload dropped our binding and rules.
-                shortcut.bound = None;
-                hyprland::add_window_rules(WINDOW_RULES);
-                shortcut.apply(paths);
-            }
-            "restart" if background::restart() => break,
-            "quit" => break,
-            _ => {}
-        }
-    }
-    shortcut.clear();
     crate::link::stop();
     drop(tray);
     Ok(())

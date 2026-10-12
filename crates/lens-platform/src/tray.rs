@@ -122,7 +122,11 @@ mod sni {
         }
 
         fn status(&self) -> ksni::Status {
-            if self.visible { ksni::Status::Active } else { ksni::Status::Passive }
+            if self.visible {
+                ksni::Status::Active
+            } else {
+                ksni::Status::Passive
+            }
         }
 
         fn icon_pixmap(&self) -> Vec<Icon> {
@@ -190,7 +194,8 @@ mod native {
             let restart = MenuItem::new("Restart Arcade Lens", true, None);
             let quit = MenuItem::new("Quit Arcade Lens", true, None);
             let menu = Menu::new();
-            menu.append_items(&[&capture, &capture_text, &pick_color, &settings, &restart, &PredefinedMenuItem::separator(), &quit]).map_err(|e| e.to_string())?;
+            menu.append_items(&[&capture, &capture_text, &pick_color, &settings, &restart, &PredefinedMenuItem::separator(), &quit])
+                .map_err(|e| e.to_string())?;
 
             let actions: Vec<(MenuId, TrayEvent)> = vec![
                 (capture.id().clone(), TrayEvent::Capture),

@@ -2,10 +2,10 @@
 
 use std::sync::{Mutex, MutexGuard, OnceLock};
 
+use crate::config::{self, Paths};
 use arcade_link::app::{ImportResult, ShortcutSetResult, ShortcutVia};
 use arcade_link::manifest::{MenuItem, MenuKind};
 use arcade_link::{Content, LinkError};
-use crate::config::{self, Paths};
 
 static CHANGES: OnceLock<Mutex<()>> = OnceLock::new();
 
@@ -18,14 +18,17 @@ pub const CAPTURE_TEXT_MENU: &str = "capture_text";
 pub const PICK_COLOR_MENU: &str = "pick_color";
 
 pub fn menu_items() -> Vec<MenuItem> {
-    [
-        (CAPTURE_MENU, "Capture"),
-        (CAPTURE_TEXT_MENU, "Capture text"),
-        (PICK_COLOR_MENU, "Pick color"),
-    ]
-    .into_iter()
-    .map(|(id, title)| MenuItem { id: id.into(), title: title.into(), kind: MenuKind::Action, checked: None, enabled: true, effects: vec!["opens-ui".into()] })
-    .collect()
+    [(CAPTURE_MENU, "Capture"), (CAPTURE_TEXT_MENU, "Capture text"), (PICK_COLOR_MENU, "Pick color")]
+        .into_iter()
+        .map(|(id, title)| MenuItem {
+            id: id.into(),
+            title: title.into(),
+            kind: MenuKind::Action,
+            checked: None,
+            enabled: true,
+            effects: vec!["opens-ui".into()],
+        })
+        .collect()
 }
 
 pub fn methods() -> Vec<String> {
@@ -36,12 +39,12 @@ pub fn methods() -> Vec<String> {
         .collect()
 }
 
-fn validate_shortcut(input: &str) -> Result<String, LinkError> {
+pub(crate) fn validate_shortcut(input: &str) -> Result<String, LinkError> {
     let canonical = arcade_link::accelerator::normalize(input).map_err(|e| LinkError::denied(&e.to_string()))?;
     if canonical.contains(' ') || ["Ctrl", "Alt", "Shift", "Super"].contains(&canonical.as_str()) {
         return Err(LinkError::denied("Lens requires one shortcut chord with a key"));
     }
-    if !canonical.contains('+') && !(canonical.starts_with('F') && canonical[1..].parse::<u8>().is_ok()) {
+    if !(canonical.contains('+') || canonical.starts_with('F') && canonical[1..].parse::<u8>().is_ok()) {
         return Err(LinkError::denied("a global shortcut needs a modifier or function key"));
     }
     for (reserved, owner) in [
@@ -100,7 +103,13 @@ pub fn import_settings(
     let old = config::load_settings(paths).map_err(LinkError::unavailable)?;
     let new = document.apply_to(&old);
     apply(new.activation_shortcut.as_deref())?;
-    let backup = super::portable_settings::save_import(paths, &old, &new).map_err(super::portable_settings::io_error)?;
+    let backup = match super::portable_settings::save_import(paths, &old, &new) {
+        Ok(backup) => backup,
+        Err(error) => {
+            let _ = apply(old.activation_shortcut.as_deref());
+            return Err(super::portable_settings::io_error(error));
+        }
+    };
     if let Err(e) = crate::link::publish_settings(&new, paths) {
         let _ = super::portable_settings::restore_backup(&paths.settings(), &backup);
         let _ = crate::link::publish_settings(&old, paths);

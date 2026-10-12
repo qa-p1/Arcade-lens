@@ -148,27 +148,30 @@ impl SettingsView {
         self.rt = rt;
     }
 
-    pub fn ui(&mut self, ui: &mut egui::Ui) -> Vec<SettingsRequest> {
-        let ctx = ui.ctx().clone();
+    pub fn ui(&mut self, ctx: &egui::Context) -> Vec<SettingsRequest> {
+        let ctx = ctx.clone();
         if ctx.input(|i| i.viewport().close_requested()) {
             self.closed = true;
         }
         let mut out = Vec::new();
-        egui::Panel::left("settings-nav").exact_size(170.0).frame(egui::Frame::new().fill(Color32::from_rgb(18, 18, 20)).inner_margin(12)).show(ui, |ui| {
-            ui.label(RichText::new("Arcade Lens").color(TEXT).size(16.0).strong());
-            ui.label(RichText::new("Select anything. Do anything useful with it.").color(MUTED).size(11.0));
-            ui.add_space(12.0);
-            for s in Section::ALL {
-                let selected = self.section == s;
-                let b = egui::Button::new(RichText::new(s.label()).size(13.5).color(if selected { Color32::WHITE } else { TEXT }))
-                    .fill(if selected { ACCENT.gamma_multiply(0.55) } else { Color32::TRANSPARENT })
-                    .min_size(egui::vec2(146.0, 28.0));
-                if ui.add(b).clicked() {
-                    self.section = s;
+        egui::SidePanel::left("settings-nav").exact_width(170.0).frame(egui::Frame::new().fill(Color32::from_rgb(18, 18, 20)).inner_margin(12)).show(
+            &ctx,
+            |ui| {
+                ui.label(RichText::new("Arcade Lens").color(TEXT).size(16.0).strong());
+                ui.label(RichText::new("Select anything. Do anything useful with it.").color(MUTED).size(11.0));
+                ui.add_space(12.0);
+                for s in Section::ALL {
+                    let selected = self.section == s;
+                    let b = egui::Button::new(RichText::new(s.label()).size(13.5).color(if selected { Color32::WHITE } else { TEXT }))
+                        .fill(if selected { ACCENT.gamma_multiply(0.55) } else { Color32::TRANSPARENT })
+                        .min_size(egui::vec2(146.0, 28.0));
+                    if ui.add(b).clicked() {
+                        self.section = s;
+                    }
                 }
-            }
-        });
-        egui::Panel::bottom("settings-actions").frame(egui::Frame::new().fill(Color32::from_rgb(24, 24, 27)).inner_margin(10)).show(ui, |ui| {
+            },
+        );
+        egui::TopBottomPanel::bottom("settings-actions").frame(egui::Frame::new().fill(Color32::from_rgb(24, 24, 27)).inner_margin(10)).show(&ctx, |ui| {
             ui.horizontal(|ui| {
                 if let Some((msg, ok)) = &self.status {
                     ui.label(RichText::new(msg).color(if *ok { SUCCESS } else { DANGER }));
@@ -191,7 +194,7 @@ impl SettingsView {
                 });
             });
         });
-        egui::CentralPanel::default().frame(egui::Frame::new().fill(Color32::from_rgb(24, 24, 27)).inner_margin(16)).show(ui, |ui| {
+        egui::CentralPanel::default().frame(egui::Frame::new().fill(Color32::from_rgb(24, 24, 27)).inner_margin(16)).show(&ctx, |ui| {
             egui::ScrollArea::vertical().auto_shrink([false, false]).show(ui, |ui| match self.section {
                 Section::General => self.general(ui, &mut out),
                 Section::Shortcut => self.shortcut(ui, &ctx),

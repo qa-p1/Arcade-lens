@@ -9,7 +9,8 @@ use lens_core::selection::WindowInfo;
 use x11rb::connection::Connection;
 use x11rb::protocol::randr::ConnectionExt as _;
 use x11rb::protocol::xproto::{
-    Atom, AtomEnum, ClientMessageEvent, ConfigureWindowAux, ConnectionExt as _, EventMask, ImageFormat, ImageOrder, InputFocus, MapState, StackMode, Window,
+    Atom, AtomEnum, ChangeWindowAttributesAux, ClientMessageEvent, ConfigureWindowAux, ConnectionExt as _, EventMask, ImageFormat, ImageOrder, InputFocus,
+    MapState, StackMode, Window,
 };
 use x11rb::rust_connection::RustConnection;
 
@@ -268,8 +269,26 @@ pub fn window_command(w: &WindowInfo, cmd: &WindowCommand) -> Result<(), Platfor
     }
 }
 
-/// Gives keyboard focus to one of our own windows (overlays must receive
-/// keys even when the window manager would not focus an undecorated window).
+/// Keep a capture window out of the window manager; match this process only.
+pub fn prepare_overlay(title: &str) {
+    let Ok(x) = X::connect() else { return };
+    let mut windows = x.prop32(x.root, "_NET_CLIENT_LIST_STACKING", AtomEnum::WINDOW);
+    if let Some(reply) = x.conn.query_tree(x.root).ok().and_then(|cookie| cookie.reply().ok()) {
+        windows.extend(reply.children);
+    }
+    windows.sort_unstable();
+    windows.dedup();
+    for window in windows {
+        if x.prop32(window, "_NET_WM_PID", AtomEnum::CARDINAL).first() == Some(&std::process::id())
+            && x.prop_string(window, x.atom("_NET_WM_NAME"), x.atom("UTF8_STRING")).as_deref() == Some(title)
+        {
+            let _ = x.conn.change_window_attributes(window, &ChangeWindowAttributesAux::new().override_redirect(1));
+        }
+    }
+    let _ = x.conn.flush();
+}
+
+/// Focus one of our own native windows, including unmanaged capture overlays.
 pub fn focus(window: u32) {
     if let Ok(x) = X::connect() {
         let _ = x.conn.configure_window(window, &ConfigureWindowAux::new().stack_mode(StackMode::ABOVE));

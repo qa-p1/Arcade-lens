@@ -50,11 +50,31 @@ Filename: "{app}\arcade-lens.exe"; Description: "{cm:LaunchProgram,Arcade Lens}"
 [UninstallDelete]
 ; The manifest and settings shortcut are shared integration. An old
 ; uninstaller removes them only while its receipt still owns the install.
-Type: files; Name: "{localappdata}\Arcade\apps\arcade.lens.json"; Check: ArcadeOwnsSharedIntegration
+Type: files; Name: "{code:LensArcadeRoot}\apps\arcade.lens.json"; Check: ArcadeOwnsSharedIntegration
 Type: files; Name: "{userprograms}\Arcade Lens\Arcade Lens Settings.lnk"; Check: ArcadeOwnsSharedIntegration
 Type: dirifempty; Name: "{userprograms}\Arcade Lens"; Check: ArcadeOwnsSharedIntegration
 
 [Code]
+var
+  LensOwnsIntegration: Boolean;
+
+// Mirrors arcade-integration.ps1: ARCADE_HOME isolates the shared root.
+function LensArcadeRoot(Param: String): String;
+begin
+  Result := GetEnv('ARCADE_HOME');
+  if Result = '' then Result := ExpandConstant('{localappdata}\Arcade');
+end;
+
+function ArcadeOwnsSharedIntegration: Boolean;
+begin
+  Result := LensOwnsIntegration;
+end;
+
+function GetCustomSetupExitCode: Integer;
+begin
+  if ArcadeIntegrationFailed then Result := 1 else Result := 0;
+end;
+
 procedure QuitRunningLens();
 var
   Exe: String;
@@ -86,11 +106,19 @@ begin
   end;
 end;
 
+// The helper deletes the receipt only when this copy owns it (exit 0); exit 10
+// leaves a successor's receipt in place, so its files are kept too.
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Receipt: String;
+  HadReceipt: Boolean;
 begin
   if CurUninstallStep = usUninstall then
   begin
+    Receipt := LensArcadeRoot('') + '\installs\arcade.lens.json';
+    HadReceipt := FileExists(Receipt);
     ArcadeIntegration(False);
+    LensOwnsIntegration := HadReceipt and not FileExists(Receipt);
     if ArcadeOwnsSharedIntegration then
     begin
       QuitRunningLens();

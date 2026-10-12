@@ -88,6 +88,11 @@ jobs:
           key: release
       - run: cargo build --release --locked -p arcade-lens
       - run: packaging/linux/build-appimage.sh target/release/arcade-lens "dist/ArcadeLens-${{ needs.version.outputs.label }}-linux-x86_64.AppImage"
+      - name: Verify AppImage install, repair and uninstall in a temporary profile
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb dbus-x11
+          dbus-run-session -- xvfb-run -a python3 scripts/verify-appimage.py dist/*.AppImage arcade.lens Arcade-Lens.AppImage arcade-lens
       - uses: actions/upload-artifact@v7
         with:
           name: linux-appimage

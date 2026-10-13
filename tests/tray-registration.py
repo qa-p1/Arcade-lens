@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Real SNI lifecycle regression. Run ONLY via Link tools/e2e.py run --.
 
-Usage: python3 tests/tray-registration.py APP_BINARY LINK_CLI find|look|lens
+Usage: python3 tests/tray-registration.py APP_BINARY LINK_CLI find|look|lens|box|clipboard
 Needs python3-dbus and python3-gi (Ubuntu packages), plus the Link runner's tools.
 The watcher deliberately displays Passive items, like Caelestia's tray.
 """
@@ -17,7 +17,7 @@ import time
 def require_isolation():
     root = Path(os.environ.get("ARCADE_E2E_ROOT", "/")).resolve()
     if os.environ.get("ARCADE_E2E_INNER") != "1" or root == Path("/"):
-        raise SystemExit("Use Link tools/e2e.py run -- python3 tests/tray-registration.py APP LINK_CLI find|look|lens")
+        raise SystemExit("Use Link tools/e2e.py run -- python3 tests/tray-registration.py APP LINK_CLI find|look|lens|box|clipboard")
     for key in ("HOME", "XDG_CONFIG_HOME", "XDG_DATA_HOME", "XDG_CACHE_HOME", "ARCADE_HOME"):
         if not Path(os.environ.get(key, "/")).resolve().is_relative_to(root):
             raise SystemExit(f"Refusing non-isolated {key}")
@@ -58,7 +58,9 @@ class Watcher(dbus.service.Object):
         key = name + path
         if key not in self.items:
             self.registrations += 1
-        self.items[key] = (name, path, str(self.bus.get_name_owner(name)))
+        # libappindicator registers an object path, so its owner is the sender.
+        owner = name if name.startswith(":") else str(self.bus.get_name_owner(name))
+        self.items[key] = (name, path, owner)
         self.maximum = max(self.maximum, len(self.items))
         self.StatusNotifierItemRegistered(key)
 
@@ -155,7 +157,7 @@ class Host:
 def main():
     binary, cli = (Path(arg).resolve(strict=True) for arg in sys.argv[1:3])
     app = sys.argv[3]
-    assert app in ("find", "look", "lens")
+    assert app in ("find", "look", "lens", "box", "clipboard")
     env = dict(os.environ, ARCADE_NO_INSTALL_PROMPT="1")
     if app == "find":
         config = Path(env["ARCADE_FIND_HOME"]) / "config/settings.json"
@@ -206,10 +208,16 @@ def main():
         items(1)
         name, path, _ = next(iter(watcher.items.values()))
         properties = dbus.Interface(watcher.bus.get_object(name, path), PROPERTIES)
-        assert str(properties.Get(ITEM, "Id")) == "arcade-" + app
+        identity = str(properties.Get(ITEM, "Id"))
+        # ksni uses the app's id; Tauri's libappindicator prefixes its tray id.
+        assert identity in ("arcade-" + app, f"tray-icon tray app arcade-{app}-tray"), identity
         assert str(properties.Get(ITEM, "Status")) == "Active"
-        assert str(properties.Get(ITEM, "ToolTip")[2]) == "Arcade " + app.title()
-        assert properties.Get(ITEM, "IconPixmap"), "missing icon after re-registration"
+        assert str(properties.Get(ITEM, "Title")) == "Arcade " + app.title()
+        try:
+            icon = properties.Get(ITEM, "IconPixmap")
+        except dbus.DBusException:
+            icon = str(properties.Get(ITEM, "IconName"))  # libappindicator
+        assert icon, "missing icon after re-registration"
         exported = dbus.Interface(watcher.bus.get_object(name, str(properties.Get(ITEM, "Menu"))), MENU)
         _, layout = exported.GetLayout(dbus.Int32(0), dbus.Int32(-1), dbus.Array([], signature="s"))
         labels = {str(node[1]["label"]): int(node[0]) for node in layout[2] if "label" in node[1]}
@@ -263,8 +271,19 @@ def main():
         tools.commands(*(["exclude " + app, "include " + app] * 20), "exclude " + app)
         ownership("own")
         assert menu()[1] == original_menu
-        until(lambda: len(list(Path(f"/proc/{pid}/task").iterdir())) <= baseline_threads + 2,
-              "tray cycles leaked worker threads", timeout=3)
+        def threads():
+            names = []
+            for task in os.listdir(f"/proc/{pid}/task"):
+                try:
+                    names.append((Path(f"/proc/{pid}/task") / task / "comm").read_text().strip())
+                except FileNotFoundError:
+                    pass  # a short-lived thread exited meanwhile
+            return sorted(names)
+        try:
+            # tokio's blocking pool keeps idle threads for 10 s, so allow that to pass.
+            until(lambda: len(threads()) <= baseline_threads + 2, "tray cycles leaked worker threads", timeout=15)
+        except AssertionError as error:
+            raise AssertionError(f"{error}: {baseline_threads} before, now {threads()}") from error
         tools.commands("include " + app)
         ownership("hosted")
         items(0)

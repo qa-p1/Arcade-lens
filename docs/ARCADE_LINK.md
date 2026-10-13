@@ -61,7 +61,7 @@ actions as before.
 | Method | What Lens does |
 |---|---|
 | `app.settings` | Opens Lens's Settings window, the same as activation. |
-| `app.restart` | Modes `normal` and `force`. The running Lens starts its successor (`--restarting`) over its control socket, the same path as the tray's Restart. |
+| `app.restart` | Modes `normal` and `force`. `normal` answers `busy` while a peer's capture or OCR job is still running. The running Lens starts its successor (`--restarting`) over its control socket, the same path as the tray's Restart. |
 | `app.menu` / `app.menu.invoke` | Extras **Capture** (`capture`), **Capture text** (`capture_text`) and **Pick color** (`pick_color`), all `opens-ui`. Invoking one runs the same capture as Lens's own tray. Unknown IDs are `denied`. |
 | `app.shortcuts.set` | Only `capture`. The running Lens validates, applies the shortcut live (native, portal or Hyprland runtime bind, or a `manual` hint), saves it and rewrites its manifest. |
 | `app.settings.export` | One private `file/any` handoff with a schema-1 allowlist: activation shortcut, image format, OCR languages, action order, action keys, disabled recognizers and actions, date order, home currency and privacy switches. No history, no captures, no device data. |

@@ -327,7 +327,6 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
                 }
             }
             Cmd::Hub(Trigger::TrayState(state)) => {
-                crate::link::set_tray_state(state);
                 match state {
                     TrayState::Own if tray.is_none() => {
                         let t = tx.clone();
@@ -341,17 +340,17 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
                                 TrayEvent::Quit => "quit",
                             }));
                         });
-                        if tray.is_none() {
-                            crate::link::set_tray_state(TrayState::None);
-                        }
                     }
-                    TrayState::Own | TrayState::Hosted => {
+                    TrayState::Own => {
                         if let Some(t) = &tray {
-                            t.set_visible(state == TrayState::Own);
+                            t.set_visible(true);
                         }
                     }
-                    TrayState::None => tray = None,
+                    // SNI hosts still show Passive items: unregister by dropping.
+                    TrayState::Hosted | TrayState::None => tray = None,
                 }
+                // Report after the icon changed, so status.tray never runs ahead of it.
+                crate::link::set_tray_state(if state == TrayState::Own && tray.is_none() { TrayState::None } else { state });
             }
             Cmd::Hub(Trigger::ShortcutSet { accelerator, reply }) => {
                 let result = crate::app::hub::set_shortcut(paths, &accelerator, |a| shortcut.bind(a));

@@ -62,6 +62,8 @@ impl Tray {
     }
 
     /// Keeps the native object alive while Link temporarily owns its icon.
+    /// On Linux callers drop the tray instead: StatusNotifierItem hosts still
+    /// show Passive items, so only unregistering hides the icon.
     pub fn set_visible(&self, visible: bool) {
         #[cfg(target_os = "linux")]
         self.handle.update(|t| t.visible = visible);

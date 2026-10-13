@@ -195,7 +195,6 @@ impl LensApp {
 
     fn apply_tray_state(&mut self, state: arcade_link::trayhost::TrayState) {
         use arcade_link::trayhost::TrayState;
-        crate::link::set_tray_state(state);
         match state {
             TrayState::Own if self.tray.is_none() => {
                 let shortcut = self.state.lock().unwrap_or_else(|e| e.into_inner()).env.rt.settings.activation_shortcut.clone();
@@ -210,17 +209,18 @@ impl LensApp {
                         TrayEvent::Restart => Trigger::Restart,
                         TrayEvent::Quit => Trigger::Quit,
                     };
-                    let _ = tx.send(trigger);
+                    // Wake the event loop too, or the click waits for the next repaint.
+                    send_trigger(&tx, trigger);
                 });
-                if self.tray.is_none() {
-                    crate::link::set_tray_state(TrayState::None);
-                }
             }
             TrayState::Own => {
                 if let Some(tray) = &self.tray {
                     tray.set_visible(true);
                 }
             }
+            // StatusNotifierItem hosts such as Caelestia and Waybar still show
+            // Passive items, so Linux unregisters a hosted icon by dropping it.
+            TrayState::Hosted if cfg!(target_os = "linux") => self.tray = None,
             TrayState::Hosted => {
                 if let Some(tray) = &self.tray {
                     tray.set_visible(false);
@@ -228,6 +228,8 @@ impl LensApp {
             }
             TrayState::None => self.tray = None,
         }
+        // Report after the icon changed, so status.tray never runs ahead of it.
+        crate::link::set_tray_state(if state == TrayState::Own && self.tray.is_none() { TrayState::None } else { state });
     }
 
     fn apply_hub_shortcut(&mut self, ctx: &egui::Context, accelerator: &str) -> Result<arcade_link::app::ShortcutSetResult, arcade_link::LinkError> {

@@ -68,8 +68,10 @@ actions as before.
 | `app.settings.import` | Exactly one settings file (a regular file, at most 1 MiB). Lens validates it, backs up the current settings, applies them and reports `restartRequired: false`. |
 
 **Tray hosting.** Lens's `TrayHostWatcher` connects to Arcade Tools when Tools
-runs with tray hosting on. While Tools hosts it, Lens's own icon stays built but
-hidden; it comes back at once when Tools quits, crashes or turns hosting off,
+runs with tray hosting on. While Tools hosts it, Lens removes its own icon (on
+Linux it unregisters the StatusNotifierItem, because hosts such as Caelestia and
+Waybar still show hidden "Passive" items; Windows and macOS hide it). The icon
+comes back at once when Tools quits, crashes or turns hosting off,
 and after a 5 s grace period when Tools announces a restart. At startup Lens
 waits at most 300 ms for Tools' answer before showing its icon. `app.status`
 reports `tray` as `own`, `hosted` or `none`. With "Connect with other Arcade

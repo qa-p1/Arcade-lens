@@ -3,6 +3,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[cfg(any(windows, test))]
+mod windows_login;
+
 fn home() -> Option<PathBuf> {
     std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from)
 }
@@ -82,10 +85,7 @@ fn autostart_path() -> Option<PathBuf> {
 pub fn is_enabled() -> bool {
     #[cfg(windows)]
     {
-        return std::process::Command::new("reg")
-            .args(["query", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "ArcadeLens"])
-            .output()
-            .is_ok_and(|o| o.status.success());
+        return arcade_link::install::Environment::discover().is_ok_and(|e| windows_login::enabled(&e.receipts(), windows_login::run_enabled));
     }
     #[allow(unreachable_code)]
     autostart_path().is_some_and(|p| p.exists())
@@ -96,20 +96,7 @@ pub fn is_enabled() -> bool {
 pub fn enable(exe: &Path) -> std::io::Result<()> {
     #[cfg(windows)]
     {
-        let status = std::process::Command::new("reg")
-            .args([
-                "add",
-                r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
-                "/v",
-                "ArcadeLens",
-                "/t",
-                "REG_SZ",
-                "/d",
-                &format!("\"{}\" --background", exe.display()),
-                "/f",
-            ])
-            .status()?;
-        return if status.success() { Ok(()) } else { Err(std::io::Error::other("reg add failed")) };
+        return windows_login::set_current(exe, true);
     }
     #[allow(unreachable_code)]
     {
@@ -140,8 +127,7 @@ pub fn enable(exe: &Path) -> std::io::Result<()> {
 pub fn disable() -> std::io::Result<()> {
     #[cfg(windows)]
     {
-        let _ = std::process::Command::new("reg").args(["delete", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "ArcadeLens", "/f"]).status()?;
-        return Ok(());
+        return windows_login::set_current(&current_exe()?, false);
     }
     #[allow(unreachable_code)]
     match autostart_path() {

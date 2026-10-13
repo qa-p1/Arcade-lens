@@ -2568,6 +2568,7 @@ dependencies = [
 name = "lens-platform"
 version = "0.2.0"
 dependencies = [
+ "arcade-link",
  "ashpd",
  "getrandom 0.4.3",
  "global-hotkey",

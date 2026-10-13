@@ -26,7 +26,8 @@ xcap = "0.9"
 tray-icon = "0.24"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi", "Win32_System_Threading"] }
+arcade-link.workspace = true
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi", "Win32_System_Threading", "Win32_System_Registry"] }
 windows = { version = "0.62", features = ["Media_Ocr", "Graphics_Imaging", "Foundation", "Foundation_Collections", "Globalization", "Storage_Streams"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
@@ -35,3 +36,6 @@ objc2-foundation = { version = "0.3", features = ["NSArray", "NSString", "NSDict
 objc2-vision = { version = "0.3", features = ["VNRequest", "VNRecognizeTextRequest", "VNRequestHandler", "VNObservation", "VNTypes", "objc2-core-graphics", "objc2-core-foundation"] }
 objc2-core-graphics = { version = "0.3", features = ["CGImage", "CGDataProvider", "CGColorSpace", "CGEvent", "CGEventTypes", "CGDirectDisplay"] }
 objc2-core-foundation = { version = "0.3", features = ["CFData", "CFCGTypes"] }
+
+[dev-dependencies]
+arcade-link.workspace = true

@@ -49,7 +49,7 @@ For a Linux source install, run **./scripts/install.sh**. It builds Lens, instal
 | Live pins | Available | Not available | Available | Available |
 | Window recording | FFmpeg required | Not available | FFmpeg required | Not available |
 | Tray | StatusNotifierItem | StatusNotifierItem | Notification area | Menu bar |
-| Login startup | XDG autostart | XDG autostart | Run key | LaunchAgent |
+| Login startup | XDG autostart | XDG autostart | Startup shortcut when installed, Run key when portable | LaunchAgent |
 
 Linux Hyprland actions are used daily. Windows and macOS are built and tested in CI but have not been run interactively. See [status](docs/STATUS.md) for the current evidence and limits.
 

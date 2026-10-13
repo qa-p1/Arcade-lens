@@ -1,7 +1,7 @@
 ---
 title: Works with other Arcade apps
 order: 4
-since: 0.1.1
+since: 0.2.0
 ---
 
 # Works with other Arcade apps

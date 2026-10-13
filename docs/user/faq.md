@@ -1,7 +1,7 @@
 ---
 title: FAQ
 order: 5
-since: 0.1.1
+since: 0.2.0
 ---
 
 # Frequently asked questions

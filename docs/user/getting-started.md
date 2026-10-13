@@ -1,7 +1,7 @@
 ---
 title: Getting started
 order: 2
-since: 0.1.1
+since: 0.2.0
 ---
 
 # Getting started

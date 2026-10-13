@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.2.0 — Unreleased
 
 - Add Arcade Link v0.3.0 hub methods, tray hosting and portable settings.
 - Add receipt-owned installation, repair and removal, with Linux first-run setup and macOS Applications support.

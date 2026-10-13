@@ -1,11 +1,11 @@
 ; Per-user Inno Setup 6 installer. Shared receipt, PATH shim and tasks live in
 ; arcade.iss and arcade-integration.ps1, vendored from Arcade Link.
 ;
-;   iscc /DAppVersion=0.1.1 /DSourceExe=C:\path\to\arcade-lens.exe \
+;   iscc /DAppVersion=0.2.0 /DSourceExe=C:\path\to\arcade-lens.exe \
 ;     /DOutputDir=C:\path\to\dist packaging\windows\arcade-lens.iss
 
 #ifndef AppVersion
-  #define AppVersion "0.1.1"
+  #define AppVersion "0.2.0"
 #endif
 #ifndef SourceExe
   #define SourceExe "..\..\target\release\arcade-lens.exe"

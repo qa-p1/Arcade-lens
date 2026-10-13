@@ -1,7 +1,7 @@
 ---
 title: Troubleshooting
 order: 6
-since: 0.1.1
+since: 0.2.0
 ---
 
 # Troubleshooting

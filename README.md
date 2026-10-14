@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="assets/logo.svg" width="96" alt="Arcade Lens logo">
+  <img src="packaging/icons/arcade-lens.png" width="112" alt="Arcade Lens icon">
 </p>
 
 <h1 align="center">Arcade Lens</h1>

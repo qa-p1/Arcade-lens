@@ -85,8 +85,10 @@ fn autostart_path() -> Option<PathBuf> {
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 fn set_entry(store: &arcade_link::receipt::Store, path: &Path, contents: Option<&[u8]>) -> std::io::Result<()> {
     let receipt = store.read(arcade_link::ids::LENS)?;
+    let mut document = None;
     if let Some(receipt) = &receipt {
         receipt.validate_native_paths()?;
+        document = Some(serde_json::from_slice::<serde_json::Value>(&fs::read(store.path(arcade_link::ids::LENS)?)?).map_err(std::io::Error::other)?);
     }
     if let Some(contents) = contents {
         write_if_changed(path, contents)?;
@@ -96,12 +98,21 @@ fn set_entry(store: &arcade_link::receipt::Store, path: &Path, contents: Option<
             _ => {}
         }
     }
-    if let Some(mut receipt) = receipt {
-        receipt.integration.autostart = contents.map(|_| path.to_path_buf());
-        receipt.updated_at = arcade_link::manifest::now_rfc3339();
-        store.write(&receipt)?;
+    if let Some(mut document) = document {
+        document["integration"]["autostart"] = serde_json::to_value(contents.map(|_| path)).map_err(std::io::Error::other)?;
+        document["updatedAt"] = arcade_link::manifest::now_rfc3339().into();
+        let bytes = serde_json::to_vec_pretty(&document).map_err(std::io::Error::other)?;
+        arcade_link::paths::write_atomic(&store.path(arcade_link::ids::LENS)?, &bytes, true)?;
     }
     Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn login_entry(exe: &Path) -> String {
+    format!(
+        "[Desktop Entry]\nType=Application\nName=Arcade Lens\nComment=Start Arcade Lens in the background\nExec={}\nIcon=arcade-lens\nTerminal=false\nNoDisplay=true\nX-Arcade-Id=arcade.lens\nX-GNOME-Autostart-enabled=true\n",
+        exec(exe, "--background")
+    )
 }
 
 pub fn is_enabled() -> bool {
@@ -124,15 +135,7 @@ pub fn enable(exe: &Path) -> std::io::Result<()> {
     {
         let path = autostart_path().ok_or_else(|| std::io::Error::other("no home directory"))?;
         #[cfg(target_os = "linux")]
-        set_entry(
-            &arcade_link::receipt::Store::discover(),
-            &path,
-            Some(format!(
-                "[Desktop Entry]\nType=Application\nName=Arcade Lens\nComment=Start Arcade Lens in the background\nExec={}\nIcon=arcade-lens\nTerminal=false\nNoDisplay=true\nX-GNOME-Autostart-enabled=true\n",
-                exec(exe, "--background")
-            )
-            .as_bytes()),
-        )?;
+        set_entry(&arcade_link::receipt::Store::discover(), &path, Some(login_entry(exe).as_bytes()))?;
         #[cfg(target_os = "macos")]
         set_entry(
             &arcade_link::receipt::Store::discover(),
@@ -294,6 +297,11 @@ mod login_receipt_tests {
         let fixture = Fixture::new();
         let store = fixture.environment.receipts();
         store.write(&fixture.receipt).unwrap();
+        let file = store.path(arcade_link::ids::LENS).unwrap();
+        let mut document = serde_json::to_value(&fixture.receipt).unwrap();
+        document["futureField"] = serde_json::json!({"keep": true});
+        document["integration"]["futureEntry"] = serde_json::json!("keep");
+        fs::write(&file, serde_json::to_vec(&document).unwrap()).unwrap();
         fixture.set(true).unwrap();
         assert!(fixture.path.is_file());
         let enabled = store.read(arcade_link::ids::LENS).unwrap().unwrap();
@@ -306,10 +314,21 @@ mod login_receipt_tests {
         fixture.set(false).unwrap();
         assert!(!fixture.path.exists());
         assert!(store.read(arcade_link::ids::LENS).unwrap().unwrap().integration.autostart.is_none());
+        let saved: serde_json::Value = serde_json::from_slice(&fs::read(file).unwrap()).unwrap();
+        assert_eq!(saved["futureField"], document["futureField"]);
+        assert_eq!(saved["integration"]["futureEntry"], document["integration"]["futureEntry"]);
         fixture.set(true).unwrap();
         assert!(install::uninstall(&fixture.environment, arcade_link::ids::LENS, UninstallOptions { remove_data: false, data_folders: &[] }).unwrap());
         assert!(!fixture.path.exists());
         assert!(store.read(arcade_link::ids::LENS).unwrap().is_none());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn generated_login_entry_carries_ownership_and_quotes_the_executable() {
+        let entry = login_entry(Path::new("/home/user/My Apps/Lens.AppImage"));
+        assert!(entry.contains("\nX-Arcade-Id=arcade.lens\n"));
+        assert!(entry.contains("Exec=\"/home/user/My Apps/Lens.AppImage\" --background\n"));
     }
 
     #[test]

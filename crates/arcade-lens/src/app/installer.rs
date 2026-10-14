@@ -247,21 +247,20 @@ pub fn install_copy(environment: &Environment, runtime: &Runtime, _paths: &Paths
         return Err(io::Error::other("development builds cannot be installed"));
     }
     let source = macos::bundle_for(&runtime.executable).ok_or_else(|| io::Error::other("--install requires an app bundle"))?;
-    let root = environment.home.join("Applications");
+    let target = bundle_destination(environment, detection.receipt.as_ref(), "Arcade Lens.app")?;
+    let root = target.parent().unwrap().to_path_buf();
     fs::create_dir_all(&root)?;
-    let target = root.join("Arcade Lens.app");
     if fs::canonicalize(&source).ok() != fs::canonicalize(&target).ok() {
-        let stage = root.join(format!(".arcade-lens-{}", arcade_link::endpoint::new_token()?));
-        let staged = macos::move_to_applications(environment, &source, Some(&stage))?;
+        let stage = BundleStage(root.join(format!(".arcade-lens-{}", arcade_link::endpoint::new_token()?)));
+        let staged = macos::move_to_applications(environment, &source, Some(&stage.0))?;
         if target.exists() {
             let owned = detection.receipt.as_ref().is_some_and(|r| r.path == target);
             if !owned {
                 return Err(io::Error::other("Applications already contains an Arcade Lens bundle without its receipt"));
             }
-            fs::remove_dir_all(&target)?;
         }
-        fs::rename(staged, &target)?;
-        fs::remove_dir(&stage)?;
+        stage.replace(&staged, &target)?;
+        drop(stage);
     }
     let executable = target.join("Contents/MacOS/arcade-lens");
     let cli = if options.install_cli { Some(macos::install_cli(environment, CLI_NAME, &executable)?) } else { None };
@@ -320,7 +319,9 @@ fn refresh_bundle_version(environment: &Environment, bundle: &Path) -> io::Resul
 #[cfg(any(target_os = "macos", all(test, unix)))]
 fn bundle_cli(environment: &Environment) -> io::Result<Option<PathBuf>> {
     let Some(receipt) = environment.receipts().read(crate::link::ME)? else { return Ok(None) };
-    Ok(receipt.integration.cli.filter(|cli| fs::read_link(cli).is_ok_and(|target| target.starts_with(&receipt.path))))
+    Ok(receipt.integration.cli.filter(|cli| {
+        fs::read_link(cli).is_ok_and(|target| target.starts_with(&receipt.path) && !target.components().any(|c| c == std::path::Component::ParentDir))
+    }))
 }
 
 pub fn current_executable(paths: &Paths) -> io::Result<PathBuf> {
@@ -505,6 +506,9 @@ mod tests {
         symlink(root.join("Applications/Arcade Lens.app-other/Contents/MacOS/app"), &cli).unwrap();
         assert!(bundle_cli(&environment).unwrap().is_none());
         fs::remove_file(&cli).unwrap();
+        symlink(receipt.path.join("../Other.app/executable"), &cli).unwrap();
+        assert!(bundle_cli(&environment).unwrap().is_none());
+        fs::remove_file(&cli).unwrap();
         // read_link also recognizes a dangling link after a manual bundle removal.
         symlink(receipt.path.join("Contents/MacOS/app"), &cli).unwrap();
         assert_eq!(bundle_cli(&environment).unwrap(), Some(cli.clone()));
@@ -563,5 +567,97 @@ mod tests {
         assert!(env.receipts().read(crate::link::ME).unwrap().is_none());
         assert!(!receipt.path.exists());
         fs::remove_dir_all(root).unwrap();
+    }
+}
+
+// Keep an adopted native installation in the Applications folder the user chose.
+#[cfg(any(target_os = "macos", all(test, unix)))]
+fn bundle_destination(environment: &Environment, receipt: Option<&Receipt>, name: &str) -> io::Result<PathBuf> {
+    if let Some(receipt) = receipt.filter(|r| r.method == InstallMethod::MacosBundle) {
+        receipt.validate_native_paths()?;
+        if receipt.path.file_name().is_some_and(|n| n == name)
+            && receipt.path.parent().is_some_and(|p| p == environment.home.join("Applications") || p == Path::new("/Applications"))
+        {
+            return Ok(receipt.path.clone());
+        }
+        return Err(io::Error::other("the recorded bundle is outside its Applications folder"));
+    }
+    Ok(environment.home.join("Applications").join(name))
+}
+
+#[cfg(any(target_os = "macos", all(test, unix)))]
+struct BundleStage(PathBuf);
+#[cfg(any(target_os = "macos", all(test, unix)))]
+impl BundleStage {
+    fn replace(&self, staged: &Path, target: &Path) -> io::Result<()> {
+        let backup = self.0.join("previous.app");
+        let had_old = target.exists();
+        if had_old {
+            fs::rename(target, &backup)?;
+        }
+        if let Err(error) = fs::rename(staged, target) {
+            if had_old {
+                fs::rename(&backup, target)?;
+            }
+            return Err(error);
+        }
+        Ok(())
+    }
+}
+
+#[cfg(any(target_os = "macos", all(test, unix)))]
+impl Drop for BundleStage {
+    fn drop(&mut self) {
+        let _ = fs::remove_dir_all(&self.0);
+    }
+}
+
+#[cfg(all(test, unix))]
+mod bundle_destination_tests {
+    use super::*;
+
+    #[test]
+    fn failed_bundle_replacement_restores_the_old_app_and_removes_staging() {
+        let root = std::env::temp_dir().join(format!("arcade-bundle-failure-{}", arcade_link::endpoint::new_token().unwrap()));
+        let target = root.join("Installed.app");
+        fs::create_dir_all(&target).unwrap();
+        fs::write(target.join("sentinel"), b"old app").unwrap();
+        let stage_path = root.join(".arcade-stage");
+        {
+            let stage = BundleStage(stage_path.clone());
+            fs::create_dir_all(&stage.0).unwrap();
+            assert!(stage.replace(&stage.0.join("missing.app"), &target).is_err());
+            assert_eq!(fs::read(target.join("sentinel")).unwrap(), b"old app");
+        }
+        assert!(!stage_path.exists());
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn native_updates_keep_the_adopted_applications_folder() {
+        let environment = Environment::under(&std::env::temp_dir().join("arcade-bundle-destination"));
+        let name = "Arcade Lens.app";
+        let default = environment.home.join("Applications").join(name);
+        assert_eq!(bundle_destination(&environment, None, name).unwrap(), default);
+        let mut receipt = Receipt {
+            schema: 1,
+            id: "arcade.lens".into(),
+            version: "0.2.0".into(),
+            channel: "stable".into(),
+            method: InstallMethod::MacosBundle,
+            managed_by: ManagedBy::Tools,
+            path: Path::new("/Applications").join(name),
+            integration: Default::default(),
+            previous: None,
+            installed_at: "2026-01-01T00:00:00Z".into(),
+            updated_at: "2026-01-01T00:00:00Z".into(),
+        };
+        assert_eq!(bundle_destination(&environment, Some(&receipt), name).unwrap(), receipt.path);
+        receipt.path = default.clone();
+        assert_eq!(bundle_destination(&environment, Some(&receipt), name).unwrap(), default);
+        receipt.path = environment.home.join("Downloads").join(name);
+        assert!(bundle_destination(&environment, Some(&receipt), name).is_err());
+        receipt.path = Path::new("/Applications/Other.app").into();
+        assert!(bundle_destination(&environment, Some(&receipt), name).is_err());
     }
 }

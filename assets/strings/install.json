@@ -1,0 +1,33 @@
+{
+  "schema": 1,
+  "notInstalled": {
+    "title": "Install {app}?",
+    "body": "This adds {app} to the app launcher and your apps folder.",
+    "options": ["Start at login", "Remove the downloaded file"],
+    "buttons": ["Install", "Just run it once", "Don't ask again for this file"]
+  },
+  "older": {
+    "title": "Update {app} {from} → {to}?",
+    "body": "Your settings and data will be kept.",
+    "buttons": ["Update", "Run this copy once"]
+  },
+  "sameOrNewer": {
+    "title": "{app} {version} is already installed.",
+    "buttons": ["Open installed", "Run this copy once"]
+  },
+  "managedByTools": "Arcade Tools manages updates for {app}.",
+  "installedHere": "{app} is installed in your apps folder.",
+  "macos": {
+    "title": "Move {app} to Applications?",
+    "body": "This adds {app} to Applications. Your settings and data will be kept.",
+    "buttons": ["Move to Applications", "Just run it once"]
+  },
+  "pathHint": "To use {app} from the terminal, add your Arcade command folder to PATH: {to}",
+  "errors": {
+    "install": "Couldn't install {app}: {from}",
+    "uninstall": "Couldn't uninstall {app}: {from}",
+    "repair": "Couldn't repair {app}: {from}",
+    "noReceipt": "No installation receipt was found for {app}.",
+    "devBuild": "Development builds run from the source tree and do not need installation."
+  }
+}

@@ -186,7 +186,7 @@ fn timecode(raw: &str, seconds: f64, r: Range<usize>, confidence: f32) -> Detect
     Detection::new(caps::TIMECODE, Value::Timecode(TimecodeValue { raw: raw.to_string(), seconds }))
         .span(r)
         .confidence(confidence)
-        .detail("Duration", format!("{human} ({} seconds)", seconds))
+        .detail("Duration", format!("{human} ({seconds} seconds)"))
 }
 
 fn ymd(y: &str, m: &str, d: &str) -> Option<NaiveDate> {

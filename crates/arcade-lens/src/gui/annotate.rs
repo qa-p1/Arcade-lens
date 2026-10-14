@@ -323,8 +323,8 @@ impl Editor {
         Arc::new(render(&self.base, &self.marks))
     }
 
-    pub fn ui(&mut self, ui: &mut egui::Ui) -> Vec<EditorRequest> {
-        let ctx = ui.ctx().clone();
+    pub fn ui(&mut self, ctx: &egui::Context) -> Vec<EditorRequest> {
+        let ctx = ctx.clone();
         let mut out = Vec::new();
         if ctx.input(|i| i.viewport().close_requested()) {
             self.closed = true;
@@ -362,7 +362,7 @@ impl Editor {
             }
         });
 
-        egui::Panel::top("toolbar").frame(egui::Frame::new().fill(Color32::from_rgb(24, 24, 27)).inner_margin(8)).show(ui, |ui| {
+        egui::TopBottomPanel::top("toolbar").frame(egui::Frame::new().fill(Color32::from_rgb(24, 24, 27)).inner_margin(8)).show(&ctx, |ui| {
             ui.horizontal_wrapped(|ui| {
                 for (n, t) in Tool::ALL.iter().enumerate() {
                     let sel = self.tool == *t;
@@ -408,7 +408,7 @@ impl Editor {
             });
         });
 
-        egui::CentralPanel::default().frame(egui::Frame::new().fill(Color32::from_rgb(9, 9, 11))).show(ui, |ui| {
+        egui::CentralPanel::default().frame(egui::Frame::new().fill(Color32::from_rgb(9, 9, 11))).show(&ctx, |ui| {
             let avail = ui.max_rect();
             let (iw, ih) = (self.base.width() as f32, self.base.height() as f32);
             // Fit inside the window, never upscale past 1:1 physical pixels.

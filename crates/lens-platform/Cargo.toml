@@ -3,6 +3,7 @@ name = "lens-platform"
 description = "Arcade Lens platform adapters: capture, monitors, windows, shortcuts, IPC, autostart, tray, native OCR"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 
 [dependencies]
@@ -13,6 +14,7 @@ serde.workspace = true
 serde_json.workspace = true
 global-hotkey = "0.8"
 getrandom = "0.4"
+arcade-link.workspace = true
 
 [target.'cfg(target_os = "linux")'.dependencies]
 x11rb = { version = "0.13", features = ["randr"] }
@@ -22,10 +24,10 @@ ksni = { version = "0.3", features = ["blocking"] }
 
 [target.'cfg(any(windows, target_os = "macos"))'.dependencies]
 xcap = "0.9"
-tray-icon = "0.25"
+tray-icon = "0.24"
 
 [target.'cfg(windows)'.dependencies]
-windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi", "Win32_System_Threading"] }
+windows-sys = { version = "0.61", features = ["Win32_Foundation", "Win32_UI_WindowsAndMessaging", "Win32_Graphics_Gdi", "Win32_System_Threading", "Win32_System_Registry"] }
 windows = { version = "0.62", features = ["Media_Ocr", "Graphics_Imaging", "Foundation", "Foundation_Collections", "Globalization", "Storage_Streams"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]

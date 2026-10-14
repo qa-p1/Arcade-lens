@@ -3,6 +3,7 @@ name = "lens-core"
 description = "Arcade Lens core: data model, capability engine, actions, ranking, safety and chains"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 
 [dependencies]

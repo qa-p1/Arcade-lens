@@ -198,6 +198,14 @@ pub fn window_command(w: &WindowInfo, cmd: &WindowCommand) -> Result<(), Platfor
 }
 
 /// Gives keyboard focus to one of our own native windows.
+pub fn prepare_overlay(title: &str) {
+    #[cfg(target_os = "linux")]
+    if display_server() == DisplayServer::X11 {
+        linux_x11::prepare_overlay(title);
+    }
+    let _ = title;
+}
+
 pub fn focus_native(raw: raw_window_handle_shim::Raw) {
     match raw {
         #[cfg(target_os = "linux")]

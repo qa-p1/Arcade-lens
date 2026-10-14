@@ -3,6 +3,9 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
+#[cfg(any(windows, test))]
+mod windows_login;
+
 fn home() -> Option<PathBuf> {
     std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from)
 }
@@ -68,24 +71,54 @@ fn data_home() -> Option<PathBuf> {
 }
 
 fn autostart_path() -> Option<PathBuf> {
-    let h = home()?;
+    let environment = arcade_link::install::Environment::discover().ok()?;
     if cfg!(target_os = "linux") {
-        let base = std::env::var_os("XDG_CONFIG_HOME").map(PathBuf::from).unwrap_or_else(|| h.join(".config"));
-        Some(base.join("autostart/arcade-lens.desktop"))
+        Some(environment.config.join("autostart/arcade-lens.desktop"))
     } else if cfg!(target_os = "macos") {
-        Some(h.join("Library/LaunchAgents/dev.arcade.lens.plist"))
+        Some(environment.home.join("Library/LaunchAgents/dev.arcade.lens.plist"))
     } else {
         None
     }
 }
 
+/// Portable copies keep their login entry, but never gain an install receipt.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn set_entry(store: &arcade_link::receipt::Store, path: &Path, contents: Option<&[u8]>) -> std::io::Result<()> {
+    let receipt = store.read(arcade_link::ids::LENS)?;
+    let mut document = None;
+    if let Some(receipt) = &receipt {
+        receipt.validate_native_paths()?;
+        document = Some(serde_json::from_slice::<serde_json::Value>(&fs::read(store.path(arcade_link::ids::LENS)?)?).map_err(std::io::Error::other)?);
+    }
+    if let Some(contents) = contents {
+        write_if_changed(path, contents)?;
+    } else {
+        match fs::remove_file(path) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e),
+            _ => {}
+        }
+    }
+    if let Some(mut document) = document {
+        document["integration"]["autostart"] = serde_json::to_value(contents.map(|_| path)).map_err(std::io::Error::other)?;
+        document["updatedAt"] = arcade_link::manifest::now_rfc3339().into();
+        let bytes = serde_json::to_vec_pretty(&document).map_err(std::io::Error::other)?;
+        arcade_link::paths::write_atomic(&store.path(arcade_link::ids::LENS)?, &bytes, true)?;
+    }
+    Ok(())
+}
+
+#[cfg(target_os = "linux")]
+fn login_entry(exe: &Path) -> String {
+    format!(
+        "[Desktop Entry]\nType=Application\nName=Arcade Lens\nComment=Start Arcade Lens in the background\nExec={}\nIcon=arcade-lens\nTerminal=false\nNoDisplay=true\nX-Arcade-Id=arcade.lens\nX-GNOME-Autostart-enabled=true\n",
+        exec(exe, "--background")
+    )
+}
+
 pub fn is_enabled() -> bool {
     #[cfg(windows)]
     {
-        return std::process::Command::new("reg")
-            .args(["query", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "ArcadeLens"])
-            .output()
-            .is_ok_and(|o| o.status.success());
+        return arcade_link::install::Environment::discover().is_ok_and(|e| windows_login::enabled(&e.receipts(), windows_login::run_enabled));
     }
     #[allow(unreachable_code)]
     autostart_path().is_some_and(|p| p.exists())
@@ -96,56 +129,37 @@ pub fn is_enabled() -> bool {
 pub fn enable(exe: &Path) -> std::io::Result<()> {
     #[cfg(windows)]
     {
-        let status = std::process::Command::new("reg")
-            .args([
-                "add",
-                r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
-                "/v",
-                "ArcadeLens",
-                "/t",
-                "REG_SZ",
-                "/d",
-                &format!("\"{}\" --background", exe.display()),
-                "/f",
-            ])
-            .status()?;
-        return if status.success() { Ok(()) } else { Err(std::io::Error::other("reg add failed")) };
+        return windows_login::set_current(exe, true);
     }
     #[allow(unreachable_code)]
     {
         let path = autostart_path().ok_or_else(|| std::io::Error::other("no home directory"))?;
         #[cfg(target_os = "linux")]
-        write_if_changed(
-            &path,
-            format!(
-                "[Desktop Entry]\nType=Application\nName=Arcade Lens\nComment=Start Arcade Lens in the background\nExec={}\nIcon=arcade-lens\nTerminal=false\nNoDisplay=true\nX-GNOME-Autostart-enabled=true\n",
-                exec(exe, "--background")
-            )
-            .as_bytes(),
-        )?;
+        set_entry(&arcade_link::receipt::Store::discover(), &path, Some(login_entry(exe).as_bytes()))?;
         #[cfg(target_os = "macos")]
-        write_if_changed(
+        set_entry(
+            &arcade_link::receipt::Store::discover(),
             &path,
-            format!(
+            Some(format!(
                 "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\"><dict>\n<key>Label</key><string>dev.arcade.lens</string>\n<key>ProgramArguments</key><array><string>{}</string><string>--background</string></array>\n<key>RunAtLoad</key><true/>\n</dict></plist>\n",
                 exe.display()
             )
-            .as_bytes(),
+            .as_bytes()),
         )?;
         let _ = (path, exe);
         Ok(())
     }
 }
 
+#[cfg_attr(windows, allow(clippy::needless_return))]
 pub fn disable() -> std::io::Result<()> {
     #[cfg(windows)]
     {
-        let _ = std::process::Command::new("reg").args(["delete", r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run", "/v", "ArcadeLens", "/f"]).status()?;
-        return Ok(());
+        return windows_login::set_current(&current_exe()?, false);
     }
-    #[allow(unreachable_code)]
+    #[cfg(any(target_os = "linux", target_os = "macos"))]
     match autostart_path() {
-        Some(p) if p.exists() => fs::remove_file(p),
+        Some(p) => set_entry(&arcade_link::receipt::Store::discover(), &p, None),
         _ => Ok(()),
     }
 }
@@ -223,5 +237,119 @@ mod tests {
     fn exec_quotes_paths() {
         assert_eq!(exec(Path::new("/opt/Arcade Lens/arcade-lens"), "--background"), "\"/opt/Arcade Lens/arcade-lens\" --background");
         assert_eq!(exec(Path::new("/a/$b\"c"), ""), "\"/a/\\$b\\\"c\"");
+    }
+}
+
+#[cfg(all(test, any(target_os = "linux", target_os = "macos")))]
+mod login_receipt_tests {
+    use super::*;
+    use arcade_link::install::{self, Environment, UninstallOptions};
+    use arcade_link::receipt::{InstallMethod, Integration, ManagedBy, Receipt};
+    use std::fs;
+
+    struct Fixture {
+        environment: Environment,
+        path: PathBuf,
+        receipt: Receipt,
+    }
+
+    impl Fixture {
+        fn new() -> Self {
+            let root = std::env::temp_dir().join(format!("login-receipt-{}", arcade_link::endpoint::new_token().unwrap()));
+            let environment = Environment::under(&root);
+            let path =
+                if cfg!(target_os = "macos") { root.join("Library/LaunchAgents/app.plist") } else { environment.config.join("autostart/arcade-lens.desktop") };
+            let receipt = Receipt {
+                schema: 1,
+                id: arcade_link::ids::LENS.into(),
+                version: "0.2.0".into(),
+                channel: "nightly".into(),
+                method: InstallMethod::Appimage,
+                managed_by: ManagedBy::Tools,
+                path: environment.applications.join("app.AppImage"),
+                integration: Integration { cli: Some(environment.bin.join("app")), ..Default::default() },
+                previous: None,
+                installed_at: "2026-01-01T00:00:00Z".into(),
+                updated_at: "2026-01-01T00:00:00Z".into(),
+            };
+            Self { environment, path, receipt }
+        }
+
+        fn set(&self, enabled: bool) -> Result<(), std::io::Error> {
+            set_entry(
+                &self.environment.receipts(),
+                &self.path,
+                enabled.then_some(b"[Desktop Entry]\nType=Application\nX-Arcade-Id=arcade.lens\nExec=app\n".as_slice()),
+            )
+        }
+    }
+
+    impl Drop for Fixture {
+        fn drop(&mut self) {
+            if self.environment.home.exists() {
+                fs::remove_dir_all(&self.environment.home).unwrap();
+            }
+        }
+    }
+
+    #[test]
+    fn login_toggle_preserves_receipt_metadata_and_uninstall_removes_the_entry() {
+        let fixture = Fixture::new();
+        let store = fixture.environment.receipts();
+        store.write(&fixture.receipt).unwrap();
+        let file = store.path(arcade_link::ids::LENS).unwrap();
+        let mut document = serde_json::to_value(&fixture.receipt).unwrap();
+        document["futureField"] = serde_json::json!({"keep": true});
+        document["integration"]["futureEntry"] = serde_json::json!("keep");
+        fs::write(&file, serde_json::to_vec(&document).unwrap()).unwrap();
+        fixture.set(true).unwrap();
+        assert!(fixture.path.is_file());
+        let enabled = store.read(arcade_link::ids::LENS).unwrap().unwrap();
+        let mut expected = fixture.receipt.clone();
+        expected.integration.autostart = Some(fixture.path.clone());
+        expected.updated_at = enabled.updated_at.clone();
+        assert_eq!(enabled, expected);
+        assert!(enabled.updated_at > fixture.receipt.updated_at);
+        fixture.set(false).unwrap();
+        fixture.set(false).unwrap();
+        assert!(!fixture.path.exists());
+        assert!(store.read(arcade_link::ids::LENS).unwrap().unwrap().integration.autostart.is_none());
+        let saved: serde_json::Value = serde_json::from_slice(&fs::read(file).unwrap()).unwrap();
+        assert_eq!(saved["futureField"], document["futureField"]);
+        assert_eq!(saved["integration"]["futureEntry"], document["integration"]["futureEntry"]);
+        fixture.set(true).unwrap();
+        assert!(install::uninstall(&fixture.environment, arcade_link::ids::LENS, UninstallOptions { remove_data: false, data_folders: &[] }).unwrap());
+        assert!(!fixture.path.exists());
+        assert!(store.read(arcade_link::ids::LENS).unwrap().is_none());
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn generated_login_entry_carries_ownership_and_quotes_the_executable() {
+        let entry = login_entry(Path::new("/home/user/My Apps/Lens.AppImage"));
+        assert!(entry.contains("\nX-Arcade-Id=arcade.lens\n"));
+        assert!(entry.contains("Exec=\"/home/user/My Apps/Lens.AppImage\" --background\n"));
+    }
+
+    #[test]
+    fn portable_login_toggle_never_creates_an_install_receipt() {
+        let fixture = Fixture::new();
+        fixture.set(true).unwrap();
+        assert!(fixture.path.is_file());
+        assert!(fixture.environment.receipts().read(arcade_link::ids::LENS).unwrap().is_none());
+        fixture.set(false).unwrap();
+        assert!(!fixture.path.exists());
+    }
+
+    #[test]
+    fn damaged_receipt_does_not_mutate_login_entries() {
+        let fixture = Fixture::new();
+        let store = fixture.environment.receipts();
+        store.write(&fixture.receipt).unwrap();
+        fixture.set(true).unwrap();
+        let original = fs::read(&fixture.path).unwrap();
+        fs::write(store.path(arcade_link::ids::LENS).unwrap(), b"invalid receipt").unwrap();
+        assert!(fixture.set(false).is_err());
+        assert_eq!(fs::read(&fixture.path).unwrap(), original);
     }
 }

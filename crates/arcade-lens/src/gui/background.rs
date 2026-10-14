@@ -32,14 +32,20 @@ pub fn integrate(paths: &Paths, shortcut: Option<String>) {
     let marker = paths.config.join("installed");
     std::thread::spawn(move || {
         let first_run = !marker.exists();
-        if first_run || autostart::is_enabled() {
-            if let Err(e) = autostart::enable(&exe) {
-                notify(&format!("could not start at login: {e}"));
+        // An installer (the self-installing AppImage, the Windows installer,
+        // the macOS move) owns the entries of a copy with a receipt; an
+        // AppImage without one asks first (see `first_run_install`).
+        let installed = arcade_link::install::Environment::discover().ok().and_then(|e| e.receipts().read(crate::link::ME).ok().flatten()).is_some();
+        if !installed && std::env::var_os("APPIMAGE").is_none() {
+            if first_run || autostart::is_enabled() {
+                if let Err(e) = autostart::enable(&exe) {
+                    notify(&format!("could not start at login: {e}"));
+                }
             }
-        }
-        let icons: Vec<(u32, Vec<u8>)> = icon::THEME_SIZES.iter().map(|&s| (s, icon::png(s))).collect();
-        if let Err(e) = autostart::install_launcher(&exe, &icons) {
-            notify(&format!("could not add Lens to the applications menu: {e}"));
+            let icons: Vec<(u32, Vec<u8>)> = icon::THEME_SIZES.iter().map(|&s| (s, icon::png(s))).collect();
+            if let Err(e) = autostart::install_launcher(&exe, &icons) {
+                notify(&format!("could not add Lens to the applications menu: {e}"));
+            }
         }
         if first_run {
             let _ = std::fs::create_dir_all(marker.parent().unwrap_or(&marker)).and_then(|_| std::fs::write(&marker, ""));

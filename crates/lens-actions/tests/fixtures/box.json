@@ -28,5 +28,8 @@
     { "id": "box.pipeline.run", "title": "Run pipeline", "verb": "run", "accepts": ["*"], "effects": ["writes-files"],
       "mock": { "steps": 4, "stepMs": 40 } },
     { "id": "box.open", "title": "More in Arcade Box…", "verb": "open", "accepts": ["*"], "effects": ["opens-ui"], "interactive": true }
-  ]
+  ],
+  "menu": [{"id": "pipelines", "title": "Open pipelines", "kind": "action", "enabled": true}],
+  "docs": {"version": "0.0.0-mock"},
+  "methods": ["app.settings", "app.restart", "app.menu", "app.menu.invoke", "app.shortcuts.set", "app.settings.export", "app.settings.import"]
 }

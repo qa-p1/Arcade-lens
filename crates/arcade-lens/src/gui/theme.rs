@@ -34,7 +34,7 @@ pub fn panel_frame() -> egui::Frame {
 }
 
 pub fn apply_style(ctx: &egui::Context) {
-    ctx.global_style_mut(|s| {
+    ctx.style_mut(|s| {
         s.visuals = egui::Visuals::dark();
         s.visuals.window_fill = Color32::from_rgb(24, 24, 27);
         s.visuals.panel_fill = Color32::from_rgb(24, 24, 27);

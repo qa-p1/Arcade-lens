@@ -1,0 +1,740 @@
+{
+  "protocol": 1,
+  "cases": [
+    {
+      "name": "app.settings",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "opened": true
+        }
+      }
+    },
+    {
+      "name": "app.restart",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.restart",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "restarting": true
+        }
+      }
+    },
+    {
+      "name": "app.restart",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.restart",
+        "params": {
+          "mode": "force"
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "restarting": true
+        }
+      }
+    },
+    {
+      "name": "app.menu",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.menu",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "items": [
+            {
+              "id": "private",
+              "title": "Private mode",
+              "kind": "toggle",
+              "checked": false,
+              "enabled": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "app.menu.invoke",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.menu.invoke",
+        "params": {
+          "id": "private"
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "done": true
+        }
+      }
+    },
+    {
+      "name": "app.shortcuts.set",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.shortcuts.set",
+        "params": {
+          "id": "toggle",
+          "accelerator": "Ctrl+Alt+F"
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "applied": true,
+          "via": "native"
+        }
+      }
+    },
+    {
+      "name": "app.shortcuts.set",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.shortcuts.set",
+        "params": {
+          "id": "toggle",
+          "accelerator": "Ctrl+Alt+F"
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "applied": false,
+          "via": "manual",
+          "hint": "Bind arcade-find --toggle in Settings \u2192 Keyboard"
+        }
+      }
+    },
+    {
+      "name": "app.settings.export",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings.export",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "outputs": [
+            {
+              "type": "file/any",
+              "path": "/isolated/handoff/settings.json"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "name": "app.settings.import",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings.import",
+        "params": {
+          "inputs": [
+            {
+              "type": "file/any",
+              "path": "/isolated/handoff/settings.json"
+            }
+          ]
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "imported": true,
+          "restartRequired": false
+        }
+      }
+    },
+    {
+      "name": "describe",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "describe",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "actions": [],
+          "methods": [
+            "app.settings",
+            "app.menu"
+          ]
+        }
+      }
+    },
+    {
+      "name": "app.settings-unsupported",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "unsupported",
+          "message": "unsupported"
+        }
+      }
+    },
+    {
+      "name": "app.restart-busy",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.restart",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "busy",
+          "message": "busy"
+        }
+      }
+    },
+    {
+      "name": "app.menu.invoke-denied",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.menu.invoke",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "denied"
+        }
+      }
+    },
+    {
+      "name": "app.shortcuts.set-denied",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.shortcuts.set",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "denied"
+        }
+      }
+    },
+    {
+      "name": "app.shortcuts.set-unavailable",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.shortcuts.set",
+        "params": {
+          "id": "toggle",
+          "accelerator": "Ctrl+Alt+F"
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "unavailable",
+          "message": "unavailable"
+        }
+      }
+    },
+    {
+      "name": "app.settings.import-denied",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings.import",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "denied"
+        }
+      }
+    }
+  ],
+  "validation": [
+    {
+      "name": "restart numeric mode",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.restart",
+        "params": {
+          "mode": 123
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_mode",
+          "reason": "invalid_mode"
+        }
+      }
+    },
+    {
+      "name": "restart null mode",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.restart",
+        "params": {
+          "mode": null
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_mode",
+          "reason": "invalid_mode"
+        }
+      }
+    },
+    {
+      "name": "restart unknown mode",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.restart",
+        "params": {
+          "mode": "later"
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_mode",
+          "reason": "invalid_mode"
+        }
+      }
+    },
+    {
+      "name": "restart empty mode",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.restart",
+        "params": {
+          "mode": ""
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_mode",
+          "reason": "invalid_mode"
+        }
+      }
+    },
+    {
+      "name": "menu missing id",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.menu.invoke",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_params",
+          "reason": "invalid_params"
+        }
+      }
+    },
+    {
+      "name": "menu numeric id",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.menu.invoke",
+        "params": {
+          "id": 123
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_params",
+          "reason": "invalid_params"
+        }
+      }
+    },
+    {
+      "name": "shortcut invalid accelerator",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.shortcuts.set",
+        "params": {
+          "id": "toggle",
+          "accelerator": "???"
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_accelerator",
+          "reason": "invalid_accelerator"
+        }
+      }
+    },
+    {
+      "name": "shortcut missing accelerator",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.shortcuts.set",
+        "params": {
+          "id": "toggle"
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_params",
+          "reason": "invalid_params"
+        }
+      }
+    },
+    {
+      "name": "shortcut numeric accelerator",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.shortcuts.set",
+        "params": {
+          "id": "toggle",
+          "accelerator": 123
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_params",
+          "reason": "invalid_params"
+        }
+      }
+    },
+    {
+      "name": "shortcut missing id",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.shortcuts.set",
+        "params": {
+          "accelerator": "alt+ctrl+k"
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_params",
+          "reason": "invalid_params"
+        }
+      }
+    },
+    {
+      "name": "import missing inputs",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings.import",
+        "params": {}
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_inputs",
+          "reason": "invalid_inputs"
+        }
+      }
+    },
+    {
+      "name": "import empty inputs",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings.import",
+        "params": {
+          "inputs": []
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_inputs",
+          "reason": "invalid_inputs"
+        }
+      }
+    },
+    {
+      "name": "import non-array inputs",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings.import",
+        "params": {
+          "inputs": "file"
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_inputs",
+          "reason": "invalid_inputs"
+        }
+      }
+    },
+    {
+      "name": "import non-file content",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings.import",
+        "params": {
+          "inputs": [
+            {
+              "type": "text/plain",
+              "text": "settings"
+            }
+          ]
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_inputs",
+          "reason": "invalid_inputs"
+        }
+      }
+    },
+    {
+      "name": "import non-object input",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings.import",
+        "params": {
+          "inputs": [
+            "settings.json"
+          ]
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_inputs",
+          "reason": "invalid_inputs"
+        }
+      }
+    },
+    {
+      "name": "import missing path",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings.import",
+        "params": {
+          "inputs": [
+            {
+              "type": "file/any"
+            }
+          ]
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_inputs",
+          "reason": "invalid_inputs"
+        }
+      }
+    },
+    {
+      "name": "import numeric path",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings.import",
+        "params": {
+          "inputs": [
+            {
+              "type": "file/any",
+              "path": 123
+            }
+          ]
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_inputs",
+          "reason": "invalid_inputs"
+        }
+      }
+    },
+    {
+      "name": "import invalid hints",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings.import",
+        "params": {
+          "inputs": [
+            {
+              "type": "file/any",
+              "path": "/isolated/settings.json",
+              "hints": [
+                123
+              ]
+            }
+          ]
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_inputs",
+          "reason": "invalid_inputs"
+        }
+      }
+    },
+    {
+      "name": "import negative size",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.settings.import",
+        "params": {
+          "inputs": [
+            {
+              "type": "file/any",
+              "path": "/isolated/settings.json",
+              "size": -1
+            }
+          ]
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "error": {
+          "code": "denied",
+          "message": "invalid_inputs",
+          "reason": "invalid_inputs"
+        }
+      }
+    },
+    {
+      "name": "shortcut normalization before callback",
+      "request": {
+        "v": 1,
+        "id": 1,
+        "method": "app.shortcuts.set",
+        "params": {
+          "id": "toggle",
+          "accelerator": "alt+ctrl+k",
+          "future": true
+        }
+      },
+      "response": {
+        "v": 1,
+        "id": 1,
+        "result": {
+          "applied": true,
+          "via": "native"
+        }
+      },
+      "normalized": "Ctrl+Alt+K"
+    }
+  ]
+}

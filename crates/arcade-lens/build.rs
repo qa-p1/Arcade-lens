@@ -4,12 +4,13 @@
 use std::path::PathBuf;
 
 fn main() {
+    println!("cargo:rerun-if-env-changed=ARCADE_RELEASE_VERSION");
     let icon = PathBuf::from(std::env::var("CARGO_MANIFEST_DIR").unwrap()).join("../../packaging/icons/arcade-lens.ico");
     println!("cargo:rerun-if-changed={}", icon.display());
     if std::env::var("CARGO_CFG_TARGET_OS").as_deref() != Ok("windows") {
         return;
     }
-    let version = std::env::var("CARGO_PKG_VERSION").unwrap();
+    let version = std::env::var("ARCADE_RELEASE_VERSION").or_else(|_| std::env::var("CARGO_PKG_VERSION")).unwrap();
     let mut parts = version.split(['.', '-', '+']).map(|p| p.parse::<u16>().unwrap_or(0));
     let [major, minor, patch] = [parts.next().unwrap_or(0), parts.next().unwrap_or(0), parts.next().unwrap_or(0)];
     let rc = format!(

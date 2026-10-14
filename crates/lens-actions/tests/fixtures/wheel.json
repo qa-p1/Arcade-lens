@@ -8,5 +8,8 @@
       "accepts": ["text/url", "text/plain;hint=command", "file/*", "structured/arcade-action"],
       "effects": ["persists", "opens-ui"], "interactive": true, "mock": { "result": { "message": "Opened Wheel Settings" } } },
     { "id": "wheel.show", "title": "Show the Wheel", "verb": "show", "effects": ["opens-ui"], "interactive": true }
-  ]
+  ],
+  "menu": [{"id": "wheel", "title": "Show wheel", "kind": "action", "enabled": true}],
+  "docs": {"version": "0.0.0-mock"},
+  "methods": ["app.settings", "app.restart", "app.menu", "app.menu.invoke", "app.shortcuts.set", "app.settings.export", "app.settings.import"]
 }

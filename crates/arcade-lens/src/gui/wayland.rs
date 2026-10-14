@@ -148,6 +148,33 @@ impl Shortcut {
             b.remove();
         }
     }
+
+    fn current(&self) -> Option<String> {
+        self.bound.as_ref().map(|(s, _)| s.clone())
+    }
+
+    /// Binds exactly `accelerator` now, for `app.shortcuts.set` and imports.
+    /// Desktops without runtime binds get the manual hint instead.
+    fn bind(&mut self, accelerator: Option<&str>) -> Result<arcade_link::app::ShortcutSetResult, arcade_link::LinkError> {
+        use arcade_link::app::ShortcutVia;
+        if !hyprland::active() {
+            return Ok(crate::app::hub::apply_result(
+                ShortcutVia::Manual,
+                Some("Bind `arcade-lens --capture` to a key in your desktop's keyboard settings.".into()),
+            ));
+        }
+        if self.bound.as_ref().map(|(s, _)| s.as_str()) == accelerator {
+            return Ok(crate::app::hub::apply_result(ShortcutVia::HyprlandRuntime, None));
+        }
+        self.clear();
+        if let Some(s) = accelerator {
+            let exe = exe().map(|e| e.to_string_lossy().into_owned()).unwrap_or_else(|_| "arcade-lens".into());
+            let binding =
+                hyprland::bind(s, &format!("{} --capture", hyprland::shell_quote(&exe))).map_err(|e| arcade_link::LinkError::unavailable(e.to_string()))?;
+            self.bound = Some((s.to_string(), binding));
+        }
+        Ok(crate::app::hub::apply_result(ShortcutVia::HyprlandRuntime, None))
+    }
 }
 
 /// Requests from other Arcade apps: each opens its own window process.
@@ -207,78 +234,143 @@ fn open_once(slot: &mut Option<Child>, solo: &Solo) {
     *slot = spawn(solo);
 }
 
+/// Commands for the background instance's loop.
+enum Cmd {
+    Named(&'static str),
+    Hub(Trigger),
+}
+
 /// The background instance: IPC, the shortcut and the tray icon, no window.
 pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
+    use arcade_link::trayhost::TrayState;
     let background = initial.is_none();
-    let (tx, rx) = mpsc::channel::<&'static str>();
-    let t = tx.clone();
+    let (tx, rx) = mpsc::channel::<Cmd>();
+    let t = std::sync::Mutex::new(tx.clone());
     lens_platform::ipc::serve(&paths.endpoint(), move |cmd| {
+        let send = |c: Cmd| t.lock().unwrap_or_else(|e| e.into_inner()).send(c).is_ok();
+        if let Some(reply) = super::hub_command(cmd, |trigger| send(Cmd::Hub(trigger))) {
+            return reply;
+        }
         let cmd = match cmd {
             "ping" => return "pong".into(),
             "capture" => "capture",
+            "capture-text" => "capture-text",
+            "pick-color" => "pick-color",
             "settings" => "settings",
             "reload" => "reload",
             "restart" => "restart",
             "quit" => "quit",
             _ => return "unknown command".into(),
         };
-        let _ = t.send(cmd);
+        send(Cmd::Named(cmd));
         "ok".into()
     })
     .map_err(|e| e.to_string())?;
     match initial {
-        Some(Trigger::Capture) => tx.send("capture"),
-        Some(Trigger::Settings) => tx.send("settings"),
-        Some(Trigger::Restart | Trigger::Quit | Trigger::Link(_)) | None => Ok(()),
+        Some(Trigger::Capture) => tx.send(Cmd::Named("capture")),
+        Some(Trigger::CaptureText) => tx.send(Cmd::Named("capture-text")),
+        Some(Trigger::PickColor) => tx.send(Cmd::Named("pick-color")),
+        Some(Trigger::Settings) => tx.send(Cmd::Named("settings")),
+        _ => Ok(()),
     }
     .ok();
-    let t = tx.clone();
     if hyprland::active() {
         hyprland::add_window_rules(WINDOW_RULES);
+        let t = tx.clone();
         hyprland::on_config_reloaded(move || {
-            let _ = tx.send("rebind");
+            let _ = t.send(Cmd::Named("rebind"));
         });
     }
     crate::link::set_gui(link_request);
-    crate::link::start(&config::load_settings(paths).unwrap_or_default(), background);
+    let settings = config::load_settings(paths).unwrap_or_default();
+    crate::link::start(&settings, background);
     let mut shortcut = Shortcut { bound: None, warned: false };
     shortcut.apply(paths);
-    let bound = || shortcut.bound.as_ref().map(|(s, _)| s.clone());
-    background::integrate(paths, bound());
-    let tray = background::tray(bound(), move |e| {
-        let _ = t.send(match e {
-            TrayEvent::Capture => "capture",
-            TrayEvent::Settings => "settings",
-            TrayEvent::Restart => "restart",
-            TrayEvent::Quit => "quit",
-        });
-    });
+    background::integrate(paths, shortcut.current());
+    let t = tx.clone();
+    if let Err(e) = crate::app::trayhost::start(&settings, move |state| {
+        let _ = t.send(Cmd::Hub(Trigger::TrayState(state)));
+    }) {
+        crate::lens_debug!("tray host watcher: {e}");
+        let _ = tx.send(Cmd::Hub(Trigger::TrayState(TrayState::Own)));
+    }
+    let mut tray: Option<lens_platform::tray::Tray> = None;
     let mut capture = None;
-    let mut settings = None;
+    let mut settings_window = None;
     for cmd in rx {
-        crate::lens_debug!("command {cmd}");
         match cmd {
-            "capture" => open_once(&mut capture, &Solo::Capture(crate::link::CaptureMode::Palette)),
-            "settings" => open_once(&mut settings, &Solo::Settings),
-            "reload" => {
-                crate::link::refresh(&config::load_settings(paths).unwrap_or_default());
-                shortcut.apply(paths);
-                if let Some(t) = &tray {
-                    t.set_shortcut(shortcut.bound.as_ref().map(|(s, _)| s.clone()));
+            Cmd::Named(cmd) => {
+                crate::lens_debug!("command {cmd}");
+                match cmd {
+                    "capture" => open_once(&mut capture, &Solo::Capture(crate::link::CaptureMode::Palette)),
+                    "capture-text" => open_once(&mut capture, &Solo::Capture(crate::link::CaptureMode::Text)),
+                    "pick-color" => open_once(&mut capture, &Solo::Capture(crate::link::CaptureMode::Color)),
+                    "settings" => open_once(&mut settings_window, &Solo::Settings),
+                    "reload" => {
+                        let settings = config::load_settings(paths).unwrap_or_default();
+                        crate::link::refresh(&settings);
+                        crate::app::trayhost::set_link_enabled(settings.link.enabled);
+                        shortcut.apply(paths);
+                        if let Some(t) = &tray {
+                            t.set_shortcut(shortcut.current());
+                        }
+                    }
+                    "rebind" => {
+                        // The reload dropped our binding and rules.
+                        shortcut.bound = None;
+                        hyprland::add_window_rules(WINDOW_RULES);
+                        shortcut.apply(paths);
+                    }
+                    "restart" if background::restart() => break,
+                    "quit" => break,
+                    _ => {}
                 }
             }
-            "rebind" => {
-                // The reload dropped our binding and rules.
-                shortcut.bound = None;
-                hyprland::add_window_rules(WINDOW_RULES);
-                shortcut.apply(paths);
+            Cmd::Hub(Trigger::TrayState(state)) => {
+                match state {
+                    TrayState::Own if tray.is_none() => {
+                        let t = tx.clone();
+                        tray = background::tray(shortcut.current(), move |e| {
+                            let _ = t.send(Cmd::Named(match e {
+                                TrayEvent::Capture => "capture",
+                                TrayEvent::CaptureText => "capture-text",
+                                TrayEvent::PickColor => "pick-color",
+                                TrayEvent::Settings => "settings",
+                                TrayEvent::Restart => "restart",
+                                TrayEvent::Quit => "quit",
+                            }));
+                        });
+                    }
+                    TrayState::Own => {
+                        if let Some(t) = &tray {
+                            t.set_visible(true);
+                        }
+                    }
+                    // SNI hosts still show Passive items: unregister by dropping.
+                    TrayState::Hosted | TrayState::None => tray = None,
+                }
+                // Report after the icon changed, so status.tray never runs ahead of it.
+                crate::link::set_tray_state(if state == TrayState::Own && tray.is_none() { TrayState::None } else { state });
             }
-            "restart" if background::restart() => break,
-            "quit" => break,
-            _ => {}
+            Cmd::Hub(Trigger::ShortcutSet { accelerator, reply }) => {
+                let result = crate::app::hub::set_shortcut(paths, &accelerator, |a| shortcut.bind(a));
+                if let Some(t) = &tray {
+                    t.set_shortcut(shortcut.current());
+                }
+                let _ = reply.send(result);
+            }
+            Cmd::Hub(Trigger::SettingsImport { inputs, reply }) => {
+                let result = crate::app::hub::import_settings(paths, &inputs, |a| shortcut.bind(a));
+                if let Ok(settings) = config::load_settings(paths) {
+                    crate::app::trayhost::set_link_enabled(settings.link.enabled);
+                }
+                let _ = reply.send(result);
+            }
+            Cmd::Hub(_) => {}
         }
     }
     shortcut.clear();
+    crate::app::trayhost::stop();
     crate::link::stop();
     drop(tray);
     Ok(())

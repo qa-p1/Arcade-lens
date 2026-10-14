@@ -357,6 +357,14 @@ impl Overlay {
                 crate::lens_debug!("palette actions: {}", serde_json::to_string(&entries).unwrap_or_default());
             }
         }
+        if self.mode == crate::link::CaptureMode::Text && self.sel.is_some() && self.analysis_done && self.palette_job.is_none() && self.job.is_none() {
+            // Capture text: copy what was recognized, or fall back to the palette.
+            self.mode = crate::link::CaptureMode::Palette;
+            match self.palette.all.iter().find(|e| e.target.usage_key() == "core.text.copy" && e.disabled_reason.is_none()).cloned() {
+                Some(entry) => self.run_entry(env, entry, Params::new(), false),
+                None => self.toast("No text found in the selection", ToastKind::Info, false),
+            }
+        }
         if let Some(job) = &self.job {
             if let Ok(out) = job.rx.try_recv() {
                 let job = self.job.take().unwrap();
@@ -621,6 +629,8 @@ impl Overlay {
                 "Pin · drag to select a region · Esc close"
             } else if self.mode == crate::link::CaptureMode::Color {
                 "Color · click a pixel or drag a region · Esc close"
+            } else if self.mode == crate::link::CaptureMode::Text {
+                "Text · drag over the text to copy it · Esc close"
             } else if self.windows.is_empty() {
                 "Drag to select · M measure · Esc close"
             } else {

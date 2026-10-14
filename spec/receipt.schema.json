@@ -1,0 +1,145 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/qa-p1/Arcade-link/spec/receipt.schema.json",
+  "type": "object",
+  "required": [
+    "channel",
+    "id",
+    "installedAt",
+    "integration",
+    "managedBy",
+    "method",
+    "path",
+    "schema",
+    "updatedAt",
+    "version"
+  ],
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^arcade\\.[a-z0-9][a-z0-9.-]*$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "channel": {
+      "type": "string",
+      "minLength": 1
+    },
+    "method": {
+      "enum": [
+        "appimage",
+        "windows-installer",
+        "macos-bundle",
+        "tarball",
+        "manual",
+        "dev"
+      ]
+    },
+    "managedBy": {
+      "enum": [
+        "self",
+        "tools"
+      ]
+    },
+    "path": {
+      "type": "string",
+      "pattern": "^(?:/|[A-Za-z]:[\\\\/]|\\\\\\\\)"
+    },
+    "integration": {
+      "type": "object",
+      "properties": {
+        "desktopEntry": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:/|[A-Za-z]:[\\\\/]|\\\\\\\\)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cli": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:/|[A-Za-z]:[\\\\/]|\\\\\\\\)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "autostart": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:/|[A-Za-z]:[\\\\/]|\\\\\\\\)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "uninstaller": {
+          "anyOf": [
+            {
+              "type": "string",
+              "pattern": "^(?:/|[A-Za-z]:[\\\\/]|\\\\\\\\)"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "icons": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?:/|[A-Za-z]:[\\\\/]|\\\\\\\\)"
+          }
+        }
+      }
+    },
+    "previous": {
+      "anyOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "version",
+            "path"
+          ],
+          "properties": {
+            "version": {
+              "type": "string",
+              "minLength": 1
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^(?:/|[A-Za-z]:[\\\\/]|\\\\\\\\)"
+            }
+          }
+        }
+      ]
+    },
+    "installedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "updatedAt": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    }
+  },
+  "$comment": "Writers reject dev. Semantic validation checks timestamp order and previous path differs."
+}

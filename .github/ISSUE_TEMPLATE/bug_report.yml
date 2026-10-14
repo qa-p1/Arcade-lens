@@ -1,0 +1,70 @@
+name: Arcade Lens bug report
+description: Report a problem with Arcade Lens.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the problem and what you were doing when it occurred.
+      placeholder: Tell us what you saw.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: List the steps that reproduce the problem, if you know them.
+      placeholder: |-
+        1. Open …
+        2. Choose …
+        3. See …
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect to happen?
+      placeholder: Describe what you expected instead.
+  - type: input
+    id: version
+    attributes:
+      label: Arcade Lens version
+      description: Find it in Settings → About or run `arcade-lens --version`.
+      placeholder: e.g. 0.1.0
+    validations:
+      required: true
+  - type: input
+    id: os
+    attributes:
+      label: Operating system
+      description: Which operating system and version are you using?
+      placeholder: e.g. CachyOS, Windows 11 24H2, macOS 15
+  - type: input
+    id: desktop
+    attributes:
+      label: Desktop environment or window manager
+      description: Include the display protocol if you know it.
+      placeholder: Hyprland, GNOME Wayland, KDE X11, …
+  - type: dropdown
+    id: install
+    attributes:
+      label: How did you install or run Arcade Lens?
+      options:
+        - AppImage installed
+        - AppImage run once
+        - Windows installer
+        - macOS app
+        - Installed by Arcade Tools
+        - Built from source
+  - type: markdown
+    attributes:
+      value: >-
+        Arcade Tools → Settings → Diagnostics → Report a problem creates a diagnostics zip on your computer;
+        attach it here if you like. Nothing is uploaded automatically.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs or other details
+      description: Paste relevant logs or details here. Remove anything private first.
+      render: text

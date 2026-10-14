@@ -1,12 +1,11 @@
-; Arcade Lens installer (Inno Setup 6).
+; Per-user Inno Setup 6 installer. Shared receipt, PATH shim and tasks live in
+; arcade.iss and arcade-integration.ps1, vendored from Arcade Link.
 ;
-;   iscc /DAppVersion=0.1.0 /DSourceExe=C:\path\to\arcade-lens.exe packaging\windows\arcade-lens.iss
-;
-; Installs for the current user (no administrator rights needed), adds a
-; Start menu entry, optionally starts Lens at sign-in, and launches it.
+;   iscc /DAppVersion=0.2.0 /DSourceExe=C:\path\to\arcade-lens.exe \
+;     /DOutputDir=C:\path\to\dist packaging\windows\arcade-lens.iss
 
 #ifndef AppVersion
-  #define AppVersion "0.0.0"
+  #define AppVersion "0.2.0"
 #endif
 #ifndef SourceExe
   #define SourceExe "..\..\target\release\arcade-lens.exe"
@@ -15,64 +14,69 @@
   #define OutputDir "..\..\dist"
 #endif
 
-#define RunKey "Software\Microsoft\Windows\CurrentVersion\Run"
+#define ARCADE_ID "arcade.lens"
+#define ARCADE_NAME "Arcade Lens"
+#define ARCADE_VERSION AppVersion
+#define ARCADE_EXE "arcade-lens.exe"
+#define ARCADE_CLI "arcade-lens"
+; Keep the existing Inno upgrade/uninstall identity.
+#define ARCADE_INSTALLER_ID "{{6F1D2B7E-3C4A-4E8B-9F21-8A5C0D7E4B13}"
+#define ARCADE_HOMEPAGE "https://github.com/qa-p1/Arcade-catalog"
+#define ARCADE_START_AT_LOGIN_DEFAULT 1
+#define ARCADE_CUSTOM_EVENTS
+#include "arcade.iss"
 
 [Setup]
-AppId={{6F1D2B7E-3C4A-4E8B-9F21-8A5C0D7E4B13}
-AppName=Arcade Lens
-AppVersion={#AppVersion}
-AppVerName=Arcade Lens {#AppVersion}
-AppPublisher=Arcade
-AppPublisherURL=https://github.com/qa-p1/Arcade-lens
-AppSupportURL=https://github.com/qa-p1/Arcade-lens/issues
-DefaultDirName={autopf}\Arcade Lens
-DefaultGroupName=Arcade Lens
-DisableProgramGroupPage=yes
+DisableDirPage=yes
 DisableReadyPage=yes
-PrivilegesRequired=lowest
-PrivilegesRequiredOverridesAllowed=dialog
-ArchitecturesAllowed=x64compatible
-ArchitecturesInstallIn64BitMode=x64compatible
 OutputDir={#OutputDir}
 OutputBaseFilename=ArcadeLens-{#AppVersion}-windows-x64-setup
 SetupIconFile=..\icons\arcade-lens.ico
-UninstallDisplayIcon={app}\arcade-lens.exe
-UninstallDisplayName=Arcade Lens
+ArchitecturesAllowed=x64compatible
+ArchitecturesInstallIn64BitMode=x64compatible
 Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
-
-[Tasks]
-Name: "startup"; Description: "Start Arcade Lens when I sign in"; GroupDescription: "Startup:"
-Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
 
 [Files]
 Source: "{#SourceExe}"; DestDir: "{app}"; DestName: "arcade-lens.exe"; Flags: ignoreversion
 
 [Icons]
-Name: "{autoprograms}\Arcade Lens"; Filename: "{app}\arcade-lens.exe"; Comment: "Select anything on screen and act on it"
-Name: "{autodesktop}\Arcade Lens"; Filename: "{app}\arcade-lens.exe"; Tasks: desktopicon
-
-[Registry]
-; The same login item Lens writes itself (Settings → Start at login).
-Root: HKCU; Subkey: "{#RunKey}"; ValueType: string; ValueName: "ArcadeLens"; ValueData: """{app}\arcade-lens.exe"" --background"; Tasks: startup
+Name: "{userprograms}\Arcade Lens\Arcade Lens Settings"; Filename: "{app}\arcade-lens.exe"; Parameters: "--settings"; Flags: uninsneveruninstall
 
 [Run]
 Filename: "{app}\arcade-lens.exe"; Description: "{cm:LaunchProgram,Arcade Lens}"; Flags: nowait postinstall skipifsilent
-; Silent installs (updates) bring Lens back in the background.
-Filename: "{app}\arcade-lens.exe"; Parameters: "--background"; Flags: nowait; Check: WizardSilent
 
 [Code]
-// Asks a running Lens to quit, so its executable can be replaced or removed.
+var
+  LensOwnsIntegration: Boolean;
+
+// Mirrors arcade-integration.ps1: ARCADE_HOME isolates the shared root.
+function LensArcadeRoot(Param: String): String;
+begin
+  Result := GetEnv('ARCADE_HOME');
+  if Result = '' then Result := ExpandConstant('{localappdata}\Arcade');
+end;
+
+function ArcadeOwnsSharedIntegration: Boolean;
+begin
+  Result := LensOwnsIntegration;
+end;
+
+function GetCustomSetupExitCode: Integer;
+begin
+  if ArcadeIntegrationFailed then Result := 1 else Result := 0;
+end;
+
 procedure QuitRunningLens();
 var
   Exe: String;
-  Code: Integer;
+  ExitCode: Integer;
 begin
   Exe := ExpandConstant('{app}\arcade-lens.exe');
   if FileExists(Exe) then
   begin
-    Exec(Exe, '--quit', '', SW_HIDE, ewWaitUntilTerminated, Code);
+    Exec(Exe, '--quit', '', SW_HIDE, ewWaitUntilTerminated, ExitCode);
     Sleep(1000);
   end;
 end;
@@ -84,25 +88,41 @@ begin
 end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
-var
-  Config: String;
 begin
   if CurStep = ssPostInstall then
   begin
-    // The installer decides about start at login, not Lens's first run.
-    Config := ExpandConstant('{userappdata}\Arcade\Arcade Lens\config');
-    ForceDirectories(Config);
-    SaveStringToFile(Config + '\installed', '', False);
-    if not WizardIsTaskSelected('startup') then
-      RegDeleteValue(HKEY_CURRENT_USER, '{#RunKey}', 'ArcadeLens');
+    ArcadeIntegration(True);
+    // Remove the legacy first-run Run value; new installers use the shared
+    // Start at login shortcut task.
+    RegDeleteValue(HKEY_CURRENT_USER,
+      'Software\Microsoft\Windows\CurrentVersion\Run', 'ArcadeLens');
   end;
 end;
 
+// The helper deletes the receipt only when this copy owns it (exit 0); exit 10
+// leaves a successor's receipt in place, so its files are kept too.
 procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+var
+  Receipt: String;
+  HadReceipt: Boolean;
 begin
   if CurUninstallStep = usUninstall then
   begin
-    QuitRunningLens();
-    RegDeleteValue(HKEY_CURRENT_USER, '{#RunKey}', 'ArcadeLens');
+    Receipt := LensArcadeRoot('') + '\installs\arcade.lens.json';
+    HadReceipt := FileExists(Receipt);
+    ArcadeIntegration(False);
+    LensOwnsIntegration := HadReceipt and not FileExists(Receipt);
+    if ArcadeOwnsSharedIntegration then
+    begin
+      QuitRunningLens();
+      // UninstallDelete Check parameters are evaluated during setup, before
+      // ownership is known. Delete these only after the helper proves this
+      // uninstaller owns the receipt; preserve a successor's integration.
+      DeleteFile(LensArcadeRoot('') + '\apps\arcade.lens.json');
+      DeleteFile(ExpandConstant('{userprograms}\Arcade Lens\Arcade Lens Settings.lnk'));
+      RemoveDir(ExpandConstant('{userprograms}\Arcade Lens'));
+      RegDeleteValue(HKEY_CURRENT_USER,
+        'Software\Microsoft\Windows\CurrentVersion\Run', 'ArcadeLens');
+    end;
   end;
 end;

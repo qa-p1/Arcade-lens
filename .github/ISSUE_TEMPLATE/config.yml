@@ -1,0 +1,11 @@
+blank_issues_enabled: true
+contact_links:
+  - name: Arcade Lens user guide
+    url: https://github.com/qa-p1/Arcade-lens/tree/main/docs/user/
+    about: Read the user guide and feature documentation.
+  - name: Troubleshooting
+    url: https://github.com/qa-p1/Arcade-lens/blob/main/docs/user/troubleshooting.md
+    about: Check common problems and platform notes.
+  - name: Arcade ecosystem documentation
+    url: https://github.com/qa-p1/Arcade-catalog/tree/main/docs
+    about: Learn how this app works with the other Arcade apps.

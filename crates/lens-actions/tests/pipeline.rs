@@ -208,7 +208,7 @@ fn ambiguous_dates_require_a_choice() {
     .unwrap();
     let Invocation::NeedsChoice(choices) = res else { panic!("expected a choice, got {res:?}") };
     assert_eq!(choices.len(), 2);
-    assert!(choices[0].label.contains("5 March 2027"), "{:?}", choices);
+    assert!(choices[0].label.contains("5 March 2027"), "{choices:?}");
     params.insert("choice".into(), serde_json::json!(1));
     invoke(
         "core.date.event",

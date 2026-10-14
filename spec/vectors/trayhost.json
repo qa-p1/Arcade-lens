@@ -1,0 +1,132 @@
+{
+  "startupCapMs": 300,
+  "restartGraceMs": 5000,
+  "handbackMaxMs": 1000,
+  "sequences": [
+    {
+      "name": "hosted",
+      "events": [
+        {
+          "atMs": 0,
+          "hosted": true,
+          "expect": "hosted"
+        },
+        {
+          "atMs": 20,
+          "hosted": false,
+          "expect": "own"
+        }
+      ]
+    },
+    {
+      "name": "crash",
+      "events": [
+        {
+          "atMs": 0,
+          "hosted": true,
+          "expect": "hosted"
+        },
+        {
+          "atMs": 20,
+          "closed": true,
+          "expect": "own"
+        }
+      ]
+    },
+    {
+      "name": "restart-return",
+      "events": [
+        {
+          "atMs": 0,
+          "hosted": true,
+          "expect": "hosted"
+        },
+        {
+          "atMs": 20,
+          "hosted": true,
+          "restarting": true,
+          "expect": "hosted"
+        },
+        {
+          "atMs": 30,
+          "closed": true,
+          "expect": "hosted"
+        },
+        {
+          "atMs": 100,
+          "hosted": true,
+          "expect": "hosted"
+        }
+      ]
+    },
+    {
+      "name": "restart-expired",
+      "events": [
+        {
+          "atMs": 0,
+          "hosted": true,
+          "expect": "hosted"
+        },
+        {
+          "atMs": 20,
+          "hosted": true,
+          "restarting": true,
+          "expect": "hosted"
+        },
+        {
+          "atMs": 30,
+          "closed": true,
+          "expect": "hosted"
+        },
+        {
+          "atMs": 5020,
+          "expect": "own"
+        }
+      ]
+    },
+    {
+      "name": "startup-no-answer",
+      "events": [
+        {
+          "atMs": 0,
+          "startup": true,
+          "expect": "none"
+        },
+        {
+          "atMs": 300,
+          "expect": "own"
+        }
+      ]
+    },
+    {
+      "name": "excluded",
+      "events": [
+        {
+          "atMs": 0,
+          "hosted": true,
+          "expect": "hosted"
+        },
+        {
+          "atMs": 20,
+          "excluded": true,
+          "expect": "own"
+        }
+      ]
+    },
+    {
+      "name": "link-off",
+      "events": [
+        {
+          "atMs": 0,
+          "hosted": true,
+          "expect": "hosted"
+        },
+        {
+          "atMs": 20,
+          "linkEnabled": false,
+          "expect": "own"
+        }
+      ]
+    }
+  ]
+}

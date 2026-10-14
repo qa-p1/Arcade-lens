@@ -1,0 +1,520 @@
+{
+  "comment": "Shortcut clash detection compares normalized accelerators (SPEC §8.4).",
+  "same": [
+    [
+      "Ctrl+Alt+Space",
+      "alt+ctrl+space"
+    ],
+    [
+      "Ctrl+Alt+Shift+L",
+      "Shift+Control+Alt+l"
+    ],
+    [
+      "Cmd+Shift+Space",
+      "Super+Shift+Space"
+    ],
+    [
+      "Ctrl+Option+Space",
+      "Alt+Ctrl+Space"
+    ],
+    [
+      "F8",
+      "f8"
+    ]
+  ],
+  "different": [
+    [
+      "Ctrl+Alt+Space",
+      "Ctrl+Alt+Shift+Space"
+    ],
+    [
+      "Ctrl+Shift+Space",
+      "Ctrl+Alt+Space"
+    ],
+    [
+      "Ctrl+Alt+V",
+      "Ctrl+Alt+Space"
+    ]
+  ],
+  "normalize": [
+    {
+      "input": "shift+control+p",
+      "expected": "Ctrl+Shift+P"
+    },
+    {
+      "input": "Ctrl + Alt + space",
+      "expected": "Ctrl+Alt+Space"
+    },
+    {
+      "input": "Command+Shift+P",
+      "expected": "Shift+Super+P"
+    },
+    {
+      "input": "Super+Shift+P",
+      "expected": "Shift+Super+P"
+    },
+    {
+      "input": "Ctrl+K  Ctrl+S",
+      "expected": "Ctrl+K Ctrl+S"
+    },
+    {
+      "input": "Super_L",
+      "expected": "Super"
+    },
+    {
+      "input": "Windows+Slash",
+      "expected": "Super+Slash"
+    },
+    {
+      "input": "mod4+/",
+      "expected": "Super+Slash"
+    },
+    {
+      "input": "Ctl+Opt+Return",
+      "expected": "Ctrl+Alt+Enter"
+    },
+    {
+      "input": "Ctrl+Plus",
+      "expected": "Ctrl+Equal"
+    },
+    {
+      "input": "Ctrl+Shift+=",
+      "expected": "Ctrl+Shift+Equal"
+    },
+    {
+      "input": "PgUp",
+      "expected": "PageUp"
+    },
+    {
+      "input": "Prior",
+      "expected": "PageUp"
+    },
+    {
+      "input": "Next",
+      "expected": "PageDown"
+    },
+    {
+      "input": "PgDn",
+      "expected": "PageDown"
+    },
+    {
+      "input": "ArrowUp",
+      "expected": "Up"
+    },
+    {
+      "input": "Esc",
+      "expected": "Escape"
+    },
+    {
+      "input": "Del",
+      "expected": "Delete"
+    },
+    {
+      "input": "Ins",
+      "expected": "Insert"
+    },
+    {
+      "input": "mouse:272",
+      "expected": "MouseLeft"
+    },
+    {
+      "input": "mouse:273",
+      "expected": "MouseRight"
+    },
+    {
+      "input": "mouse:274",
+      "expected": "MouseMiddle"
+    },
+    {
+      "input": "mouse:275",
+      "expected": "MouseBack"
+    },
+    {
+      "input": "mouse:276",
+      "expected": "MouseForward"
+    },
+    {
+      "input": "mouse_up",
+      "expected": "WheelUp"
+    },
+    {
+      "input": "mouse_down",
+      "expected": "WheelDown"
+    },
+    {
+      "input": "code:0072",
+      "expected": "Code72"
+    },
+    {
+      "input": "code0",
+      "expected": "Code0"
+    },
+    {
+      "input": "XF86AudioRaiseVolume",
+      "expected": "VolumeUp"
+    },
+    {
+      "input": "XF86AudioLowerVolume",
+      "expected": "VolumeDown"
+    },
+    {
+      "input": "XF86AudioMute",
+      "expected": "VolumeMute"
+    },
+    {
+      "input": "XF86AudioPlay",
+      "expected": "MediaPlayPause"
+    },
+    {
+      "input": "XF86AudioNext",
+      "expected": "MediaNext"
+    },
+    {
+      "input": "XF86AudioPrev",
+      "expected": "MediaPrevious"
+    },
+    {
+      "input": "XF86AudioStop",
+      "expected": "MediaStop"
+    },
+    {
+      "input": "XF86MonBrightnessUp",
+      "expected": "BrightnessUp"
+    },
+    {
+      "input": "XF86MonBrightnessDown",
+      "expected": "BrightnessDown"
+    },
+    {
+      "input": "/",
+      "expected": "Slash"
+    },
+    {
+      "input": "-",
+      "expected": "Minus"
+    },
+    {
+      "input": "=",
+      "expected": "Equal"
+    },
+    {
+      "input": ",",
+      "expected": "Comma"
+    },
+    {
+      "input": ".",
+      "expected": "Period"
+    },
+    {
+      "input": ";",
+      "expected": "Semicolon"
+    },
+    {
+      "input": "'",
+      "expected": "Quote"
+    },
+    {
+      "input": "`",
+      "expected": "Backquote"
+    },
+    {
+      "input": "[",
+      "expected": "BracketLeft"
+    },
+    {
+      "input": "]",
+      "expected": "BracketRight"
+    },
+    {
+      "input": "\\",
+      "expected": "Backslash"
+    },
+    {
+      "input": "f24",
+      "expected": "F24"
+    },
+    {
+      "input": "numpad9",
+      "expected": "Numpad9"
+    },
+    {
+      "input": "XF86AudioMicMute",
+      "expected": "MicMute"
+    },
+    {
+      "input": "mouse_left",
+      "expected": "WheelLeft"
+    },
+    {
+      "input": "mouse_right",
+      "expected": "WheelRight"
+    },
+    {
+      "input": "Page_Up",
+      "expected": "PageUp"
+    },
+    {
+      "input": "Page_Down",
+      "expected": "PageDown"
+    },
+    {
+      "input": "ISO_Left_Tab",
+      "expected": "Tab"
+    },
+    {
+      "input": "Shift+ISO_Left_Tab",
+      "expected": "Shift+Tab"
+    },
+    {
+      "input": "SUPER + Super_L",
+      "expected": "Super"
+    },
+    {
+      "input": "Super_R",
+      "expected": "Super"
+    },
+    {
+      "input": "SUPER + Super_R",
+      "expected": "Super"
+    },
+    {
+      "input": "Control_L",
+      "expected": "Ctrl"
+    },
+    {
+      "input": "CTRL + Control_L",
+      "expected": "Ctrl"
+    },
+    {
+      "input": "Control_R",
+      "expected": "Ctrl"
+    },
+    {
+      "input": "CTRL + Control_R",
+      "expected": "Ctrl"
+    },
+    {
+      "input": "Alt_L",
+      "expected": "Alt"
+    },
+    {
+      "input": "ALT + Alt_L",
+      "expected": "Alt"
+    },
+    {
+      "input": "Alt_R",
+      "expected": "Alt"
+    },
+    {
+      "input": "ALT + Alt_R",
+      "expected": "Alt"
+    },
+    {
+      "input": "Shift_L",
+      "expected": "Shift"
+    },
+    {
+      "input": "SHIFT + Shift_L",
+      "expected": "Shift"
+    },
+    {
+      "input": "Shift_R",
+      "expected": "Shift"
+    },
+    {
+      "input": "SHIFT + Shift_R",
+      "expected": "Shift"
+    },
+    {
+      "input": "KP_0",
+      "expected": "Numpad0"
+    },
+    {
+      "input": "KP_1",
+      "expected": "Numpad1"
+    },
+    {
+      "input": "KP_2",
+      "expected": "Numpad2"
+    },
+    {
+      "input": "KP_3",
+      "expected": "Numpad3"
+    },
+    {
+      "input": "KP_4",
+      "expected": "Numpad4"
+    },
+    {
+      "input": "KP_5",
+      "expected": "Numpad5"
+    },
+    {
+      "input": "KP_6",
+      "expected": "Numpad6"
+    },
+    {
+      "input": "KP_7",
+      "expected": "Numpad7"
+    },
+    {
+      "input": "KP_8",
+      "expected": "Numpad8"
+    },
+    {
+      "input": "KP_9",
+      "expected": "Numpad9"
+    },
+    {
+      "input": "KP_Add",
+      "expected": "NumpadAdd"
+    },
+    {
+      "input": "KP_Subtract",
+      "expected": "NumpadSubtract"
+    },
+    {
+      "input": "KP_Multiply",
+      "expected": "NumpadMultiply"
+    },
+    {
+      "input": "KP_Divide",
+      "expected": "NumpadDivide"
+    },
+    {
+      "input": "KP_Decimal",
+      "expected": "NumpadDecimal"
+    },
+    {
+      "input": "KP_Enter",
+      "expected": "NumpadEnter"
+    }
+  ],
+  "display": [
+    {
+      "input": "Ctrl+Alt+Shift+Super+P",
+      "os": "macos",
+      "expected": "⌃⌥⇧⌘P"
+    },
+    {
+      "input": "Shift+Super+P",
+      "os": "macos",
+      "expected": "⇧⌘P"
+    },
+    {
+      "input": "Ctrl+Alt+Shift+Super+P",
+      "os": "windows",
+      "expected": "Ctrl+Alt+Shift+Win+P"
+    },
+    {
+      "input": "Ctrl+Alt+Shift+Super+P",
+      "os": "linux",
+      "expected": "Ctrl+Alt+Shift+Super+P"
+    },
+    {
+      "input": "Super+Slash",
+      "os": "linux",
+      "expected": "Super+/"
+    },
+    {
+      "input": "Super",
+      "os": "macos",
+      "expected": "⌘"
+    },
+    {
+      "input": "Ctrl+K Ctrl+S",
+      "os": "macos",
+      "expected": "⌃K ⌃S"
+    },
+    {
+      "input": "Alt+Up",
+      "os": "windows",
+      "expected": "Alt+↑"
+    },
+    {
+      "input": "Shift+Enter",
+      "os": "macos",
+      "expected": "⇧↩"
+    },
+    {
+      "input": "Ctrl+Shift+Equal",
+      "os": "linux",
+      "expected": "Ctrl+Shift+="
+    },
+    {
+      "input": "MicMute",
+      "os": "linux",
+      "expected": "MicMute"
+    },
+    {
+      "input": "Ctrl+WheelLeft",
+      "os": "windows",
+      "expected": "Ctrl+WheelLeft"
+    },
+    {
+      "input": "Alt+WheelRight",
+      "os": "macos",
+      "expected": "⌥WheelRight"
+    }
+  ],
+  "conflicts": [
+    {
+      "a": "Ctrl+K",
+      "b": "Ctrl+K Ctrl+S",
+      "expected": true
+    },
+    {
+      "a": "Ctrl+K Ctrl+S",
+      "b": "Ctrl+K",
+      "expected": true
+    },
+    {
+      "a": "Ctrl+K Ctrl+S",
+      "b": "Ctrl+K Ctrl+C",
+      "expected": false
+    },
+    {
+      "a": "alt+ctl+f",
+      "b": "Ctrl+Alt+F",
+      "expected": true
+    },
+    {
+      "a": "Super",
+      "b": "Super+Slash",
+      "expected": false
+    },
+    {
+      "a": "Ctrl+K",
+      "b": "Ctrl+Shift+K",
+      "expected": false
+    },
+    {
+      "a": "SUPER + SUPER_L",
+      "b": "Super",
+      "expected": true
+    },
+    {
+      "a": "mouse_left",
+      "b": "WheelRight",
+      "expected": false
+    }
+  ],
+  "invalid": [
+    "",
+    "Ctrl++",
+    "Ctrl+Ctrl+P",
+    "Ctrl+P+Q",
+    "Ctrl+Alt",
+    "F25",
+    "F0",
+    "Numpad10",
+    "code:-1",
+    "Unknown",
+    "Ctrl+?",
+    "Ctrl+Shift+",
+    "Super+Super_L+P",
+    "Ctrl+Super_L",
+    "KP_10",
+    "Super+Super+Super_L"
+  ]
+}

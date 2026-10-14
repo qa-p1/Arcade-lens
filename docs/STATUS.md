@@ -1,5 +1,28 @@
 # Arcade Lens: status
 
+## Arcade Tools hub integration (2026-10-12, branch `arcade/tools-hub`)
+
+Lens uses Arcade Link tag `v0.3.0` (`33650a8`). It implements the seven optional
+hub methods (Capture, Capture text and Pick color as tray extras), the
+`TrayHostWatcher` with `status.tray`, the manifest `menu`/`logs`/`docs`/`install`
+fields, the self-installing AppImage (replacing its own `.desktop`/autostart
+writer, keeping the APPDIR fix) with `--install`, `--uninstall`, `--repair`,
+`--integration-status` and `--restart`, the shared per-user Inno installer with
+receipt and PATH shim, the macOS move-to-Applications prompt, portable
+settings export/import, and `docs/user/`. The portable exe is published with
+`kind: "portable"`, so Arcade Tools never installs it.
+
+- CI run [38279548995](https://github.com/qa-p1/Arcade-lens/actions/runs/38279548995),
+  2026-10-12, all green on Rust 1.88: fmt, clippy `-D warnings`, docs/shortcut
+  and vendored-source checks and the tests (149 pass, 2 ignored on Linux, in a
+  temporary profile) on Linux, Windows and macOS; AppImage install, repair and
+  uninstall in a temporary profile; Windows silent install/uninstall on the
+  ephemeral runner account; DMG copy in a temporary home.
+- Windows and macOS were exercised in CI only. The hub features have not been
+  run on a real desktop yet; that check comes with the released packages.
+
+## Earlier verification
+
 Verified 2026-10-08 on branch `arcade/link` (version 0.1.0, Arcade Link
 `v0.1.0`). This page records what is implemented and how it was checked; the
 other documents describe how it works.

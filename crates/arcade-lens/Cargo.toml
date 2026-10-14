@@ -3,6 +3,7 @@ name = "arcade-lens"
 description = "Arcade Lens: select anything on screen and act on it"
 version.workspace = true
 edition.workspace = true
+rust-version.workspace = true
 license.workspace = true
 
 build = "build.rs"
@@ -24,11 +25,12 @@ lens-platform.workspace = true
 lens-plugins.workspace = true
 arcade-link.workspace = true
 arboard = { version = "3", default-features = false, features = ["image-data"] }
-eframe = { version = "0.36", default-features = false, features = ["glow", "x11", "wayland", "default_fonts"] }
+eframe = { version = "0.33", default-features = false, features = ["glow", "x11", "wayland", "default_fonts"] }
 raw-window-handle = "0.6"
 tiny-skia = "0.11"
 ab_glyph = "0.2"
 chrono.workspace = true
+semver = "1"
 
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"

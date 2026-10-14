@@ -51,6 +51,36 @@ private window handoff before acknowledging the request.
 and `disabled_peers` (the per-app "Use with Arcade Lens" toggles). With the
 switch off, Lens's manifest lists no actions and nothing listens.
 
+## Arcade Tools hub (Link v0.3.0)
+
+Lens advertises `app.settings`, `app.restart`, `app.menu`, `app.menu.invoke`,
+`app.shortcuts.set`, `app.settings.export` and `app.settings.import` in
+`describe.methods`. Older clients that don't know them see the same v1
+actions as before.
+
+| Method | What Lens does |
+|---|---|
+| `app.settings` | Opens Lens's Settings window, the same as activation. |
+| `app.restart` | Modes `normal` and `force`. `normal` answers `busy` while a peer's capture or OCR job is still running. The running Lens starts its successor (`--restarting`) over its control socket, the same path as the tray's Restart. |
+| `app.menu` / `app.menu.invoke` | Extras **Capture** (`capture`), **Capture text** (`capture_text`) and **Pick color** (`pick_color`), all `opens-ui`. Invoking one runs the same capture as Lens's own tray. Unknown IDs are `denied`. |
+| `app.shortcuts.set` | Only `capture`. The running Lens validates, applies the shortcut live (native, portal or Hyprland runtime bind, or a `manual` hint), saves it and rewrites its manifest. |
+| `app.settings.export` | One private `file/any` handoff with a schema-1 allowlist: activation shortcut, image format, OCR languages, action order, action keys, disabled recognizers and actions, date order, home currency and privacy switches. No history, no captures, no device data. |
+| `app.settings.import` | Exactly one settings file (a regular file, at most 1 MiB). Lens validates it, backs up the current settings, applies them and reports `restartRequired: false`. |
+
+**Tray hosting.** Lens's `TrayHostWatcher` connects to Arcade Tools when Tools
+runs with tray hosting on. While Tools hosts it, Lens removes its own icon (on
+Linux it unregisters the StatusNotifierItem, because hosts such as Caelestia and
+Waybar still show hidden "Passive" items; Windows and macOS hide it). The icon
+comes back at once when Tools quits, crashes or turns hosting off,
+and after a 5 s grace period when Tools announces a restart. At startup Lens
+waits at most 300 ms for Tools' answer before showing its icon. `app.status`
+reports `tray` as `own`, `hosted` or `none`. With "Connect with other Arcade
+apps" off, Lens always shows its own icon.
+
+**Manifest additions.** The manifest caches `menu` (the three extras), `logs`
+(Lens's log directory), `docs.version` and `install` (the receipt method, or
+`dev` for source builds).
+
 ## Command line
 
 ```sh

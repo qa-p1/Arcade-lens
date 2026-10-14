@@ -95,7 +95,7 @@ jobs:
           dbus-run-session -- xvfb-run -a python3 scripts/verify-appimage.py dist/*.AppImage arcade.lens Arcade-Lens.AppImage arcade-lens
       - name: Tray icon registration (real StatusNotifierWatcher, isolated)
         run: |
-          sudo apt-get install -y xdotool python3-dbus python3-gi
+          sudo apt-get install -y xdotool python3-dbus python3-gi libxkbcommon-x11-0
           git -c advice.detachedHead=false clone -q --depth 1 --branch v0.3.0 https://github.com/qa-p1/Arcade-Link "$RUNNER_TEMP/link"
           cargo build --release --manifest-path "$RUNNER_TEMP/link/Cargo.toml" -p arcade-link-cli
           /usr/bin/python3 "$RUNNER_TEMP/link/tools/e2e.py" run -- /usr/bin/python3 tests/tray-registration.py target/release/arcade-lens "$RUNNER_TEMP/link/target/release/arcade-link" lens

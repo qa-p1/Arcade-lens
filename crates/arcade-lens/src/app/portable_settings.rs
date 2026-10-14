@@ -43,7 +43,7 @@ impl PortableSettings {
         Self {
             schema: 1,
             app: crate::link::ME.into(),
-            version: env!("CARGO_PKG_VERSION").into(),
+            version: crate::link::VERSION.into(),
             activation_shortcut: settings.activation_shortcut.as_deref().and_then(|s| arcade_link::accelerator::normalize(s).ok()),
             image_format: settings.image_format,
             ocr_languages: settings.ocr_languages.clone(),

@@ -29,10 +29,15 @@ use crate::gui::runtime::Runtime;
 
 pub const ME: &str = ids::LENS;
 pub const NAME: &str = "Arcade Lens";
+/// Release artifacts embed the published version, including the nightly suffix.
+pub const VERSION: &str = match option_env!("ARCADE_RELEASE_VERSION") {
+    Some(version) => version,
+    None => env!("CARGO_PKG_VERSION"),
+};
 
 /// The manifest for these settings (also printed by `--arcade-manifest`).
 pub fn manifest(settings: &Settings) -> Manifest {
-    let mut m = Manifest::new(ids::LENS, env!("CARGO_PKG_VERSION"), &arcade_link::manifest::current_executable());
+    let mut m = Manifest::new(ids::LENS, VERSION, &arcade_link::manifest::current_executable());
     m.launch.background = vec!["--background".into()];
     m.launch.invoke = Some(vec![arcade_link::oneshot::FLAG.into()]);
     if let Some(s) = &settings.activation_shortcut {
@@ -727,6 +732,7 @@ mod tests {
     #[test]
     fn manifest_lists_the_five_actions() {
         let m = manifest(&Settings::default());
+        assert_eq!(m.version, VERSION);
         let ids: Vec<&str> = m.actions.iter().map(|a| a.id.as_str()).collect();
         assert_eq!(ids, ["lens.capture", "lens.capture_and_act", "lens.analyze", "lens.recognize", "lens.pin"]);
         assert!(m.action("lens.recognize").is_some_and(|a| !a.interactive));

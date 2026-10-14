@@ -12,7 +12,7 @@ pub fn start(settings: &Settings, callback: impl FnMut(TrayState) + Send + 'stat
     let watcher = TrayHostWatcher::start(
         WatcherConfig {
             locations: arcade_link::Locations::discover(),
-            app: arcade_link::PeerInfo { id: crate::link::ME.into(), version: env!("CARGO_PKG_VERSION").into() },
+            app: arcade_link::PeerInfo { id: crate::link::ME.into(), version: crate::link::VERSION.into() },
             link_enabled: settings.link.enabled,
             has_tray: true,
         },

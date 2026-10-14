@@ -800,7 +800,7 @@ impl SettingsView {
     }
 
     fn about(&mut self, ui: &mut egui::Ui) {
-        Self::title(ui, "Arcade Lens", &format!("Version {}", env!("CARGO_PKG_VERSION")));
+        Self::title(ui, "Arcade Lens", &format!("Version {}", crate::link::VERSION));
         egui::Grid::new("about").show(ui, |ui| {
             for (k, v) in [
                 ("Display", format!("{:?}", lens_platform::display_server())),

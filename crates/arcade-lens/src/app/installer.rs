@@ -155,7 +155,7 @@ pub fn automatic_prompt(paths: &Paths, args: &[String], environment: &Environmen
         if !install::should_prompt(&detection, args, false, dismissed(paths, &detection.running_from)) {
             return Ok(None);
         }
-        Ok(dialog_state(&detection, env!("CARGO_PKG_VERSION")).map(|s| (detection, s)))
+        Ok(dialog_state(&detection, crate::link::VERSION).map(|s| (detection, s)))
     }
     #[cfg(target_os = "macos")]
     {
@@ -163,9 +163,13 @@ pub fn automatic_prompt(paths: &Paths, args: &[String], environment: &Environmen
         let Some(bundle) = macos::bundle_for(&runtime.executable) else { return Ok(None) };
         let mut detection = install::detect(environment, crate::link::ME, runtime)?;
         if macos::in_applications(environment, &bundle) {
-            if detection.receipt.is_none() {
-                let receipt = macos_receipt(environment, &bundle, None, None, "stable")?;
-                environment.receipts().write(&receipt)?;
+            if detection.state != State::DevBuild {
+                if detection.receipt.is_none() {
+                    let receipt = macos_receipt(environment, &bundle, None, None, "stable")?;
+                    environment.receipts().write(&receipt)?;
+                } else {
+                    refresh_bundle_version(environment, &bundle)?;
+                }
             }
             return Ok(None);
         }
@@ -177,7 +181,7 @@ pub fn automatic_prompt(paths: &Paths, args: &[String], environment: &Environmen
         if !needs_move || dismissed(paths, &bundle) {
             return Ok(None);
         }
-        let Some(state) = dialog_state(&detection, env!("CARGO_PKG_VERSION")) else { return Ok(None) };
+        let Some(state) = dialog_state(&detection, crate::link::VERSION) else { return Ok(None) };
         let state = if state == DialogState::Install { DialogState::MoveToApplications } else { state };
         detection.running_from = bundle;
         Ok(Some((detection, state)))
@@ -217,7 +221,7 @@ pub fn install_copy(environment: &Environment, runtime: &Runtime, paths: &Paths,
         install::InstallOptions {
             app: &app_info(),
             runtime,
-            version: env!("CARGO_PKG_VERSION"),
+            version: crate::link::VERSION,
             channel: &options.channel,
             managed_by: existing.as_ref().map_or(ManagedBy::SelfManaged, |r| r.managed_by),
             icons: &icons,
@@ -257,6 +261,7 @@ pub fn install_copy(environment: &Environment, runtime: &Runtime, _paths: &Paths
             fs::remove_dir_all(&target)?;
         }
         fs::rename(staged, &target)?;
+        fs::remove_dir(&stage)?;
     }
     let executable = target.join("Contents/MacOS/arcade-lens");
     let cli = if options.install_cli { Some(macos::install_cli(environment, CLI_NAME, &executable)?) } else { None };
@@ -278,7 +283,7 @@ fn macos_receipt(environment: &Environment, bundle: &Path, cli: Option<PathBuf>,
     Ok(Receipt {
         schema: 1,
         id: crate::link::ME.into(),
-        version: env!("CARGO_PKG_VERSION").into(),
+        version: crate::link::VERSION.into(),
         channel: channel.into(),
         method: InstallMethod::MacosBundle,
         managed_by: old.as_ref().map_or(ManagedBy::SelfManaged, |r| r.managed_by),
@@ -296,6 +301,26 @@ pub fn launch_path(receipt: &Receipt) -> PathBuf {
     } else {
         receipt.path.clone()
     }
+}
+
+/// A manually replaced bundle keeps its ownership and integration metadata.
+#[cfg(any(target_os = "macos", test))]
+fn refresh_bundle_version(environment: &Environment, bundle: &Path) -> io::Result<()> {
+    if let Some(mut receipt) = environment.receipts().read(crate::link::ME)? {
+        if receipt.method == InstallMethod::MacosBundle && receipt.path == bundle && receipt.version != crate::link::VERSION {
+            receipt.version = crate::link::VERSION.into();
+            receipt.updated_at = arcade_link::manifest::now_rfc3339();
+            environment.receipts().write(&receipt)?;
+        }
+    }
+    Ok(())
+}
+
+/// Link compares CLI targets to the bundle path, while this link targets its executable.
+#[cfg(any(target_os = "macos", all(test, unix)))]
+fn bundle_cli(environment: &Environment) -> io::Result<Option<PathBuf>> {
+    let Some(receipt) = environment.receipts().read(crate::link::ME)? else { return Ok(None) };
+    Ok(receipt.integration.cli.filter(|cli| fs::read_link(cli).is_ok_and(|target| target.starts_with(&receipt.path))))
 }
 
 pub fn current_executable(paths: &Paths) -> io::Result<PathBuf> {
@@ -359,7 +384,14 @@ pub fn uninstall(environment: &Environment, paths: &Paths, remove_data: bool) ->
         }
     }
     let data_folders = [paths.config.clone(), paths.data.clone()];
-    install::uninstall(environment, crate::link::ME, install::UninstallOptions { remove_data, data_folders: &data_folders })
+    #[cfg(target_os = "macos")]
+    let cli = bundle_cli(environment)?;
+    let removed = install::uninstall(environment, crate::link::ME, install::UninstallOptions { remove_data, data_folders: &data_folders })?;
+    #[cfg(target_os = "macos")]
+    if let Some(cli) = cli {
+        remove_file(&cli)?;
+    }
+    Ok(removed)
 }
 
 pub fn tools_installed(environment: &Environment) -> bool {
@@ -376,7 +408,7 @@ pub fn handoff_to_tools(environment: &Environment) -> Result<(), arcade_link::Li
     let request = arcade_link::InvokeRequest::new(action.id.split('#').next().unwrap_or(&action.id), crate::link::ME)
         .input(arcade_link::Content::text("text/plain", crate::link::ME))
         .options(serde_json::json!({ "app": crate::link::ME }));
-    let me = arcade_link::PeerInfo { id: crate::link::ME.into(), version: env!("CARGO_PKG_VERSION").into() };
+    let me = arcade_link::PeerInfo { id: crate::link::ME.into(), version: crate::link::VERSION.into() };
     arcade_link::client::invoke_action(&environment.locations, &me, tools, &request, Default::default()).map(|_| ())
 }
 
@@ -400,7 +432,7 @@ fn icon_svg() -> &'static str {
     "<svg xmlns=\"http://www.w3.org/2000/svg\" viewBox=\"0 0 256 256\"><defs><linearGradient id=\"g\" x2=\"1\" y2=\"1\"><stop stop-color=\"#a78bfa\"/><stop offset=\"1\" stop-color=\"#6d28d9\"/></linearGradient></defs><rect width=\"256\" height=\"256\" rx=\"54\" fill=\"url(#g)\"/><g fill=\"none\" stroke=\"white\" stroke-linecap=\"round\" stroke-width=\"17\"><path d=\"M60 99V60h39m58 0h39v39m0 58v39h-39m-58 0H60v-39\"/><circle cx=\"116\" cy=\"116\" r=\"35\"/><path d=\"m142 142 44 44\"/></g></svg>"
 }
 
-#[cfg(target_os = "linux")]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn remove_file(path: &Path) -> io::Result<()> {
     match fs::remove_file(path) {
         Err(e) if e.kind() != io::ErrorKind::NotFound => Err(e),
@@ -411,6 +443,78 @@ fn remove_file(path: &Path) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn bundle_receipt(environment: &Environment) -> Receipt {
+        Receipt {
+            schema: 1,
+            id: crate::link::ME.into(),
+            version: "0.1.0".into(),
+            channel: "nightly".into(),
+            method: InstallMethod::MacosBundle,
+            managed_by: arcade_link::receipt::ManagedBy::Tools,
+            path: environment.home.join("Applications/Arcade Lens.app"),
+            integration: arcade_link::receipt::Integration {
+                cli: Some(environment.bin.join("cli")),
+                autostart: Some(environment.home.join("Library/LaunchAgents/app.plist")),
+                ..Default::default()
+            },
+            previous: Some(arcade_link::receipt::Previous { version: "0.0.9".into(), path: environment.home.join("previous/Arcade Lens.app") }),
+            installed_at: "2026-01-01T00:00:00Z".into(),
+            updated_at: "2026-01-01T00:00:00Z".into(),
+        }
+    }
+
+    #[test]
+    fn manual_bundle_replacement_updates_only_the_owned_receipt_version() {
+        let root = std::env::temp_dir().join(format!("bundle-receipt-{}", arcade_link::endpoint::new_token().unwrap()));
+        let environment = Environment::under(&root);
+        let original = bundle_receipt(&environment);
+        refresh_bundle_version(&environment, &original.path).unwrap();
+        assert!(environment.receipts().read(crate::link::ME).unwrap().is_none());
+        environment.receipts().write(&original).unwrap();
+        refresh_bundle_version(&environment, &root.join("Other.app")).unwrap();
+        assert_eq!(environment.receipts().read(crate::link::ME).unwrap(), Some(original.clone()));
+        refresh_bundle_version(&environment, &original.path).unwrap();
+        let refreshed = environment.receipts().read(crate::link::ME).unwrap().unwrap();
+        assert_eq!(refreshed.version, crate::link::VERSION);
+        assert!(refreshed.updated_at > original.updated_at);
+        let mut expected = original.clone();
+        expected.version = refreshed.version.clone();
+        expected.updated_at = refreshed.updated_at.clone();
+        assert_eq!(refreshed, expected);
+        refresh_bundle_version(&environment, &original.path).unwrap();
+        assert_eq!(environment.receipts().read(crate::link::ME).unwrap(), Some(refreshed));
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[cfg(unix)]
+    #[test]
+    fn bundle_cli_cleanup_selects_only_links_into_the_receipted_bundle() {
+        use std::os::unix::fs::symlink;
+        let root = std::env::temp_dir().join(format!("bundle-cli-{}", arcade_link::endpoint::new_token().unwrap()));
+        let environment = Environment::under(&root);
+        let mut receipt = bundle_receipt(&environment);
+        assert!(bundle_cli(&environment).unwrap().is_none());
+        fs::create_dir_all(&environment.bin).unwrap();
+        environment.receipts().write(&receipt).unwrap();
+        let cli = receipt.integration.cli.clone().unwrap();
+        fs::write(&cli, b"unrelated regular file").unwrap();
+        assert!(bundle_cli(&environment).unwrap().is_none());
+        fs::remove_file(&cli).unwrap();
+        // Component-wise prefix matching must leave similarly named bundles alone.
+        symlink(root.join("Applications/Arcade Lens.app-other/Contents/MacOS/app"), &cli).unwrap();
+        assert!(bundle_cli(&environment).unwrap().is_none());
+        fs::remove_file(&cli).unwrap();
+        // read_link also recognizes a dangling link after a manual bundle removal.
+        symlink(receipt.path.join("Contents/MacOS/app"), &cli).unwrap();
+        assert_eq!(bundle_cli(&environment).unwrap(), Some(cli.clone()));
+        fs::remove_file(&cli).unwrap();
+        assert!(bundle_cli(&environment).unwrap().is_none());
+        receipt.integration.cli = None;
+        environment.receipts().write(&receipt).unwrap();
+        assert!(bundle_cli(&environment).unwrap().is_none());
+        fs::remove_dir_all(root).unwrap();
+    }
 
     fn detection(state: State) -> Detection {
         Detection { state, running_from: PathBuf::from("/test/Arcade-Lens.AppImage"), is_app_image: true, receipt: None, installed_path: None }
@@ -446,6 +550,8 @@ mod tests {
         let runtime = Runtime { executable: exe, appimage: Some(image), appdir: Some(appdir), dev_build: false };
         let opts = Options { channel: "stable".into(), start_at_login: true, remove_download: false, install_cli: false };
         let receipt = install_copy(&env, &runtime, &paths, &opts).unwrap();
+        assert_eq!(receipt.version, crate::link::manifest(&lens_core::Settings::default()).version);
+        assert_eq!(receipt.version, crate::link::VERSION);
         assert!(receipt.path.is_file());
         assert!(receipt.integration.desktop_entry.as_ref().unwrap().is_file());
         assert!(receipt.integration.cli.as_ref().unwrap().exists());

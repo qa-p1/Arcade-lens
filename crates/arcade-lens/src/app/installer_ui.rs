@@ -149,17 +149,17 @@ struct Dialog {
 }
 
 fn format(s: &str, version: &str, from: &str) -> String {
-    strings::format(s, crate::link::NAME, version, from, env!("CARGO_PKG_VERSION"))
+    strings::format(s, crate::link::NAME, version, from, crate::link::VERSION)
 }
 
 /// Verbatim contract strings with only shared placeholders substituted.
 pub fn text(state: &DialogState) -> (String, Option<String>, Vec<String>) {
     let all = strings::get();
     let (dialog, version, from) = match state {
-        DialogState::Install => (&all.not_installed, env!("CARGO_PKG_VERSION"), ""),
-        DialogState::Update { from } => (&all.older, env!("CARGO_PKG_VERSION"), from.as_str()),
+        DialogState::Install => (&all.not_installed, crate::link::VERSION, ""),
+        DialogState::Update { from } => (&all.older, crate::link::VERSION, from.as_str()),
         DialogState::OpenInstalled { version } => (&all.same_or_newer, version.as_str(), ""),
-        DialogState::MoveToApplications => (&all.macos, env!("CARGO_PKG_VERSION"), ""),
+        DialogState::MoveToApplications => (&all.macos, crate::link::VERSION, ""),
     };
     (format(&dialog.title, version, from), dialog.body.as_ref().map(|s| format(s, version, from)), dialog.buttons.clone())
 }
@@ -236,7 +236,7 @@ impl Dialog {
                     let status =
                         install::integration_status(&environment, crate::link::ME, &std::env::var("SHELL").unwrap_or_default()).map_err(|e| e.to_string())?;
                     let hint =
-                        status.path_hint.map(|command| strings::format(&strings::get().path_hint, crate::link::NAME, env!("CARGO_PKG_VERSION"), "", &command));
+                        status.path_hint.map(|command| strings::format(&strings::get().path_hint, crate::link::NAME, crate::link::VERSION, "", &command));
                     Ok(Completed { outcome: Outcome::Launch(installer::launch_path(&r)), hint })
                 }
                 Mode::Uninstall { environment, remove_data } => {
@@ -290,7 +290,7 @@ impl eframe::App for Dialog {
                         ui.label(body);
                     }
                     if *managed {
-                        ui.label(format(&strings::get().managed_by_tools, env!("CARGO_PKG_VERSION"), ""));
+                        ui.label(format(&strings::get().managed_by_tools, crate::link::VERSION, ""));
                     }
                     ui.add_space(10.0);
                     if matches!(state, DialogState::Install | DialogState::Update { .. } | DialogState::MoveToApplications) {
@@ -358,6 +358,6 @@ mod tests {
         assert_eq!(title, "Install Arcade Lens?");
         assert_eq!(body.as_deref(), Some("This adds Arcade Lens to the app launcher and your apps folder."));
         assert_eq!(buttons, strings::get().not_installed.buttons);
-        assert!(text(&DialogState::Update { from: "0.0.1".into() }).0.contains(&format!("0.0.1 → {}", env!("CARGO_PKG_VERSION"))));
+        assert!(text(&DialogState::Update { from: "0.0.1".into() }).0.contains(&format!("0.0.1 → {}", crate::link::VERSION)));
     }
 }

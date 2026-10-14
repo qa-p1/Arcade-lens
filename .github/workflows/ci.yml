@@ -16,6 +16,7 @@ on:
 
 env:
   PYTHONUTF8: "1"
+  CARGO_BUILD_JOBS: 3
   CARGO_TERM_COLOR: always
 
 concurrency:
@@ -78,6 +79,8 @@ jobs:
 
   linux:
     needs: [test, version]
+    env:
+      ARCADE_RELEASE_VERSION: ${{ needs.version.outputs.label }}
     # The oldest supported runner, so the AppImage runs on older glibc too.
     runs-on: ubuntu-22.04
     steps:
@@ -107,6 +110,8 @@ jobs:
 
   windows:
     needs: [test, version]
+    env:
+      ARCADE_RELEASE_VERSION: ${{ needs.version.outputs.label }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -138,6 +143,8 @@ jobs:
 
   macos:
     needs: [test, version]
+    env:
+      ARCADE_RELEASE_VERSION: ${{ needs.version.outputs.label }}
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v7
@@ -157,7 +164,7 @@ jobs:
             target/x86_64-apple-darwin/release/arcade-lens
       - run: packaging/macos/build-dmg.sh target/universal/arcade-lens "${{ needs.version.outputs.version }}" "dist/ArcadeLens-${{ needs.version.outputs.label }}-macos-universal.dmg"
       - name: Verify DMG copy in a temporary home
-        run: packaging/macos/verify-dmg-copy.sh "dist/ArcadeLens-${{ needs.version.outputs.label }}-macos-universal.dmg" "${{ needs.version.outputs.version }}"
+        run: packaging/macos/verify-dmg-copy.sh "dist/ArcadeLens-${{ needs.version.outputs.label }}-macos-universal.dmg" "${{ needs.version.outputs.version }}" "${{ needs.version.outputs.label }}"
       - uses: actions/upload-artifact@v7
         with:
           name: macos-dmg

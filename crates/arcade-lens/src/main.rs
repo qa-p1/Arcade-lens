@@ -141,7 +141,7 @@ fn run(args: &[String]) -> Result<(), String> {
             Ok(())
         }
         Some("version" | "V") => {
-            println!("Arcade Lens {}", env!("CARGO_PKG_VERSION"));
+            println!("Arcade Lens {}", crate::link::VERSION);
             Ok(())
         }
         Some(other) => Err(format!("unknown option {other:?}; see arcade-lens --help")),
@@ -232,7 +232,7 @@ fn integration_command(args: &[String]) -> Result<(), String> {
                 if detection.state == arcade_link::install::State::DevBuild {
                     return Err("Development builds cannot be installed".into());
                 }
-                let state = installer::dialog_state(&detection, env!("CARGO_PKG_VERSION")).unwrap_or(installer::DialogState::Install);
+                let state = installer::dialog_state(&detection, crate::link::VERSION).unwrap_or(installer::DialogState::Install);
                 match app::installer_ui::run_install(environment, runtime, paths, detection, state, options)? {
                     app::installer_ui::Outcome::Launch(path) => Some(path),
                     _ => None,

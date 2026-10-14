@@ -616,7 +616,17 @@ mod tests {
         let server =
             Server::start(ServerConfig { app: PeerInfo { id: ids::LENS.into(), version: "test".into() }, locations: locations.clone() }, Arc::new(handler))
                 .unwrap();
-        let mut client = Client::connect(&locations, ids::LENS, &PeerInfo { id: ids::BOX.into(), version: "test".into() }).unwrap();
+        // A Windows named pipe can miss the first connect deadline on a busy CI runner.
+        let deadline = std::time::Instant::now() + Duration::from_secs(5);
+        let mut client = loop {
+            match Client::connect(&locations, ids::LENS, &PeerInfo { id: ids::BOX.into(), version: "test".into() }) {
+                Ok(client) => break client,
+                Err(error) if std::time::Instant::now() < deadline && error.code == arcade_link::ErrorCode::Timeout => {
+                    std::thread::sleep(Duration::from_millis(50))
+                }
+                Err(error) => panic!("connect: {error:?}"),
+            }
+        };
         let start = |client: &mut Client| {
             client.call("invoke", serde_json::to_value(InvokeRequest::new("lens.capture", ids::BOX)).unwrap()).unwrap()["job"].as_str().unwrap().to_owned()
         };

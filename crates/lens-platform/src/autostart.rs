@@ -148,6 +148,7 @@ pub fn enable(exe: &Path) -> std::io::Result<()> {
     }
 }
 
+#[cfg_attr(windows, allow(clippy::needless_return))]
 pub fn disable() -> std::io::Result<()> {
     #[cfg(windows)]
     {

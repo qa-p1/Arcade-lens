@@ -1,6 +1,6 @@
 name: CI
 
-# Every push and pull request is checked on Linux, Windows and macOS.
+# Every pull request and push to main is checked on Linux, Windows and macOS.
 # Pushes to main (and manual runs) also build the installers, uploaded as
 # workflow artifacts. When main passes:
 #   - a version in Cargo.toml that has no release yet is tagged v<version>
@@ -9,19 +9,18 @@ name: CI
 # Pushing a v* tag yourself also publishes that release.
 on:
   push:
-    branches: ["**"]
+    branches: [main]
     tags: ["v*"]
   pull_request:
   workflow_dispatch:
 
 env:
   PYTHONUTF8: "1"
-  CARGO_BUILD_JOBS: 3
   CARGO_TERM_COLOR: always
 
 concurrency:
-  group: ci-${{ github.event.pull_request.head.ref || github.ref_name }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   test:

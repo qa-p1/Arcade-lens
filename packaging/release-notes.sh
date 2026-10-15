@@ -38,6 +38,8 @@ Arcade Lens then runs in the tray (menu bar on macOS). Press **Ctrl+Alt+Shift+L*
 
 Verify a download with [\`SHA256SUMS.txt\`]($url/SHA256SUMS.txt): \`sha256sum -c SHA256SUMS.txt --ignore-missing\`.
 
+User guide: https://github.com/qa-p1/Arcade-lens/tree/main/docs/user
+
 ## Changes
 
 NOTES

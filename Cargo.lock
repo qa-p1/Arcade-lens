@@ -176,7 +176,6 @@ dependencies = [
 [[package]]
 name = "arcade-link"
 version = "0.3.0"
-source = "git+https://github.com/qa-p1/Arcade-link?tag=v0.3.0#33650a87b6999fbd553ac678cc7bde7a308cb852"
 dependencies = [
  "getrandom 0.4.3",
  "interprocess",

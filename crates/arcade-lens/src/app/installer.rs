@@ -82,7 +82,7 @@ pub struct Options {
 impl Options {
     pub fn defaults(environment: &Environment) -> Self {
         let receipt = environment.receipts().read(crate::link::ME).ok().flatten();
-        let start_at_login = receipt.as_ref().is_none_or(|r| r.integration.autostart.as_ref().is_some_and(|p| p.exists()));
+        let start_at_login = receipt.as_ref().is_none_or(|r| r.integration.autostart.as_ref().is_some_and(|p| install::autostart_enabled(p)));
         let install_cli = environment.path.as_ref().is_some_and(|p| std::env::split_paths(p).any(|p| p == environment.bin));
         Self { channel: "stable".into(), start_at_login, remove_download: true, install_cli }
     }
@@ -196,6 +196,15 @@ pub fn automatic_prompt(paths: &Paths, args: &[String], environment: &Environmen
 #[cfg(target_os = "linux")]
 pub fn install_copy(environment: &Environment, runtime: &Runtime, paths: &Paths, options: &Options) -> io::Result<Receipt> {
     if !runtime.is_appimage() {
+        // A second install window, after the first one installed (and removed) this download.
+        if runtime.appimage.as_ref().is_some_and(|p| !p.exists()) {
+            if let Some(receipt) = environment.receipts().read(crate::link::ME)?.filter(|r| r.version == crate::link::VERSION && r.path.is_file()) {
+                return Ok(receipt);
+            }
+            return Err(io::Error::other(
+                "This downloaded file is gone (it may have been installed from another window). Open Arcade Lens from the app launcher.",
+            ));
+        }
         return Err(io::Error::other("--install requires a real AppImage, not an ordinary or development binary"));
     }
     struct Stage(PathBuf);
@@ -375,14 +384,30 @@ pub fn integration_status(environment: &Environment) -> io::Result<install::Inte
     install::integration_status(environment, crate::link::ME, &std::env::var("SHELL").unwrap_or_default())
 }
 
-pub fn uninstall(environment: &Environment, paths: &Paths, remove_data: bool) -> io::Result<bool> {
+/// Asks the resident instance to quit and waits (bounded) until it has.
+/// The request is repeated: a copy that is still starting may miss the first.
+fn stop_running(paths: &Paths, timeout: std::time::Duration) -> bool {
     let endpoint = paths.endpoint();
-    if lens_platform::ipc::send(&endpoint, "ping").is_ok() {
-        let _ = lens_platform::ipc::send(&endpoint, "quit");
-        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
-        while lens_platform::ipc::send(&endpoint, "ping").is_ok() && std::time::Instant::now() < deadline {
-            std::thread::sleep(std::time::Duration::from_millis(50));
+    let deadline = std::time::Instant::now() + timeout;
+    while lens_platform::ipc::send(&endpoint, "ping").is_ok() {
+        if std::time::Instant::now() >= deadline {
+            return false;
         }
+        let _ = lens_platform::ipc::send(&endpoint, "quit");
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    }
+    true
+}
+
+/// Before the freshly installed copy starts: an older one still running would
+/// otherwise keep its hotkey and tray and the new copy would only show it.
+pub fn stop_running_copy(paths: &Paths) {
+    stop_running(paths, std::time::Duration::from_secs(10));
+}
+
+pub fn uninstall(environment: &Environment, paths: &Paths, remove_data: bool) -> io::Result<bool> {
+    if !stop_running(paths, std::time::Duration::from_secs(15)) {
+        return Err(io::Error::new(io::ErrorKind::TimedOut, "Arcade Lens is still running"));
     }
     let data_folders = [paths.config.clone(), paths.data.clone()];
     #[cfg(target_os = "macos")]
@@ -421,7 +446,7 @@ pub fn launch_args(args: &[String]) -> Vec<std::ffi::OsString> {
             "--channel" => {
                 it.next();
             }
-            "--install" | "--silent" | "--no-launch" => {}
+            "--install" | "--silent" | "--no-launch" | "--keep-download" => {}
             _ => result.push(arg.into()),
         }
     }

@@ -903,7 +903,13 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
     if let Err(e) = arcade_link::logs::capture_stderr(&paths.data.join("logs"), "arcade-lens") {
         eprintln!("arcade-lens: log file: {e}");
     }
-    if lens_platform::display_server() == lens_platform::DisplayServer::Wayland {
+    // The resident instance holds no window, GL context or egui state: each
+    // capture, settings, pin or editor window is its own short-lived process
+    // (a capture opens in about a quarter of a second). On X11 this saves
+    // the ~50 MiB an in-process overlay keeps after its first use.
+    // ARCADE_LENS_RESIDENT_UI=1 keeps the windows in this process instead.
+    let resident_ui = std::env::var_os("ARCADE_LENS_RESIDENT_UI").is_some_and(|v| v == "1");
+    if lens_platform::display_server() == lens_platform::DisplayServer::Wayland || !resident_ui {
         return wayland::daemon(&paths, initial);
     }
     let (tx, rx) = mpsc::channel::<Trigger>();

@@ -50,9 +50,16 @@ Lens runs as one long-lived background instance, started at login
 * On its first run outside a cargo `target` directory it turns on start at
   login, and at every start it keeps the login item and the
   applications-menu entry pointing at its executable.
-* The **root window is the overlay**. While idle it is hidden (on X11 an
-  override-redirect 1×1 window off screen), so an idle Lens draws nothing
-  and does not repaint.
+* The background instance has **no window at all**: each overlay, pin,
+  editor and the settings window runs in its own short-lived process
+  (`--window …`) whose root window is that window. A capture opens in about
+  a quarter of a second, and an idle Lens holds no GL context or egui state
+  (about 22 MiB instead of 140 after a first capture). On X11 the
+  background instance grabs the activation shortcut (`global-hotkey`); on
+  Hyprland it adds the shortcut and window rules to the compositor at
+  runtime and re-adds them after a config reload.
+  `ARCADE_LENS_RESIDENT_UI=1` keeps the windows in the background instance
+  on X11, as before: there the hidden root window is the overlay.
 * On the shortcut (`global-hotkey`) or an IPC request, every monitor is
   captured **before** anything is shown. The overlay then displays the frozen
   image, so the capture never contains Lens itself. Other monitors get their
@@ -65,11 +72,6 @@ Lens runs as one long-lived background instance, started at login
   option for Settings) connects to the running instance over loopback TCP. It
   authenticates with a random token stored in a 0600 file. With no instance
   running, it becomes the background instance.
-* **Wayland** can't hide a window, so there the background instance has no
-  window at all: each overlay, pin, editor and the settings window runs in
-  its own short-lived process (`--window …`) whose root window is that
-  window. On Hyprland, the activation shortcut and window rules are added to
-  the compositor at runtime and re-added after a config reload.
 * Recognition runs on the engine's thread pool. The UI polls the analysis
   stream each frame and only repaints while work is outstanding.
 * On Linux (glibc) Lens caps malloc arenas at two before any thread starts.

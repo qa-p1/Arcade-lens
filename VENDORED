@@ -1,8 +1,8 @@
 # Vendored Arcade Link assets
 
 Shared installer, release, shortcut and protocol assets are copied unchanged
-from [Arcade Link v0.3.0](https://github.com/qa-p1/Arcade-link/tree/v0.3.0),
-commit `33650a87b6999fbd553ac678cc7bde7a308cb852`. License: MIT OR Apache-2.0.
+from [Arcade Link](https://github.com/qa-p1/Arcade-link/tree/2fc7c91b7578ca424264627b82174bedc176e511) commit
+`2fc7c91b7578ca424264627b82174bedc176e511` (v0.3.0 plus unreleased installer fixes). License: MIT OR Apache-2.0.
 Run `python3 scripts/check-vendored.py` to verify the SHA-256 inventory.
 Refresh the source pin and hashes together.
 
@@ -38,7 +38,7 @@ Refresh the source pin and hashes together.
 
 ```text
 d1f3ac5e6a854a5a46c03eb53600be4c25f698e90cdd818f2aaf3b600bb89398  spec/shortcut-sheet.schema.json
-2943f9f8459a0c2299bf7650a4beeb812b88d5097624483fdc252dc9d4342829  assets/strings/install.json
+0c829174d2dd5e15930cd2c4c5cb791ab6f744a3dab13ed557161aabcacf5fce  assets/strings/install.json
 9639f9b67267c2d9a3e828fe9db6e1615327a274bb884e61fc7e511a9e4c249c  crates/lens-actions/tests/fixtures/box.json
 5617071f6a2754fad5049a00f237f026d049967286fb3881908beefe1933d88a  crates/lens-actions/tests/fixtures/clipboard.json
 dca87dd7a27badbf7ae4e7ffd2228cb46a327f15186ca6994b9082e17c6ec155  crates/lens-actions/tests/fixtures/find.json

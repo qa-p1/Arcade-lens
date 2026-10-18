@@ -30,7 +30,7 @@ Download the file for your system from [Releases](https://github.com/qa-p1/Arcad
 | Windows x64, portable | `ArcadeLens-<version>-windows-x64-portable.exe` | Run it directly, without installing. |
 | macOS (universal) | `ArcadeLens-<version>-macos-universal.dmg` | Open the dmg and drag Arcade Lens to Applications. Run from the dmg or Downloads, it offers to move itself to Applications. |
 
-- Scripted Linux install: `arcade-lens --install --silent` from the AppImage (add `--no-launch`, or `--channel C`). `--repair` rewrites the launcher, command and login entries; `--integration-status` prints the integration as JSON.
+- Scripted Linux install: `arcade-lens --install --silent` from the AppImage (add `--no-launch`, or `--channel C`). `--repair` rewrites the launcher, command and login entries; `--integration-status` prints the integration as JSON. A silent install removes the AppImage it was started from only when that file is in your Downloads folder; add `--keep-download` to keep it there too. Files elsewhere are never removed.
 - Linux OCR needs Tesseract with English language data. Install it with your package manager, or use **Settings → General → Download Tesseract** for a private copy shared by Arcade apps. Windows and macOS use the system OCR.
 - Builds are unsigned. On Windows, SmartScreen may warn: choose **More info → Run anyway**. On macOS the app is not notarized: right-click it and choose **Open** the first time.
 - If FUSE is missing on Linux, run the AppImage with `--appimage-extract-and-run`.
@@ -87,7 +87,7 @@ arcade-lens --capture     Select something on screen now
 arcade-lens --restart     Restart the background instance
 arcade-lens --quit        Quit the background instance
 arcade-lens --version     Print the version
-arcade-lens --install [--silent] [--no-launch] [--channel C]
+arcade-lens --install [--silent] [--no-launch] [--keep-download] [--channel C]
                           Install this AppImage / macOS bundle
 arcade-lens --uninstall [--silent] [--remove-data]
                           Remove this installation via its receipt

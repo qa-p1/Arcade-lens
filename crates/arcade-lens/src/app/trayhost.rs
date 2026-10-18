@@ -31,8 +31,9 @@ pub fn set_link_enabled(enabled: bool) {
     }
 }
 
+/// At exit: without restoring the own icon, so a hosted Lens doesn't flash it.
 pub fn stop() {
     if let Some(watcher) = WATCHER.get().and_then(|w| w.lock().ok()?.take()) {
-        watcher.stop();
+        watcher.finish();
     }
 }

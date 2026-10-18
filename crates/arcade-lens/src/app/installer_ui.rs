@@ -146,6 +146,8 @@ struct Dialog {
     busy: bool,
     error: Option<String>,
     completed: Option<Completed>,
+    /// Older pre-installer copies this install replaces (named in the prompt).
+    legacy: Vec<PathBuf>,
 }
 
 fn format(s: &str, version: &str, from: &str) -> String {
@@ -155,13 +157,22 @@ fn format(s: &str, version: &str, from: &str) -> String {
 /// Verbatim contract strings with only shared placeholders substituted.
 pub fn text(state: &DialogState) -> (String, Option<String>, Vec<String>) {
     let all = strings::get();
+    let newer = |installed: &str| {
+        semver::Version::parse(installed).ok().zip(semver::Version::parse(crate::link::VERSION).ok()).is_some_and(|(installed, this)| installed > this)
+    };
     let (dialog, version, from) = match state {
         DialogState::Install => (&all.not_installed, crate::link::VERSION, ""),
         DialogState::Update { from } => (&all.older, crate::link::VERSION, from.as_str()),
+        // Say so when this file is the older one, not just "already installed".
+        DialogState::OpenInstalled { version } if newer(version) => {
+            (all.newer_installed.as_ref().unwrap_or(&all.same_or_newer), version.as_str(), crate::link::VERSION)
+        }
         DialogState::OpenInstalled { version } => (&all.same_or_newer, version.as_str(), ""),
         DialogState::MoveToApplications => (&all.macos, crate::link::VERSION, ""),
     };
-    (format(&dialog.title, version, from), dialog.body.as_ref().map(|s| format(s, version, from)), dialog.buttons.clone())
+    // egui's bundled fonts have no arrow glyph; "→" would show as a box.
+    let plain = |s: String| s.replace(" → ", " to ");
+    (plain(format(&dialog.title, version, from)), dialog.body.as_ref().map(|s| plain(format(s, version, from))), dialog.buttons.clone())
 }
 
 pub fn run_install(
@@ -182,11 +193,19 @@ pub fn run_uninstall(environment: Environment, paths: AppPaths, remove_data: boo
 fn run(paths: AppPaths, mode: Mode) -> Result<Outcome, String> {
     let result = Arc::new(Mutex::new(None));
     let output = result.clone();
+    #[cfg(target_os = "linux")]
+    let legacy = match &mode {
+        Mode::Install { environment, .. } => install::legacy_copies(environment, &installer::app_info()),
+        _ => Vec::new(),
+    };
+    #[cfg(not(target_os = "linux"))]
+    let legacy = Vec::new();
     let options = eframe::NativeOptions {
+        centered: true,
         viewport: egui::ViewportBuilder::default()
             .with_title("Arcade Lens — Installation")
             .with_app_id("arcade-lens-settings")
-            .with_inner_size([480.0, 300.0])
+            .with_inner_size([480.0, 250.0])
             .with_resizable(false)
             .with_icon(crate::icon::window_icon()),
         ..Default::default()
@@ -196,7 +215,7 @@ fn run(paths: AppPaths, mode: Mode) -> Result<Outcome, String> {
         options,
         Box::new(move |_cc| {
             let (tx, rx) = mpsc::channel();
-            Ok(Box::new(Dialog { paths, mode, result, tx, rx, busy: false, error: None, completed: None }))
+            Ok(Box::new(Dialog { paths, mode, result, tx, rx, busy: false, error: None, completed: None, legacy }))
         }),
     )
     .map_err(|e| e.to_string())?;
@@ -233,6 +252,8 @@ impl Dialog {
                         return Ok(Completed { outcome: Outcome::Exit, hint: None });
                     }
                     let r = installer::install_copy(&environment, &runtime, &paths, &options).map_err(|e| e.to_string())?;
+                    // The installed copy replaces an older one still running.
+                    installer::stop_running_copy(&paths);
                     let status =
                         install::integration_status(&environment, crate::link::ME, &std::env::var("SHELL").unwrap_or_default()).map_err(|e| e.to_string())?;
                     let hint =
@@ -263,8 +284,14 @@ impl eframe::App for Dialog {
                 Err(e) => self.error = Some(e),
             }
         }
-        if self.busy && ctx.input(|i| i.viewport().close_requested()) {
-            ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+        if ctx.input(|i| i.viewport().close_requested()) {
+            if self.busy {
+                ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            } else if self.completed.is_none() {
+                // Closing the question answers nothing: don't install, don't start.
+                let mut result = self.result.lock().unwrap_or_else(|e| e.into_inner());
+                result.get_or_insert(Outcome::Exit);
+            }
         }
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.add_space(12.0);
@@ -292,6 +319,11 @@ impl eframe::App for Dialog {
                     if *managed {
                         ui.label(format(&strings::get().managed_by_tools, crate::link::VERSION, ""));
                     }
+                    if let (Some(note), Some(old), DialogState::Install | DialogState::Update { .. }) =
+                        (&strings::get().replaces_legacy, self.legacy.first(), &state)
+                    {
+                        ui.label(format(note, crate::link::VERSION, &old.display().to_string()));
+                    }
                     ui.add_space(10.0);
                     if matches!(state, DialogState::Install | DialogState::Update { .. } | DialogState::MoveToApplications) {
                         ui.checkbox(&mut options.start_at_login, &strings::get().not_installed.options[0]);
@@ -308,9 +340,11 @@ impl eframe::App for Dialog {
                     }
                     let _ = environment;
                     ui.add_space(12.0);
-                    ui.horizontal_wrapped(|ui| {
+                    // The main action sits rightmost, as in the other Arcade prompts.
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         for (i, label) in buttons.iter().enumerate() {
-                            if ui.button(label).clicked() {
+                            let button = if i == 0 { egui::Button::new(egui::RichText::new(label).strong()) } else { egui::Button::new(label) };
+                            if ui.add(button).clicked() {
                                 clicked = Some(i);
                             }
                         }
@@ -321,8 +355,8 @@ impl eframe::App for Dialog {
                     ui.label("Remove this installation, launcher, command and start-at-login entry.");
                     ui.checkbox(remove_data, "Remove settings and data (history, presets and plugins)");
                     ui.add_space(12.0);
-                    ui.horizontal(|ui| {
-                        if ui.button("Uninstall").clicked() {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui.add(egui::Button::new(egui::RichText::new("Uninstall").strong())).clicked() {
                             clicked = Some(0);
                         }
                         if ui.button("Cancel").clicked() {
@@ -358,6 +392,9 @@ mod tests {
         assert_eq!(title, "Install Arcade Lens?");
         assert_eq!(body.as_deref(), Some("This adds Arcade Lens to the app launcher and your apps folder."));
         assert_eq!(buttons, strings::get().not_installed.buttons);
-        assert!(text(&DialogState::Update { from: "0.0.1".into() }).0.contains(&format!("0.0.1 → {}", crate::link::VERSION)));
+        assert!(text(&DialogState::Update { from: "0.0.1".into() }).0.contains(&format!("0.0.1 to {}", crate::link::VERSION)));
+        let (title, body, _) = text(&DialogState::OpenInstalled { version: "99.0.0".into() });
+        assert_eq!(title, "A newer Arcade Lens is already installed.");
+        assert!(body.unwrap().contains(&format!("this file is the older {}", crate::link::VERSION)));
     }
 }

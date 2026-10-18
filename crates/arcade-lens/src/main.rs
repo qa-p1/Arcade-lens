@@ -29,7 +29,7 @@ const HELP: &str = "Arcade Lens: select anything on screen and act on it.
   arcade-lens --restart     Restart the background instance
   arcade-lens --quit        Quit the background instance
   arcade-lens --version     Print the version
-  arcade-lens --install [--silent] [--no-launch] [--channel C]
+  arcade-lens --install [--silent] [--no-launch] [--keep-download] [--channel C]
                             Install this AppImage / macOS bundle
   arcade-lens --uninstall [--silent] [--remove-data]
                             Remove this installation via its receipt
@@ -180,6 +180,7 @@ fn integration_command(args: &[String]) -> Result<(), String> {
     let action = args[0].trim_start_matches('-');
     let mut silent = false;
     let mut no_launch = false;
+    let mut keep_download = false;
     let mut remove_data = false;
     let mut channel = None;
     let mut it = args[1..].iter();
@@ -187,13 +188,14 @@ fn integration_command(args: &[String]) -> Result<(), String> {
         match arg.as_str() {
             "--silent" => silent = true,
             "--no-launch" => no_launch = true,
+            "--keep-download" => keep_download = true,
             "--remove-data" => remove_data = true,
             "--channel" => channel = Some(it.next().filter(|c| !c.is_empty() && !c.starts_with('-')).ok_or("--channel needs a channel name")?.clone()),
             other => return Err(format!("unexpected argument {other:?} for --{action}")),
         }
     }
-    if (no_launch || channel.is_some()) && action != "install" {
-        return Err("--no-launch and --channel require --install".into());
+    if (no_launch || keep_download || channel.is_some()) && action != "install" {
+        return Err("--no-launch, --keep-download and --channel require --install".into());
     }
     if remove_data && action != "uninstall" {
         return Err("--remove-data requires --uninstall".into());
@@ -220,6 +222,9 @@ fn integration_command(args: &[String]) -> Result<(), String> {
             if let Some(channel) = channel {
                 options.channel = channel;
             }
+            if keep_download {
+                options.remove_download = false;
+            }
             let launch = if silent {
                 let receipt = installer::install_copy(&environment, &runtime, &paths, &options).map_err(|e| e.to_string())?;
                 if let Some(hint) = installer::integration_status(&environment).map_err(|e| e.to_string())?.path_hint {
@@ -233,12 +238,14 @@ fn integration_command(args: &[String]) -> Result<(), String> {
                     return Err("Development builds cannot be installed".into());
                 }
                 let state = installer::dialog_state(&detection, crate::link::VERSION).unwrap_or(installer::DialogState::Install);
-                match app::installer_ui::run_install(environment, runtime, paths, detection, state, options)? {
+                match app::installer_ui::run_install(environment, runtime, paths.clone(), detection, state, options)? {
                     app::installer_ui::Outcome::Launch(path) => Some(path),
                     _ => None,
                 }
             };
             if let Some(path) = launch.filter(|_| !no_launch) {
+                // The installed copy replaces an older one still running.
+                installer::stop_running_copy(&paths);
                 arcade_link::install::reexec(&path, &installer::launch_args(args)).map_err(|e| e.to_string())?;
             }
         }

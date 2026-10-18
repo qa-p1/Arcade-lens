@@ -46,8 +46,9 @@ fn chosen<'a>(i: &'a Item, cx: &ActionContext) -> Result<&'a DateTimeCandidate> 
     c.get(idx).ok_or_else(|| LensError::InvalidInput("no such interpretation".into()))
 }
 
-/// Builds an iCalendar file. Times are floating (local), which is what a
-/// time read off the screen means; we never invent a timezone.
+/// Builds an iCalendar file. A time without an offset is floating (local),
+/// which is what a time read off the screen means; we never invent a
+/// timezone. A time written with an offset is an exact instant, written in UTC.
 pub fn ics(c: &DateTimeCandidate, title: &str, todo: bool, today: NaiveDate) -> Result<String> {
     let date = match &c.date {
         Some(d) => NaiveDate::parse_from_str(d, "%Y-%m-%d").map_err(|e| LensError::InvalidInput(e.to_string()))?,
@@ -68,14 +69,18 @@ pub fn ics(c: &DateTimeCandidate, title: &str, todo: bool, today: NaiveDate) -> 
     );
     match (time, todo) {
         (Some(t), false) => {
-            let start = NaiveDateTime::new(date, t);
+            let (start, utc) = instant(NaiveDateTime::new(date, t), c.offset.as_deref())?;
             let end = start + Duration::hours(1);
-            s.push_str(&format!("DTSTART:{}\r\nDTEND:{}\r\n", start.format("%Y%m%dT%H%M%S"), end.format("%Y%m%dT%H%M%S")));
+            let z = if utc { "Z" } else { "" };
+            s.push_str(&format!("DTSTART:{}{z}\r\nDTEND:{}{z}\r\n", start.format("%Y%m%dT%H%M%S"), end.format("%Y%m%dT%H%M%S")));
         }
         (None, false) => {
             s.push_str(&format!("DTSTART;VALUE=DATE:{}\r\nDTEND;VALUE=DATE:{}\r\n", date.format("%Y%m%d"), (date + Duration::days(1)).format("%Y%m%d")))
         }
-        (Some(t), true) => s.push_str(&format!("DUE:{}\r\n", NaiveDateTime::new(date, t).format("%Y%m%dT%H%M%S"))),
+        (Some(t), true) => {
+            let (due, utc) = instant(NaiveDateTime::new(date, t), c.offset.as_deref())?;
+            s.push_str(&format!("DUE:{}{}\r\n", due.format("%Y%m%dT%H%M%S"), if utc { "Z" } else { "" }));
+        }
         (None, true) => s.push_str(&format!("DUE;VALUE=DATE:{}\r\n", date.format("%Y%m%d"))),
     }
     if todo {
@@ -85,6 +90,19 @@ pub fn ics(c: &DateTimeCandidate, title: &str, todo: bool, today: NaiveDate) -> 
     }
     s.push_str("END:VCALENDAR\r\n");
     Ok(s)
+}
+
+/// The time in UTC when an offset was written (true), else as written.
+fn instant(local: NaiveDateTime, offset: Option<&str>) -> Result<(NaiveDateTime, bool)> {
+    let Some(offset) = offset else { return Ok((local, false)) };
+    if offset == "Z" {
+        return Ok((local, true));
+    }
+    let sign = if offset.starts_with('-') { -1 } else { 1 };
+    let (h, m) = offset[1..].split_once(':').ok_or_else(|| LensError::InvalidInput(format!("bad offset {offset}")))?;
+    let minutes: i64 =
+        h.parse::<i64>().map_err(|e| LensError::InvalidInput(e.to_string()))? * 60 + m.parse::<i64>().map_err(|e| LensError::InvalidInput(e.to_string()))?;
+    Ok((local - Duration::minutes(sign * minutes), true))
 }
 
 fn base64url_decode(s: &str) -> Option<Vec<u8>> {
@@ -158,7 +176,7 @@ pub fn register(r: &mut PluginRegistrar) {
             .run(|i, cx| {
                 let c = chosen(i, cx)?;
                 let s = match (&c.date, &c.time) {
-                    (Some(d), Some(t)) => format!("{d}T{t}"),
+                    (Some(d), Some(t)) => format!("{d}T{t}{}", c.offset.as_deref().unwrap_or("")),
                     (Some(d), None) => d.clone(),
                     (None, Some(t)) => t.clone(),
                     (None, None) => return Err(LensError::InvalidInput("empty date".into())),
@@ -417,7 +435,23 @@ mod tests {
     use super::*;
 
     fn cand(date: Option<&str>, time: Option<&str>) -> DateTimeCandidate {
-        DateTimeCandidate { date: date.map(String::from), time: time.map(String::from), description: "x".into() }
+        DateTimeCandidate { date: date.map(String::from), time: time.map(String::from), offset: None, description: "x".into() }
+    }
+
+    #[test]
+    fn calendar_events_keep_an_explicit_offset() {
+        let today = NaiveDate::from_ymd_opt(2026, 10, 3).unwrap();
+        let mut utc = cand(Some("2026-10-17"), Some("14:30:00"));
+        utc.offset = Some("Z".into());
+        assert!(ics(&utc, "x", false, today).unwrap().contains("DTSTART:20261017T143000Z\r\nDTEND:20261017T153000Z"));
+        let mut india = cand(Some("2026-10-17"), Some("14:30:00"));
+        india.offset = Some("+05:30".into());
+        assert!(ics(&india, "x", false, today).unwrap().contains("DTSTART:20261017T090000Z"));
+        let mut west = cand(Some("2026-10-17"), Some("23:30"));
+        west.offset = Some("-05:00".into());
+        assert!(ics(&west, "x", true, today).unwrap().contains("DUE:20261018T043000Z"));
+        // Floating local time stays floating.
+        assert!(ics(&cand(Some("2026-10-17"), Some("14:30")), "x", false, today).unwrap().contains("DTSTART:20261017T143000\r\n"));
     }
 
     #[test]

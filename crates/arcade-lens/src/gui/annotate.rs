@@ -380,7 +380,7 @@ impl Editor {
                     let (r, resp) = ui.allocate_exact_size(Vec2::splat(18.0), Sense::click());
                     ui.painter().circle_filled(r.center(), 7.5, Color32::from_rgba_unmultiplied(c[0], c[1], c[2], c[3]));
                     if self.color == c {
-                        ui.painter().circle_stroke(r.center(), 9.0, Stroke::new(1.5, TEXT));
+                        ui.painter().circle_stroke(r.center(), 9.0, Stroke::new(1.5_f32, TEXT));
                     }
                     if resp.clicked() {
                         self.color = c;
@@ -532,7 +532,7 @@ fn draw_mark(p: &egui::Painter, m: &Mark, to_scr: &dyn Fn([f32; 2]) -> Pos2, sca
             p.text(to_scr(*pos), egui::Align2::LEFT_TOP, text, theme::font(size * scale), col(color, 1.0));
         }
         Mark::Pixelate { min, max } => {
-            p.rect_stroke(ERect::from_two_pos(to_scr(*min), to_scr(*max)), 0.0, Stroke::new(1.0, Color32::from_white_alpha(90)), egui::StrokeKind::Middle);
+            p.rect_stroke(ERect::from_two_pos(to_scr(*min), to_scr(*max)), 0.0, Stroke::new(1.0_f32, Color32::from_white_alpha(90)), egui::StrokeKind::Middle);
         }
     }
 }

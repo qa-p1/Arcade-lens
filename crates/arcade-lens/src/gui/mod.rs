@@ -898,7 +898,18 @@ macro_rules! lens_debug {
 pub fn run(initial: Option<Trigger>) -> Result<(), String> {
     let background = initial.is_none();
     let paths = Paths::discover();
-    if lens_platform::display_server() == lens_platform::DisplayServer::Wayland {
+    // The log folder the manifest advertises: without a terminal, warnings
+    // and errors go there instead of nowhere.
+    if let Err(e) = arcade_link::logs::capture_stderr(&paths.data.join("logs"), "arcade-lens") {
+        eprintln!("arcade-lens: log file: {e}");
+    }
+    // The resident instance holds no window, GL context or egui state: each
+    // capture, settings, pin or editor window is its own short-lived process
+    // (a capture opens in about a quarter of a second). On X11 this saves
+    // the ~50 MiB an in-process overlay keeps after its first use.
+    // ARCADE_LENS_RESIDENT_UI=1 keeps the windows in this process instead.
+    let resident_ui = std::env::var_os("ARCADE_LENS_RESIDENT_UI").is_some_and(|v| v == "1");
+    if lens_platform::display_server() == lens_platform::DisplayServer::Wayland || !resident_ui {
         return wayland::daemon(&paths, initial);
     }
     let (tx, rx) = mpsc::channel::<Trigger>();

@@ -58,11 +58,16 @@ fn write_if_changed(path: &Path, contents: &[u8]) -> std::io::Result<()> {
 /// `exe` quoted for a desktop entry's `Exec` key.
 #[cfg(target_os = "linux")]
 fn exec(exe: &Path, args: &str) -> String {
-    let quoted = exe.display().to_string().replace('\\', "\\\\").replace('"', "\\\"").replace('`', "\\`").replace('$', "\\$").replace('%', "%%");
+    let path = exe.display().to_string();
+    let quoted = path.replace('\\', "\\\\").replace('"', "\\\"").replace('`', "\\`").replace('$', "\\$").replace('%', "%%");
+    // Then Desktop Entry string escaping: a raw newline would end the key.
+    let quoted = quoted.replace('\\', "\\\\").replace('\n', "\\n").replace('\t', "\\t").replace('\r', "\\r");
+    // GLib looks the program up before expanding "%%"; `env` takes it as an argument.
+    let program = if path.contains('%') { format!("env \"{quoted}\"") } else { format!("\"{quoted}\"") };
     if args.is_empty() {
-        format!("\"{quoted}\"")
+        program
     } else {
-        format!("\"{quoted}\" {args}")
+        format!("{program} {args}")
     }
 }
 
@@ -120,6 +125,9 @@ pub fn is_enabled() -> bool {
     {
         return arcade_link::install::Environment::discover().is_ok_and(|e| windows_login::enabled(&e.receipts(), windows_login::run_enabled));
     }
+    // An entry switched off in the desktop's startup settings won't run.
+    #[cfg(target_os = "linux")]
+    return autostart_path().is_some_and(|p| arcade_link::install::autostart_enabled(&p));
     #[allow(unreachable_code)]
     autostart_path().is_some_and(|p| p.exists())
 }
@@ -236,7 +244,9 @@ mod tests {
     #[test]
     fn exec_quotes_paths() {
         assert_eq!(exec(Path::new("/opt/Arcade Lens/arcade-lens"), "--background"), "\"/opt/Arcade Lens/arcade-lens\" --background");
-        assert_eq!(exec(Path::new("/a/$b\"c"), ""), "\"/a/\\$b\\\"c\"");
+        // Exec quoting, then Desktop Entry string escaping (both layers).
+        assert_eq!(exec(Path::new("/a/$b\"c"), ""), "\"/a/\\\\$b\\\\\"c\"");
+        assert_eq!(exec(Path::new("/home/50% off/Lens.AppImage"), ""), "env \"/home/50%% off/Lens.AppImage\"");
     }
 }
 

@@ -64,14 +64,18 @@ pub fn detect_at(input: &TextInput, order: DateOrder, today: NaiveDate) -> Vec<D
     for c in ISO.captures_iter(text) {
         let m = c.get(0).unwrap();
         let Some(date) = ymd(&c["y"], &c["m"], &c["d"]) else { continue };
-        let times = c.name("time").map(|t| vec![t.as_str().to_string()]).unwrap_or_default();
+        // A clock written as 25:99 is not a time; only the date is meant.
+        let times = c.name("time").map(|t| time_candidates(t.as_str())).unwrap_or_default();
+        let bad_time = c.name("time").is_some() && times.is_empty();
         let mut cands = combine(&[date], &times);
-        if let Some(tz) = c.name("tz") {
+        if let (Some(tz), false) = (c.name("tz"), times.is_empty()) {
+            let offset = normalize_offset(tz.as_str());
             for cand in &mut cands {
-                cand.description.push_str(&format!(" ({})", if tz.as_str() == "Z" { "UTC" } else { tz.as_str() }));
+                cand.description.push_str(&format!(" ({})", if offset == "Z" { "UTC" } else { offset.as_str() }));
+                cand.offset = Some(offset.clone());
             }
         }
-        push(&mut out, &mut taken, m.range(), cands, 0.97);
+        push(&mut out, &mut taken, m.range(), cands, if bad_time { 0.5 } else { 0.97 });
     }
 
     for c in NUMERIC.captures_iter(text) {
@@ -144,7 +148,7 @@ pub fn detect_at(input: &TextInput, order: DateOrder, today: NaiveDate) -> Vec<D
         if times.is_empty() {
             continue;
         }
-        let cands = times.iter().map(|t| DateTimeCandidate { date: None, time: Some(t.clone()), description: describe_time(t) }).collect();
+        let cands = times.iter().map(|t| DateTimeCandidate { date: None, time: Some(t.clone()), offset: None, description: describe_time(t) }).collect();
         let explicit =
             c["time"].to_ascii_lowercase().contains('m') || c["time"].split(':').next().is_some_and(|h| h.parse::<u32>().is_ok_and(|h| h >= 13 || h == 0));
         push(&mut out, &mut taken, r, cands, if explicit { 0.8 } else { 0.55 });
@@ -244,6 +248,15 @@ fn time_candidates(raw: &str) -> Vec<String> {
     }
 }
 
+/// `Z`, `+0530` or `+05:30` as `Z` or `+05:30`.
+fn normalize_offset(tz: &str) -> String {
+    if tz == "Z" {
+        return "Z".into();
+    }
+    let digits: String = tz.chars().filter(char::is_ascii_digit).collect();
+    format!("{}{}:{}", &tz[..1], &digits[..2], &digits[2..])
+}
+
 fn describe_time(t: &str) -> String {
     t.to_string()
 }
@@ -252,10 +265,15 @@ fn combine(dates: &[NaiveDate], times: &[String]) -> Vec<DateTimeCandidate> {
     let mut out = Vec::new();
     for d in dates {
         if times.is_empty() {
-            out.push(DateTimeCandidate { date: Some(d.to_string()), time: None, description: d.format("%A, %-d %B %Y").to_string() });
+            out.push(DateTimeCandidate { date: Some(d.to_string()), time: None, offset: None, description: d.format("%A, %-d %B %Y").to_string() });
         }
         for t in times {
-            out.push(DateTimeCandidate { date: Some(d.to_string()), time: Some(t.clone()), description: format!("{} at {t}", d.format("%A, %-d %B %Y")) });
+            out.push(DateTimeCandidate {
+                date: Some(d.to_string()),
+                time: Some(t.clone()),
+                offset: None,
+                description: format!("{} at {t}", d.format("%A, %-d %B %Y")),
+            });
         }
     }
     out
@@ -282,6 +300,21 @@ mod tests {
 
     fn s(x: &str) -> Option<String> {
         Some(x.to_string())
+    }
+
+    #[test]
+    fn iso_offsets_are_kept_and_bad_clocks_dropped() {
+        let one = |text: &str| -> (Vec<DateTimeCandidate>, f32) {
+            let d = run(text, DateOrder::DayFirst).into_iter().find(|d| d.capability == caps::DATE_TIME).unwrap();
+            let Value::DateTime(v) = &d.value else { unreachable!() };
+            (v.candidates.clone(), d.confidence)
+        };
+        assert_eq!(one("2026-10-17T14:30:00Z").0[0].offset.as_deref(), Some("Z"));
+        assert_eq!(one("at 2026-10-17T14:30:00+0530 sharp").0[0].offset.as_deref(), Some("+05:30"));
+        assert_eq!(one("2026-10-17T14:30:00").0[0].offset, None);
+        let (bad, confidence) = one("2026-10-17T25:99:99");
+        assert_eq!((bad[0].date.as_deref(), bad[0].time.as_deref()), (Some("2026-10-17"), None));
+        assert!(confidence < 0.9);
     }
 
     #[test]

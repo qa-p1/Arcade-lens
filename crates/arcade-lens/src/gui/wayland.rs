@@ -112,15 +112,28 @@ pub fn load_image(path: &Path) -> Result<RgbaImage, String> {
     Ok(img)
 }
 
-/// The activation shortcut, as a compositor binding where we can add one.
+/// The activation shortcut: a compositor binding where we can add one, a
+/// native X11 grab outside Wayland.
 struct Shortcut {
     bound: Option<(String, hyprland::Binding)>,
+    native: Option<(lens_platform::shortcut::Shortcuts, Option<String>)>,
     warned: bool,
+}
+
+fn x11() -> bool {
+    lens_platform::display_server() != lens_platform::DisplayServer::Wayland
 }
 
 impl Shortcut {
     fn apply(&mut self, paths: &Paths) {
         let wanted = config::load_settings(paths).ok().and_then(|s| s.activation_shortcut);
+        if let Some((native, current)) = &mut self.native {
+            match native.set(wanted.as_deref()) {
+                Ok(()) => *current = wanted,
+                Err(e) => notify(&format!("{e}. Change it in Settings → Shortcut.")),
+            }
+            return;
+        }
         if !hyprland::active() {
             if wanted.is_some() && !self.warned {
                 notify("This Wayland desktop doesn't let apps register shortcuts. Bind `arcade-lens --capture` to a key in its keyboard settings.");
@@ -150,6 +163,9 @@ impl Shortcut {
     }
 
     fn current(&self) -> Option<String> {
+        if let Some((_, current)) = &self.native {
+            return current.clone();
+        }
         self.bound.as_ref().map(|(s, _)| s.clone())
     }
 
@@ -157,6 +173,11 @@ impl Shortcut {
     /// Desktops without runtime binds get the manual hint instead.
     fn bind(&mut self, accelerator: Option<&str>) -> Result<arcade_link::app::ShortcutSetResult, arcade_link::LinkError> {
         use arcade_link::app::ShortcutVia;
+        if let Some((native, current)) = &mut self.native {
+            native.set(accelerator).map_err(arcade_link::LinkError::unavailable)?;
+            *current = accelerator.map(String::from);
+            return Ok(crate::app::hub::apply_result(ShortcutVia::Native, None));
+        }
         if !hyprland::active() {
             return Ok(crate::app::hub::apply_result(
                 ShortcutVia::Manual,
@@ -284,7 +305,19 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
     crate::link::set_gui(link_request);
     let settings = config::load_settings(paths).unwrap_or_default();
     crate::link::start(&settings, background);
-    let mut shortcut = Shortcut { bound: None, warned: false };
+    let mut shortcut = Shortcut { bound: None, native: None, warned: false };
+    if x11() {
+        match lens_platform::shortcut::Shortcuts::new() {
+            Ok(native) => {
+                shortcut.native = Some((native, None));
+                let t = std::sync::Mutex::new(tx.clone());
+                lens_platform::shortcut::on_pressed(move |_| {
+                    let _ = t.lock().unwrap_or_else(|e| e.into_inner()).send(Cmd::Named("capture"));
+                });
+            }
+            Err(e) => notify(&format!("global shortcut unavailable: {e}")),
+        }
+    }
     shortcut.apply(paths);
     background::integrate(paths, shortcut.current());
     let t = tx.clone();

@@ -174,7 +174,7 @@ impl Shortcut {
     fn bind(&mut self, accelerator: Option<&str>) -> Result<arcade_link::app::ShortcutSetResult, arcade_link::LinkError> {
         use arcade_link::app::ShortcutVia;
         if let Some((native, current)) = &mut self.native {
-            native.set(accelerator).map_err(|e| arcade_link::LinkError::unavailable(e))?;
+            native.set(accelerator).map_err(arcade_link::LinkError::unavailable)?;
             *current = accelerator.map(String::from);
             return Ok(crate::app::hub::apply_result(ShortcutVia::Native, None));
         }

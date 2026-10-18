@@ -2,7 +2,8 @@
 
 ## Release status (2026-10-18)
 
-- Latest release: [v0.3.0](https://github.com/qa-p1/Arcade-lens/releases/tag/v0.3.0), published 2026-10-18 (fixes from the October audit and stress test; see CHANGELOG.md). The CI and e2e notes below were recorded for v0.2.0.
+- Latest release: [v0.3.1](https://github.com/qa-p1/Arcade-lens/releases/tag/v0.3.1), published 2026-10-18 (fixes for what verifying the previous release found; see CHANGELOG.md). The CI and e2e notes below were recorded for v0.2.0.
+- Previously released: [v0.3.0](https://github.com/qa-p1/Arcade-lens/releases/tag/v0.3.0), published 2026-10-18 (fixes from the October audit and stress test).
 - Previously released: [v0.2.0](https://github.com/qa-p1/Arcade-lens/releases/tag/v0.2.0) with a Linux self-installing AppImage, a per-user Windows installer, a macOS dmg, `arcade-release.json` and `SHA256SUMS.txt`.
 - Merged to `main` from PR #3 (f10e308) after CI passed on Linux, Windows and macOS: [run 38607114141](https://github.com/qa-p1/Arcade-lens/actions/runs/38607114141). That covers the build, tests, clippy or analyzers, installer smoke tests on each OS, and the Linux AppImage install, repair and uninstall check in a temporary profile.
 - Ecosystem e2e (Arcade Link `tools/e2e.py`, real CI builds of all eight apps): install, tray hosting (hosted by Tools, own icon back within 1 s after Tools is killed, no flash on restart) and shortcuts pass. Tools 0.2.0 backs up and restores Lens's settings (the backup incompatibility found by the e2e matrix was fixed in Tools, cf8f0c5).

@@ -117,13 +117,13 @@ impl Pin {
         }
         // A pin over its own source looks exactly like the screen; a hairline
         // border makes it recognizable as a floating object.
-        ui.painter().rect_stroke(rect.shrink(0.5), 0.0, Stroke::new(1.0, Color32::from_white_alpha(60)), StrokeKind::Inside);
+        ui.painter().rect_stroke(rect.shrink(0.5), 0.0, Stroke::new(1.0_f32, Color32::from_white_alpha(60)), StrokeKind::Inside);
         if resp.hovered() {
-            ui.painter().rect_stroke(rect.shrink(0.5), 0.0, Stroke::new(1.0, ACCENT_SOFT), StrokeKind::Inside);
+            ui.painter().rect_stroke(rect.shrink(0.5), 0.0, Stroke::new(1.0_f32, ACCENT_SOFT), StrokeKind::Inside);
             let close = egui::Rect::from_min_size(Pos2::new(rect.max.x - 22.0, rect.min.y + 4.0), Vec2::splat(18.0));
             ui.painter().rect_filled(close, CornerRadius::same(9), theme::SURFACE);
             let c = close.center();
-            let s = Stroke::new(1.4, TEXT);
+            let s = Stroke::new(1.4_f32, TEXT);
             ui.painter().line_segment([c + Vec2::new(-4.0, -4.0), c + Vec2::new(4.0, 4.0)], s);
             ui.painter().line_segment([c + Vec2::new(4.0, -4.0), c + Vec2::new(-4.0, 4.0)], s);
             if resp.clicked() && ctx.input(|i| i.pointer.interact_pos()).is_some_and(|p| close.contains(p)) {

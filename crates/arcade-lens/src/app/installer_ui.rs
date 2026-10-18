@@ -319,7 +319,9 @@ impl eframe::App for Dialog {
                     if *managed {
                         ui.label(format(&strings::get().managed_by_tools, crate::link::VERSION, ""));
                     }
-                    if let (Some(note), Some(old), DialogState::Install | DialogState::Update { .. }) = (&strings::get().replaces_legacy, self.legacy.first(), &state) {
+                    if let (Some(note), Some(old), DialogState::Install | DialogState::Update { .. }) =
+                        (&strings::get().replaces_legacy, self.legacy.first(), &state)
+                    {
                         ui.label(format(note, crate::link::VERSION, &old.display().to_string()));
                     }
                     ui.add_space(10.0);

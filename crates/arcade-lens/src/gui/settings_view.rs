@@ -676,7 +676,7 @@ impl SettingsView {
         for (dir, m) in found {
             match m {
                 Ok(m) => {
-                    egui::Frame::new().stroke(egui::Stroke::new(1.0, super::theme::BORDER)).corner_radius(8).inner_margin(10).show(ui, |ui| {
+                    egui::Frame::new().stroke(egui::Stroke::new(1.0_f32, super::theme::BORDER)).corner_radius(8).inner_margin(10).show(ui, |ui| {
                         let mut on = self.draft.enabled_plugins.contains(&m.plugin.id);
                         ui.horizontal(|ui| {
                             if ui.checkbox(&mut on, RichText::new(&m.plugin.name).strong()).changed() {
@@ -734,7 +734,7 @@ impl SettingsView {
                 AppState::Installed { .. } => ("Installed".into(), true),
                 AppState::NotInstalled => ("Not installed".into(), false),
             };
-            egui::Frame::new().fill(glyphs::SURFACE).stroke(egui::Stroke::new(1.0, glyphs::BORDER)).corner_radius(12).inner_margin(10).show(ui, |ui| {
+            egui::Frame::new().fill(glyphs::SURFACE).stroke(egui::Stroke::new(1.0_f32, glyphs::BORDER)).corner_radius(12).inner_margin(10).show(ui, |ui| {
                 ui.set_width(ui.available_width());
                 ui.horizontal(|ui| {
                     glyphs::badge(ui, &peer.id);

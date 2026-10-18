@@ -207,6 +207,10 @@ pub struct DateTimeCandidate {
     pub date: Option<String>,
     /// 24h `HH:MM[:SS]`, if a time was present.
     pub time: Option<String>,
+    /// The UTC offset written with the time (`Z` or `+05:30`), if any. A time
+    /// without one is local ("floating"); with one it is an exact instant.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub offset: Option<String>,
     pub description: String,
 }
 

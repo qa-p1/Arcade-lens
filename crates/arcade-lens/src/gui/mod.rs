@@ -898,6 +898,11 @@ macro_rules! lens_debug {
 pub fn run(initial: Option<Trigger>) -> Result<(), String> {
     let background = initial.is_none();
     let paths = Paths::discover();
+    // The log folder the manifest advertises: without a terminal, warnings
+    // and errors go there instead of nowhere.
+    if let Err(e) = arcade_link::logs::capture_stderr(&paths.data.join("logs"), "arcade-lens") {
+        eprintln!("arcade-lens: log file: {e}");
+    }
     if lens_platform::display_server() == lens_platform::DisplayServer::Wayland {
         return wayland::daemon(&paths, initial);
     }

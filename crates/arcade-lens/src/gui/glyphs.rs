@@ -9,7 +9,7 @@ pub const MUTED: Color32 = Color32::from_rgb(154, 163, 178);
 
 pub fn paint(p: &Painter, center: Pos2, app: &str, color: Color32) {
     let point = |x, y| center + egui::vec2(x - 8.0, y - 8.0);
-    let stroke = Stroke::new(1.5, color);
+    let stroke = Stroke::new(1.5_f32, color);
     let line = |points: &[(f32, f32)]| p.add(egui::Shape::line(points.iter().map(|&(x, y)| point(x, y)).collect(), stroke));
     let curve = |points: [(f32, f32); 4]| {
         p.add(egui::epaint::CubicBezierShape::from_points_stroke(points.map(|(x, y)| point(x, y)), false, Color32::TRANSPARENT, stroke));

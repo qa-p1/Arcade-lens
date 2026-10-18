@@ -57,7 +57,13 @@ fn header(ui: &mut egui::Ui, ov: &Overlay) {
         if let Some(f) = ov.headline() {
             if let Value::Color(c) = &f.value {
                 let (r, _) = ui.allocate_exact_size(Vec2::splat(14.0), Sense::hover());
-                painter.rect(r, CornerRadius::same(3), Color32::from_rgb(c.r, c.g, c.b), Stroke::new(1.0, Color32::from_white_alpha(70)), StrokeKind::Inside);
+                painter.rect(
+                    r,
+                    CornerRadius::same(3),
+                    Color32::from_rgb(c.r, c.g, c.b),
+                    Stroke::new(1.0_f32, Color32::from_white_alpha(70)),
+                    StrokeKind::Inside,
+                );
             }
             let (title, summary) = describe(f);
             ui.label(RichText::new(title).color(ACCENT_SOFT).size(11.5).strong());
@@ -141,6 +147,15 @@ fn primary(ov: &mut Overlay, ctx: &egui::Context, env: &Env, screen: egui::Rect,
                     ui.label(RichText::new("Analyzing…").color(MUTED).size(12.5));
                 }
             });
+            // Without an OCR engine no text is ever found; say why, and where
+            // to fix it, instead of offering only image actions.
+            let no_text = !ov.report.findings.iter().any(|f| f.capability == lens_core::caps::TEXT);
+            if no_text && !ov.analyzing() && env.rt.ocr_name == super::runtime::OCR_MISSING {
+                ui.add_space(2.0);
+                ui.label(
+                    RichText::new("Text isn't recognized: Tesseract isn't installed. Open Lens Settings → Text recognition to get it.").color(MUTED).size(11.5),
+                );
+            }
         });
     });
     *ov.palette_size_mut() = resp.response.rect.size();
@@ -249,9 +264,9 @@ fn expanded(ov: &mut Overlay, ctx: &egui::Context, env: &Env, screen: egui::Rect
                     }
                     let y = row.rect.min.y + 13.0;
                     let mut x = row.rect.min.x + 8.0;
-                    if let Some(k) = e.key {
-                        theme::key_badge(p, Pos2::new(x, y), &k.to_ascii_uppercase().to_string(), MUTED);
-                    }
+                    // Letters type into the filter here, so a letter badge
+                    // would promise a key that doesn't run the action.
+                    let _ = e.key;
                     x += 26.0;
                     let peer = e.icon.starts_with("arcade.");
                     if peer {
@@ -321,7 +336,7 @@ fn confirm(ov: &mut Overlay, ctx: &egui::Context, env: &Env, screen: egui::Rect,
             ui.set_max_width(size.x);
             ui.label(RichText::new(&title).color(if dangerous { DANGER } else { TEXT }).size(15.0).strong());
             ui.add_space(6.0);
-            egui::Frame::new().fill(Color32::from_rgb(9, 9, 11)).stroke(Stroke::new(1.0, BORDER)).corner_radius(6).inner_margin(8).show(ui, |ui| {
+            egui::Frame::new().fill(Color32::from_rgb(9, 9, 11)).stroke(Stroke::new(1.0_f32, BORDER)).corner_radius(6).inner_margin(8).show(ui, |ui| {
                 egui::ScrollArea::vertical().max_height(110.0).show(ui, |ui| {
                     ui.add(egui::Label::new(RichText::new(&subject).monospace().color(TEXT).size(12.5)).wrap());
                 });

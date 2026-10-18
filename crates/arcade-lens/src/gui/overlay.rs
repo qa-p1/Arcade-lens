@@ -575,7 +575,7 @@ impl Overlay {
                             egui::Rect::from_center_size(h.1, Vec2::splat(6.0)),
                             CornerRadius::same(1),
                             TEXT,
-                            Stroke::new(1.0, ACCENT),
+                            Stroke::new(1.0_f32, ACCENT),
                             StrokeKind::Middle,
                         );
                     }
@@ -601,7 +601,7 @@ impl Overlay {
                     let m = &self.view(mon).monitor.rect;
                     let local = Rect::new(w.rect.x - m.x, w.rect.y - m.y, w.rect.width, w.rect.height);
                     let r = rect_pt(&local).intersect(screen);
-                    painter.rect_stroke(r, 2.0, Stroke::new(2.0, ACCENT.gamma_multiply(0.85)), StrokeKind::Inside);
+                    painter.rect_stroke(r, 2.0, Stroke::new(2.0_f32, ACCENT.gamma_multiply(0.85)), StrokeKind::Inside);
                     let name = w.app_name.clone().filter(|a| !a.is_empty()).unwrap_or_else(|| w.title.clone());
                     theme::pill(&painter, r.left_top() + Vec2::new(8.0, 8.0), Align2::LEFT_TOP, &format!("{name} · click to select"), TEXT, 11.0);
                 }
@@ -613,7 +613,7 @@ impl Overlay {
         } else if self.sel.is_none() || self.drag.is_some() {
             if let (Some(p), Some((x, y))) = (hover, hover_px) {
                 if self.drag.is_none() {
-                    let s = Stroke::new(1.0, Color32::from_white_alpha(70));
+                    let s = Stroke::new(1.0_f32, Color32::from_white_alpha(70));
                     painter.line_segment([Pos2::new(screen.min.x, p.y), Pos2::new(screen.max.x, p.y)], s);
                     painter.line_segment([Pos2::new(p.x, screen.min.y), Pos2::new(p.x, screen.max.y)], s);
                 }
@@ -979,14 +979,20 @@ impl Overlay {
         painter.image(v.texture.id(), r, uv, Color32::WHITE);
         let cell = BOX / (2 * N + 1) as f32;
         let c = egui::Rect::from_min_size(r.min + Vec2::splat(N as f32 * cell), Vec2::splat(cell));
-        painter.rect_stroke(c, 0.0, Stroke::new(1.0, Color32::WHITE), StrokeKind::Outside);
-        painter.rect_stroke(r, CornerRadius::same(8), Stroke::new(1.0, BORDER), StrokeKind::Outside);
+        painter.rect_stroke(c, 0.0, Stroke::new(1.0_f32, Color32::WHITE), StrokeKind::Outside);
+        painter.rect_stroke(r, CornerRadius::same(8), Stroke::new(1.0_f32, BORDER), StrokeKind::Outside);
         let px = v.image.get_pixel(x.clamp(0, v.image.width() as i32 - 1) as u32, y.clamp(0, v.image.height() as i32 - 1) as u32);
         let hex = format!("#{:02X}{:02X}{:02X}", px[0], px[1], px[2]);
         let lr = egui::Rect::from_min_size(Pos2::new(r.min.x, r.max.y + 4.0), Vec2::new(BOX, 22.0));
-        painter.rect(lr, CornerRadius::same(6), theme::SURFACE, Stroke::new(1.0, BORDER), StrokeKind::Inside);
+        painter.rect(lr, CornerRadius::same(6), theme::SURFACE, Stroke::new(1.0_f32, BORDER), StrokeKind::Inside);
         let sw = egui::Rect::from_min_size(lr.min + Vec2::new(6.0, 6.0), Vec2::splat(10.0));
-        painter.rect(sw, CornerRadius::same(2), Color32::from_rgb(px[0], px[1], px[2]), Stroke::new(1.0, Color32::from_white_alpha(60)), StrokeKind::Inside);
+        painter.rect(
+            sw,
+            CornerRadius::same(2),
+            Color32::from_rgb(px[0], px[1], px[2]),
+            Stroke::new(1.0_f32, Color32::from_white_alpha(60)),
+            StrokeKind::Inside,
+        );
         let m = &v.monitor.rect;
         painter.text(Pos2::new(sw.max.x + 6.0, lr.center().y), Align2::LEFT_CENTER, format!("{hex}  {}, {}", m.x + x, m.y + y), theme::mono(10.5), TEXT);
     }
@@ -1001,8 +1007,8 @@ impl Overlay {
         to_pt: &dyn Fn(f32, f32) -> Pos2,
         _ppp: f32,
     ) {
-        let accent = Stroke::new(1.5, Color32::from_rgb(244, 114, 182));
-        let halo = Stroke::new(3.5, Color32::from_black_alpha(150));
+        let accent = Stroke::new(1.5_f32, Color32::from_rgb(244, 114, 182));
+        let halo = Stroke::new(3.5_f32, Color32::from_black_alpha(150));
         if let Some((m, r)) = self.measure_rect {
             if m == mon {
                 let rr = rect_pt(&r);

@@ -40,9 +40,25 @@ fn is_qr(f: &BarcodeFormat) -> bool {
     matches!(f, BarcodeFormat::QR_CODE | BarcodeFormat::MICRO_QR_CODE | BarcodeFormat::RECTANGULAR_MICRO_QR_CODE)
 }
 
+/// Decoding is one uninterruptible rxing call, so its length is what a
+/// cancel may still cost. A selection larger than this (a whole 4K screen)
+/// is scanned at about this size; codes on screen stay well above one pixel
+/// per module there, and a tight selection around a code is never reduced.
+const MAX_SCAN_PIXELS: u64 = 2_100_000;
+
 /// Adds a white quiet zone (users often select tightly around a code) and
 /// upscales tiny captures so modules span several pixels.
 fn prepare(img: &RgbaImage) -> RgbaImage {
+    let pixels = img.width() as u64 * img.height() as u64;
+    let reduced;
+    let img = if pixels > MAX_SCAN_PIXELS {
+        let scale = (MAX_SCAN_PIXELS as f64 / pixels as f64).sqrt();
+        let (w, h) = ((img.width() as f64 * scale) as u32, (img.height() as f64 * scale) as u32);
+        reduced = image::imageops::resize(img, w.max(1), h.max(1), FilterType::Triangle);
+        &reduced
+    } else {
+        img
+    };
     let (w, h) = img.dimensions();
     let pad = (w.max(h) / 8).max(8);
     let mut out = RgbaImage::from_pixel(w + 2 * pad, h + 2 * pad, Rgba([255, 255, 255, 255]));
@@ -151,5 +167,27 @@ mod tests {
     fn nothing_in_noise() {
         let img = RgbaImage::from_fn(120, 120, |x, y| Rgba([((x * 31) ^ (y * 17)) as u8, (x * y) as u8, 90, 255]));
         assert!(run(img).is_empty());
+    }
+
+    #[test]
+    fn large_selections_are_scanned_reduced_and_still_decode() {
+        let mut screen = RgbaImage::from_pixel(3840, 2160, Rgba([255, 255, 255, 255]));
+        // Text-like clutter across the screen.
+        for y in (40..2100).step_by(28) {
+            for x in (40..3700).step_by(9) {
+                if (x * 7 + y * 13) % 5 < 3 {
+                    for dy in 0..14 {
+                        screen.put_pixel(x, y + dy, Rgba([20, 20, 20, 255]));
+                    }
+                }
+            }
+        }
+        // A QR rendered at 2x UI scale (6 px modules), as a screenshot has it.
+        let qr = qr_image("https://example.com/4k", 6, true);
+        image::imageops::overlay(&mut screen, &qr, 2800, 900);
+        let prepared = prepare(&screen);
+        assert!(prepared.width() as u64 * prepared.height() as u64 <= MAX_SCAN_PIXELS * 2);
+        let found = run(screen);
+        assert!(found.iter().any(|d| matches!(&d.value, Value::Barcode(b) if b.payload == "https://example.com/4k")));
     }
 }

@@ -230,12 +230,21 @@ fn image_ops(r: &mut PluginRegistrar) {
         },
     ));
     // Chain-only typed conversions.
-    r.action(action("core.image.grayscale", "Grayscale").icon("contrast").group(G::Transform).accepts(caps::IMAGE).produces(caps::IMAGE).chain_only().run(
-        |i, _| {
-            let g = image::DynamicImage::ImageRgba8(image_of(i)?.clone()).grayscale().to_rgba8();
-            Ok(image_output(g))
-        },
-    ));
+    r.action(
+        action("core.image.grayscale", "Grayscale")
+            .icon("contrast")
+            .group(G::Transform)
+            .accepts(caps::IMAGE)
+            .produces(caps::IMAGE)
+            .chain_only()
+            .run(|i, _| Ok(image_output(grayscale(image_of(i)?)))),
+    );
+}
+
+/// Grayscale with alpha kept, converted from the borrowed image (no copy of
+/// the whole input first; same pixels as `DynamicImage::grayscale`).
+pub fn grayscale(img: &RgbaImage) -> RgbaImage {
+    image::DynamicImage::ImageLumaA8(imageops::grayscale_alpha(img)).to_rgba8()
 }
 
 /// Removes a flat background by flood-filling from the border, so icons on
@@ -592,6 +601,16 @@ fn window(r: &mut PluginRegistrar) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn grayscale_matches_the_copying_conversion() {
+        let mut img = RgbaImage::new(17, 9);
+        for (x, y, p) in img.enumerate_pixels_mut() {
+            *p = image::Rgba([(x * 15) as u8, (y * 28) as u8, ((x + y) * 9) as u8, (x * y * 3) as u8]);
+        }
+        let old = image::DynamicImage::ImageRgba8(img.clone()).grayscale().to_rgba8();
+        assert_eq!(grayscale(&img), old);
+    }
 
     #[test]
     fn background_removal_keeps_the_subject() {

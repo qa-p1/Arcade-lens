@@ -27,7 +27,7 @@ pub fn mono(size: f32) -> FontId {
 pub fn panel_frame() -> egui::Frame {
     egui::Frame::new()
         .fill(SURFACE)
-        .stroke(Stroke::new(1.0, BORDER))
+        .stroke(Stroke::new(1.0_f32, BORDER))
         .corner_radius(CornerRadius::same(10))
         .inner_margin(egui::Margin::same(6))
         .shadow(egui::epaint::Shadow { offset: [0, 6], blur: 24, spread: 0, color: Color32::from_black_alpha(90) })
@@ -40,9 +40,9 @@ pub fn apply_style(ctx: &egui::Context) {
         s.visuals.panel_fill = Color32::from_rgb(24, 24, 27);
         s.visuals.extreme_bg_color = Color32::from_rgb(9, 9, 11);
         s.visuals.selection.bg_fill = ACCENT.gamma_multiply(0.6);
-        s.visuals.selection.stroke = Stroke::new(1.0, ACCENT_SOFT);
+        s.visuals.selection.stroke = Stroke::new(1.0_f32, ACCENT_SOFT);
         s.visuals.hyperlink_color = ACCENT_SOFT;
-        s.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0, Color32::from_rgb(212, 212, 216));
+        s.visuals.widgets.noninteractive.fg_stroke = Stroke::new(1.0_f32, Color32::from_rgb(212, 212, 216));
         s.visuals.widgets.inactive.corner_radius = CornerRadius::same(6);
         s.visuals.widgets.hovered.corner_radius = CornerRadius::same(6);
         s.visuals.widgets.active.corner_radius = CornerRadius::same(6);
@@ -57,14 +57,14 @@ pub fn key_badge(painter: &egui::Painter, center_left: Pos2, key: &str, color: C
     let galley = painter.layout_no_wrap(key.to_string(), mono(10.5), color);
     let w = (galley.size().x + 8.0).max(16.0);
     let r = Rect::from_min_size(Pos2::new(center_left.x, center_left.y - 8.0), Vec2::new(w, 16.0));
-    painter.rect(r, CornerRadius::same(4), Color32::from_white_alpha(10), Stroke::new(1.0, Color32::from_white_alpha(28)), StrokeKind::Inside);
+    painter.rect(r, CornerRadius::same(4), Color32::from_white_alpha(10), Stroke::new(1.0_f32, Color32::from_white_alpha(28)), StrokeKind::Inside);
     painter.galley(Pos2::new(r.center().x - galley.size().x / 2.0, r.center().y - galley.size().y / 2.0), galley, color);
     w
 }
 
 /// Enter-key glyph drawn with lines (no font dependency).
 pub fn enter_icon(painter: &egui::Painter, center: Pos2, color: Color32) {
-    let s = Stroke::new(1.3, color);
+    let s = Stroke::new(1.3_f32, color);
     let (x, y) = (center.x, center.y);
     painter.line_segment([Pos2::new(x + 4.0, y - 4.0), Pos2::new(x + 4.0, y + 1.5)], s);
     painter.line_segment([Pos2::new(x + 4.0, y + 1.5), Pos2::new(x - 4.0, y + 1.5)], s);
@@ -76,7 +76,7 @@ pub fn enter_icon(painter: &egui::Painter, center: Pos2, color: Color32) {
 pub fn safety_marker(painter: &egui::Painter, center: Pos2, safety: SafetyClass) -> f32 {
     match safety {
         SafetyClass::External => {
-            let s = Stroke::new(1.2, EXTERNAL);
+            let s = Stroke::new(1.2_f32, EXTERNAL);
             painter.line_segment([Pos2::new(center.x - 3.0, center.y + 3.0), Pos2::new(center.x + 3.0, center.y - 3.0)], s);
             painter.line_segment([Pos2::new(center.x, center.y - 3.0), Pos2::new(center.x + 3.0, center.y - 3.0)], s);
             painter.line_segment([Pos2::new(center.x + 3.0, center.y - 3.0), Pos2::new(center.x + 3.0, center.y)], s);
@@ -84,8 +84,8 @@ pub fn safety_marker(painter: &egui::Painter, center: Pos2, safety: SafetyClass)
         }
         SafetyClass::Dangerous => {
             let pts = vec![Pos2::new(center.x, center.y - 4.5), Pos2::new(center.x + 5.0, center.y + 4.0), Pos2::new(center.x - 5.0, center.y + 4.0)];
-            painter.add(Shape::convex_polygon(pts, DANGER.gamma_multiply(0.25), Stroke::new(1.0, DANGER)));
-            painter.line_segment([Pos2::new(center.x, center.y - 1.5), Pos2::new(center.x, center.y + 1.2)], Stroke::new(1.2, DANGER));
+            painter.add(Shape::convex_polygon(pts, DANGER.gamma_multiply(0.25), Stroke::new(1.0_f32, DANGER)));
+            painter.line_segment([Pos2::new(center.x, center.y - 1.5), Pos2::new(center.x, center.y + 1.2)], Stroke::new(1.2_f32, DANGER));
             12.0
         }
         _ => 0.0,
@@ -117,11 +117,11 @@ pub fn action_chip(ui: &mut egui::Ui, label: &str, key: Option<&str>, safety: Sa
     let p = ui.painter();
     let hovered = resp.hovered() || st.focused;
     let (fill, stroke) = if st.is_default {
-        (ACCENT.gamma_multiply(if hovered { 0.38 } else { 0.26 }), Stroke::new(1.0, ACCENT_SOFT.gamma_multiply(0.8)))
+        (ACCENT.gamma_multiply(if hovered { 0.38 } else { 0.26 }), Stroke::new(1.0_f32, ACCENT_SOFT.gamma_multiply(0.8)))
     } else if hovered {
-        (SURFACE_HI, Stroke::new(1.0, BORDER))
+        (SURFACE_HI, Stroke::new(1.0_f32, BORDER))
     } else {
-        (Color32::TRANSPARENT, Stroke::new(1.0, Color32::TRANSPARENT))
+        (Color32::TRANSPARENT, Stroke::new(1.0_f32, Color32::TRANSPARENT))
     };
     p.rect(rect, CornerRadius::same(7), fill, stroke, StrokeKind::Inside);
     let mut x = rect.left() + 10.0;
@@ -149,7 +149,7 @@ pub fn action_chip(ui: &mut egui::Ui, label: &str, key: Option<&str>, safety: Sa
 pub fn pill(painter: &egui::Painter, anchor: Pos2, align: egui::Align2, text: &str, fg: Color32, size: f32) -> Rect {
     let galley = painter.layout_no_wrap(text.to_string(), font(size), fg);
     let r = align.anchor_size(anchor, galley.size() + Vec2::new(14.0, 8.0));
-    painter.rect(r, CornerRadius::same(6), SURFACE, Stroke::new(1.0, BORDER), StrokeKind::Inside);
+    painter.rect(r, CornerRadius::same(6), SURFACE, Stroke::new(1.0_f32, BORDER), StrokeKind::Inside);
     painter.galley(r.min + Vec2::new(7.0, 4.0), galley, fg);
     r
 }

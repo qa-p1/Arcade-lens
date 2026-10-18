@@ -10,6 +10,8 @@ use lens_core::{caps, ActionOutcome, Effects, LensError, Result, Value};
 use crate::util::*;
 
 /// Straight quotes, plain spaces, no ligatures or invisible characters.
+/// Zero-width (non-)joiners stay: they carry meaning in Persian, Indic
+/// scripts and emoji sequences (👨‍👩‍👧‍👦), not formatting.
 pub fn plain(s: &str) -> String {
     let mut out = String::with_capacity(s.len());
     for c in s.chars() {
@@ -19,7 +21,7 @@ pub fn plain(s: &str) -> String {
             '\u{2013}' | '\u{2014}' | '\u{2212}' => out.push('-'),
             '\u{2026}' => out.push_str("..."),
             '\u{00A0}' | '\u{2007}' | '\u{2009}' | '\u{202F}' => out.push(' '),
-            '\u{200B}' | '\u{200C}' | '\u{200D}' | '\u{FEFF}' | '\u{00AD}' => {}
+            '\u{200B}' | '\u{FEFF}' | '\u{00AD}' => {}
             '\u{FB00}' => out.push_str("ff"),
             '\u{FB01}' => out.push_str("fi"),
             '\u{FB02}' => out.push_str("fl"),
@@ -34,10 +36,21 @@ pub fn plain(s: &str) -> String {
 /// Joins lines within paragraphs (keeping blank-line breaks) and repairs
 /// words hyphenated across lines.
 pub fn remove_line_breaks(s: &str) -> String {
+    // Windows (CRLF) and old Mac (CR) line endings mark paragraphs too.
+    let s = s.replace("\r\n", "\n").replace('\r', "\n");
     let mut paragraphs = Vec::new();
-    for para in s.split("\n\n").map(str::trim).filter(|p| !p.is_empty()) {
+    // A paragraph ends at a blank line, even one holding stray spaces.
+    let mut blocks: Vec<Vec<&str>> = vec![Vec::new()];
+    for line in s.lines().map(str::trim) {
+        if line.is_empty() {
+            blocks.push(Vec::new());
+        } else {
+            blocks.last_mut().expect("never empty").push(line);
+        }
+    }
+    for para in blocks.into_iter().filter(|b| !b.is_empty()) {
         let mut out = String::new();
-        for line in para.lines().map(str::trim).filter(|l| !l.is_empty()) {
+        for line in para {
             if out.ends_with('-') && line.starts_with(|c: char| c.is_lowercase()) && out.chars().rev().nth(1).is_some_and(char::is_alphabetic) {
                 out.pop();
             } else if !out.is_empty() {
@@ -305,6 +318,23 @@ pub fn register(r: &mut PluginRegistrar) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn paragraphs_survive_every_line_ending() {
+        let joined = "First paragraph.\n\nSecond paragraph.";
+        assert_eq!(remove_line_breaks("First paragraph.\n\nSecond paragraph."), joined);
+        assert_eq!(remove_line_breaks("First paragraph.\r\n\r\nSecond paragraph."), joined);
+        assert_eq!(remove_line_breaks("First paragraph.\r\rSecond paragraph."), joined);
+        assert_eq!(remove_line_breaks("First\r\nparagraph.\n  \nSecond paragraph."), joined);
+    }
+
+    #[test]
+    fn plain_keeps_joiners_that_carry_meaning() {
+        assert_eq!(plain("می\u{200C}خواهم"), "می\u{200C}خواهم");
+        let family = "👨\u{200D}👩\u{200D}👧\u{200D}👦";
+        assert_eq!(plain(family), family);
+        assert_eq!(plain("a\u{00A0}b\u{200B}c"), "a bc");
+    }
 
     #[test]
     fn transforms() {

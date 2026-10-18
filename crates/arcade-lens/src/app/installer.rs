@@ -82,9 +82,22 @@ pub struct Options {
 impl Options {
     pub fn defaults(environment: &Environment) -> Self {
         let receipt = environment.receipts().read(crate::link::ME).ok().flatten();
-        let start_at_login = receipt.as_ref().is_none_or(|r| r.integration.autostart.as_ref().is_some_and(|p| install::autostart_enabled(p)));
+        let start_at_login = receipt.as_ref().is_none_or(|r| r.integration.autostart.as_ref().is_some_and(|p| login_entry_runs(p)));
         let install_cli = environment.path.as_ref().is_some_and(|p| std::env::split_paths(p).any(|p| p == environment.bin));
         Self { channel: "stable".into(), start_at_login, remove_download: true, install_cli }
+    }
+}
+
+/// Whether the login entry will start Lens. On Linux the desktop's startup
+/// settings can switch an entry off without removing it.
+fn login_entry_runs(path: &std::path::Path) -> bool {
+    #[cfg(target_os = "linux")]
+    {
+        install::autostart_enabled(path)
+    }
+    #[cfg(not(target_os = "linux"))]
+    {
+        path.exists()
     }
 }
 

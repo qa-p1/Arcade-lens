@@ -3,7 +3,7 @@ resolver = "2"
 members = ["crates/lens-core", "crates/lens-recognizers", "crates/lens-actions", "crates/lens-platform", "crates/lens-plugins", "crates/arcade-lens"]
 
 [workspace.package]
-version = "0.3.1"
+version = "0.3.2"
 edition = "2021"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/qa-p1/Arcade-lens"
@@ -16,7 +16,7 @@ lens-actions = { path = "crates/lens-actions" }
 lens-platform = { path = "crates/lens-platform" }
 lens-plugins = { path = "crates/lens-plugins" }
 # Arcade Link v0.3.0 supplies the shared install, tray-host and app-settings APIs.
-arcade-link = { git = "https://github.com/qa-p1/Arcade-link", rev = "85bdb0e9769cc724c0edd83c6f214b70fba33f42", features = ["watch", "engines", "install", "trayhost"] }
+arcade-link = { git = "https://github.com/qa-p1/Arcade-link", rev = "829cc90a0628fe5c4afc87796eb900aff3fd4e50", features = ["watch", "engines", "install", "trayhost"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 regex = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }

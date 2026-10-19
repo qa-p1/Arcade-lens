@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.3.2 — 2026-10-19
+
+- Installing or updating from your Downloads folder no longer leaves the
+  downloaded AppImage mounted and its runtime running. The previous release
+  stopped passing on the handle on the AppImage's mount, but the runtime also
+  waits on a pipe the app inherits, and the installed copy still inherited that;
+  now no inherited handle is passed on.
+
 ## 0.3.1 — 2026-10-18
 
 - Updating or installing from your Downloads folder, restarting into the

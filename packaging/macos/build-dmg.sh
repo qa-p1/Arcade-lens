@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build an unsigned Arcade Lens.app in a drag-to-Applications DMG (macOS only).
 #
-#   packaging/macos/build-dmg.sh target/universal/arcade-lens 0.3.3 dist/ArcadeLens-0.3.3-macos-universal.dmg
+#   packaging/macos/build-dmg.sh target/universal/arcade-lens 0.3.4 dist/ArcadeLens-0.3.4-macos-universal.dmg
 #
 # This preserves Gatekeeper quarantine behavior. It does not sign, notarize,
 # remove quarantine attributes, install a CLI shim, or edit shell profiles.

@@ -157,12 +157,17 @@ struct LensApp {
     activity: bool,
     /// The root window is the only window: an overlay, pin, editor or settings (Wayland).
     solo: bool,
+    /// The root window is a full-screen overlay (Wayland).
+    fullscreen: bool,
     /// Sets up the initial window; runs on the first frame, once egui knows the GPU's texture limits.
     init: Option<InitWindow>,
 }
 
-fn build_env(rt: Arc<Runtime>, ui_tx: Sender<UiCommand>, ctx: &egui::Context, usage: Arc<Mutex<UsageStore>>) -> Env {
-    let desktop = DesktopHost::new((*rt.settings).clone(), rt.paths.collections()).long_lived();
+/// `solo` window processes (Wayland) exit with their window, so they hand
+/// the clipboard to a helper instead of serving it themselves.
+fn build_env(rt: Arc<Runtime>, ui_tx: Sender<UiCommand>, ctx: &egui::Context, usage: Arc<Mutex<UsageStore>>, solo: bool) -> Env {
+    let desktop = DesktopHost::new((*rt.settings).clone(), rt.paths.collections());
+    let desktop = if solo { desktop } else { desktop.long_lived() };
     let repaint = ctx.clone();
     rt.arcade.on_change(move || repaint.request_repaint());
     let host = Arc::new(GuiHost::new(desktop, ui_tx, ctx.clone(), rt.arcade.clone(), rt.settings.clone()));
@@ -479,7 +484,7 @@ impl LensApp {
                 }
                 let mut st = self.state.lock().unwrap();
                 let usage = st.env.usage.clone();
-                st.env = build_env(rt.clone(), st.ui_tx.clone(), ctx, usage);
+                st.env = build_env(rt.clone(), st.ui_tx.clone(), ctx, usage, self.solo);
                 if let Some(v) = &mut st.settings {
                     v.refresh_runtime(rt);
                 }
@@ -681,8 +686,13 @@ impl LensApp {
             if let Some(ov) = &mut st.overlay {
                 prepare_overlay(&ctx, "Arcade Lens");
                 let root = ov.root_monitor;
+                let closing = ov.close_requested;
                 egui::CentralPanel::default().frame(egui::Frame::new().fill(egui::Color32::BLACK)).show(&ctx, |ui| {
-                    ov.ui(ui, &st.env, root, true);
+                    if closing {
+                        ov.paint_frozen(ui, root);
+                    } else {
+                        ov.ui(ui, &st.env, root, true);
+                    }
                 });
                 if ov.analysis_done && !ov.history_saved {
                     ov.history_saved = true;
@@ -694,11 +704,15 @@ impl LensApp {
                 }
                 close_overlay = ov.close_requested;
             }
-            if close_overlay {
+            // A closing solo window paints one more pass before it goes;
+            // without the overlay that pass would flash black.
+            if close_overlay && !self.solo {
                 st.overlay = None;
             }
         }
-        if close_overlay && !self.solo {
+        if close_overlay && self.solo {
+            ctx.send_viewport_cmd(ViewportCommand::Close);
+        } else if close_overlay {
             self.hide_overlay(&ctx);
         }
 
@@ -771,6 +785,13 @@ impl eframe::App for LensApp {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
         self.logic(ctx, frame);
         self.paint(ctx, frame);
+    }
+
+    /// Runs while the window still exists, however it was closed.
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        if self.fullscreen && lens_platform::hyprland::active() {
+            *CLOSING.lock().unwrap_or_else(|e| e.into_inner()) = lens_platform::hyprland::pause_animations();
+        }
     }
 }
 
@@ -959,7 +980,7 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
         .with_position([-100.0, -100.0])
         .with_window_level(egui::WindowLevel::AlwaysOnTop)
         .with_window_type(if x11 { egui::X11WindowType::Dock } else { egui::X11WindowType::Normal });
-    let mode = Mode { daemon: true, one_shot: false, solo: false };
+    let mode = Mode { daemon: true, one_shot: false, solo: false, fullscreen: false };
     let r = start_app(rt, root, (tx, rx), mode, |_, _| {});
     crate::app::trayhost::stop();
     crate::link::stop();
@@ -1027,16 +1048,23 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
     };
     let rt = Arc::new(loading.join().map_err(|_| "loading settings failed".to_string())??);
     crate::lens_debug!("ready after {:?}", started.elapsed());
+    let fullscreen = matches!(solo, Solo::Capture(_) | Solo::Pick(_) | Solo::Analyze(_));
     let root = match &solo {
         Solo::Capture(_) | Solo::Pick(_) | Solo::Analyze(_) => {
-            ViewportBuilder::default().with_title("Arcade Lens").with_app_id("arcade-lens").with_decorations(false).with_fullscreen(true)
+            let b = ViewportBuilder::default().with_title("Arcade Lens").with_app_id("arcade-lens").with_decorations(false).with_fullscreen(true);
+            // Hyprland shows the first frame before making the window full
+            // screen; drawn at the default size, it flashes in a corner.
+            match lens_platform::hyprland::active().then(lens_platform::hyprland::focused_monitor_size).flatten() {
+                Some((w, h)) => b.with_inner_size([w, h]),
+                None => b,
+            }
         }
         Solo::Settings => settings_view::SettingsView::builder(),
         Solo::Pin(_) => pins::Pin::new(0, image.clone().unwrap(), None, 1.0).builder(),
         Solo::Annotate(_) => annotate::Editor::new(0, image.clone().unwrap()).builder(),
     };
-    let mode = Mode { daemon: false, one_shot: true, solo: true };
-    start_app(rt, root, mpsc::channel(), mode, move |st, ctx| match solo {
+    let mode = Mode { daemon: false, one_shot: true, solo: true, fullscreen };
+    let result = start_app(rt, root, mpsc::channel(), mode, move |st, ctx| match solo {
         Solo::Capture(mode) => {
             let mut ov = make_overlay(ctx, captures);
             ov.mode = mode;
@@ -1064,13 +1092,26 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
             let id = st.id();
             st.editors.push(annotate::Editor::new(id, image.unwrap()));
         }
-    })
+    });
+    if let Some(pause) = CLOSING.lock().unwrap_or_else(|e| e.into_inner()).take() {
+        // Animate again once the compositor has removed the window.
+        let deadline = std::time::Instant::now() + Duration::from_millis(500);
+        while lens_platform::hyprland::has_window(std::process::id()) && std::time::Instant::now() < deadline {
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        drop(pause);
+    }
+    result
 }
+
+/// Hyprland animations, paused while a full-screen overlay closes.
+static CLOSING: Mutex<Option<lens_platform::hyprland::AnimationPause>> = Mutex::new(None);
 
 struct Mode {
     daemon: bool,
     one_shot: bool,
     solo: bool,
+    fullscreen: bool,
 }
 
 fn start_app(
@@ -1081,7 +1122,7 @@ fn start_app(
     init: impl FnOnce(&mut AppState, &egui::Context) + 'static,
 ) -> Result<(), String> {
     let options = eframe::NativeOptions { viewport: root.with_icon(crate::icon::window_icon()), ..Default::default() };
-    let Mode { daemon, one_shot, solo } = mode;
+    let Mode { daemon, one_shot, solo, fullscreen } = mode;
     eframe::run_native(
         "Arcade Lens",
         options,
@@ -1119,7 +1160,7 @@ fn start_app(
             ctx.request_repaint();
             let (ui_tx, ui_rx) = mpsc::channel();
             let usage = Arc::new(Mutex::new(config::load_usage(&rt.paths)));
-            let env = build_env(rt.clone(), ui_tx.clone(), &ctx, usage);
+            let env = build_env(rt.clone(), ui_tx.clone(), &ctx, usage, solo);
             let state = AppState {
                 env,
                 overlay: None,
@@ -1151,6 +1192,7 @@ fn start_app(
                 root_visible: solo,
                 activity: solo,
                 solo,
+                fullscreen,
                 init: Some(Box::new(init)),
             }))
         }),

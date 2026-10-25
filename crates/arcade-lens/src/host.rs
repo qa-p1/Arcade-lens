@@ -17,9 +17,19 @@ pub struct DesktopHost {
     settings: Settings,
     collections: PathBuf,
     features: HostFeatures,
-    /// Long-lived processes own the clipboard themselves; short-lived CLI
-    /// runs hand it to wl-copy/xclip so it survives process exit.
+    /// Long-lived processes own the clipboard themselves; short-lived ones
+    /// (CLI runs, Wayland window processes) hand it to wl-copy/xclip so it
+    /// survives process exit.
     long_lived: bool,
+}
+
+/// On Linux the program that set the clipboard serves it, and arboard stops
+/// serving when its last `Clipboard` drops. Long-lived processes keep one.
+#[cfg(target_os = "linux")]
+static HELD_CLIPBOARD: std::sync::Mutex<Option<arboard::Clipboard>> = std::sync::Mutex::new(None);
+
+fn clipboard_error(e: arboard::Error) -> LensError {
+    LensError::Failed(format!("clipboard: {e}"))
 }
 
 fn which(cmd: &str) -> Option<PathBuf> {
@@ -154,6 +164,18 @@ impl DesktopHost {
         }
         None
     }
+
+    fn with_clipboard<T>(&self, f: impl FnOnce(&mut arboard::Clipboard) -> std::result::Result<T, arboard::Error>) -> Result<T> {
+        #[cfg(target_os = "linux")]
+        if self.long_lived {
+            let mut held = HELD_CLIPBOARD.lock().unwrap_or_else(|e| e.into_inner());
+            if held.is_none() {
+                *held = Some(arboard::Clipboard::new().map_err(clipboard_error)?);
+            }
+            return f(held.as_mut().expect("just set")).map_err(clipboard_error);
+        }
+        arboard::Clipboard::new().and_then(|mut c| f(&mut c)).map_err(clipboard_error)
+    }
 }
 
 fn private_flag(browser: &str) -> Option<&'static str> {
@@ -188,7 +210,7 @@ impl Host for DesktopHost {
         if let Some(r) = self.linux_clipboard("text/plain;charset=utf-8", text.as_bytes()) {
             return r;
         }
-        arboard::Clipboard::new().and_then(|mut c| c.set_text(text)).map_err(|e| LensError::Failed(format!("clipboard: {e}")))
+        self.with_clipboard(|c| c.set_text(text))
     }
 
     fn set_clipboard_image(&self, image: &RgbaImage) -> Result<()> {
@@ -197,11 +219,11 @@ impl Host for DesktopHost {
             return r;
         }
         let data = arboard::ImageData { width: image.width() as usize, height: image.height() as usize, bytes: image.as_raw().into() };
-        arboard::Clipboard::new().and_then(|mut c| c.set_image(data)).map_err(|e| LensError::Failed(format!("clipboard: {e}")))
+        self.with_clipboard(|c| c.set_image(data))
     }
 
     fn clipboard_text(&self) -> Result<String> {
-        arboard::Clipboard::new().and_then(|mut c| c.get_text()).map_err(|e| LensError::Failed(format!("clipboard: {e}")))
+        self.with_clipboard(|c| c.get_text())
     }
 
     fn open_uri(&self, uri: &str, private: bool) -> Result<()> {

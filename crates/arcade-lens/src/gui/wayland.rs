@@ -32,8 +32,10 @@ pub enum Solo {
 }
 
 /// Keeps Lens windows out of the tiling layout and the overlay unanimated.
+/// The overlay maps floating and full-screen at once: as a tiled window it
+/// would first take a tile, push the other windows aside and animate.
 const WINDOW_RULES: &[&str] = &[
-    r#"match = { class = "^(arcade-lens)$" }, no_anim = true, opaque = true, no_blur = true, no_shadow = true, no_dim = true"#,
+    r#"match = { class = "^(arcade-lens)$" }, float = true, fullscreen = true, no_anim = true, opaque = true, no_blur = true, no_shadow = true, no_dim = true"#,
     r#"match = { class = "^(arcade-lens-pin)$" }, float = true, pin = true, opaque = true, no_anim = true, no_blur = true, no_shadow = true, border_size = 0"#,
     r#"match = { class = "^(arcade-lens-(annotate|settings))$" }, float = true, center = true, opaque = true"#,
 ];

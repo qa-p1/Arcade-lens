@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.3.4 — 2026-10-25
+
+- Copy actions work on Wayland again: each capture runs in its own process, and
+  the copied text or image disappeared when that process closed. Lens now
+  hands the clipboard to `wl-copy` (or `xclip`), so it stays after the overlay
+  closes. On X11 the clipboard no longer empties after each copy either.
+- No more flicker on Hyprland when the overlay opens or closes. It used to
+  appear as a tiled window that pushed the other windows aside before going
+  full screen, draw its first frame in a corner, and on closing show a black
+  frame while the desktop faded back in. The overlay now opens floating and
+  full screen at your monitor's size, and closes straight to the desktop.
+
 ## 0.3.3 — 2026-10-19
 
 - A helper an app starts from its own image (such as a settings window) keeps

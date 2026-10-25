@@ -143,6 +143,54 @@ pub fn focus_pid(pid: u32) {
     };
 }
 
+fn json(args: &[&str]) -> Option<serde_json::Value> {
+    let out = Command::new("hyprctl").args(args).arg("-j").output().ok()?;
+    serde_json::from_slice(&out.stdout).ok()
+}
+
+/// The focused monitor's size in logical pixels, which is where a new window opens.
+pub fn focused_monitor_size() -> Option<(f32, f32)> {
+    let monitors = json(&["monitors"])?;
+    let m = monitors.as_array()?.iter().find(|m| m["focused"].as_bool() == Some(true))?;
+    let scale = m["scale"].as_f64().filter(|s| *s > 0.0)?;
+    let (w, h) = ((m["width"].as_f64()? / scale) as f32, (m["height"].as_f64()? / scale) as f32);
+    // Odd transforms rotate by 90° or 270°.
+    Some(if m["transform"].as_i64().unwrap_or(0) % 2 == 1 { (h, w) } else { (w, h) })
+}
+
+/// Whether process `pid` still has a window on screen.
+pub fn has_window(pid: u32) -> bool {
+    json(&["clients"]).and_then(|c| c.as_array().map(|c| c.iter().any(|w| w["pid"].as_u64() == Some(u64::from(pid))))).unwrap_or(false)
+}
+
+fn set_animations(enabled: bool) -> Result<(), String> {
+    if lua() {
+        hyprctl(&["eval", &format!("hl.config({{ animations = {{ enabled = {enabled} }} }})")])
+    } else {
+        hyprctl(&["keyword", "animations:enabled", if enabled { "1" } else { "0" }])
+    }
+}
+
+/// Compositor animations, turned off until this is dropped.
+pub struct AnimationPause(());
+
+impl Drop for AnimationPause {
+    fn drop(&mut self) {
+        if let Err(e) = set_animations(true) {
+            eprintln!("arcade-lens: {e}");
+        }
+    }
+}
+
+/// Turns animations off when they are on. Hyprland hides the windows and
+/// bars behind a full-screen window and fades them back in when it closes;
+/// with animations paused they reappear at once.
+pub fn pause_animations() -> Option<AnimationPause> {
+    let option = json(&["getoption", "animations:enabled"])?;
+    let enabled = option["bool"].as_bool().or_else(|| option["int"].as_i64().map(|i| i != 0))?;
+    (enabled && set_animations(false).is_ok()).then_some(AnimationPause(()))
+}
+
 /// Adds window rules, each the body of a Lua `hl.window_rule{…}` table.
 /// Only supported on Lua-configured Hyprland; older versions skip them.
 pub fn add_window_rules(rules: &[&str]) {

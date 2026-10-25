@@ -148,7 +148,7 @@ dependencies = [
 
 [[package]]
 name = "arcade-lens"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "ab_glyph",
  "arboard",
@@ -2539,7 +2539,7 @@ checksum = "7a79a3332a6609480d7d0c9eab957bca6b455b91bb84e66d19f5ff66294b85b8"
 
 [[package]]
 name = "lens-actions"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "arcade-link",
  "chrono",
@@ -2554,7 +2554,7 @@ dependencies = [
 
 [[package]]
 name = "lens-core"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "bitflags 2.13.2",
  "image",
@@ -2567,7 +2567,7 @@ dependencies = [
 
 [[package]]
 name = "lens-platform"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "arcade-link",
  "ashpd",
@@ -2594,7 +2594,7 @@ dependencies = [
 
 [[package]]
 name = "lens-plugins"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "image",
  "lens-core",
@@ -2605,7 +2605,7 @@ dependencies = [
 
 [[package]]
 name = "lens-recognizers"
-version = "0.3.3"
+version = "0.3.4"
 dependencies = [
  "chrono",
  "image",

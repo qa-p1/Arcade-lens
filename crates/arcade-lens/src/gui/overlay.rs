@@ -527,6 +527,12 @@ impl Overlay {
         self.panel = Panel::Primary;
     }
 
+    /// Only the frozen screen: what a closing window shows until it is gone.
+    pub fn paint_frozen(&self, ui: &egui::Ui, mon: usize) {
+        let screen = ui.max_rect();
+        ui.painter_at(screen).image(self.view(mon).texture.id(), screen, egui::Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
+    }
+
     /// Draws one monitor's overlay. `primary` is true for the window that owns keyboard focus.
     pub fn ui(&mut self, ui: &mut egui::Ui, env: &Env, mon: usize, primary: bool) {
         let ctx = ui.ctx().clone();

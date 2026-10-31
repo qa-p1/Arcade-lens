@@ -15,8 +15,8 @@ lens-recognizers = { path = "crates/lens-recognizers" }
 lens-actions = { path = "crates/lens-actions" }
 lens-platform = { path = "crates/lens-platform" }
 lens-plugins = { path = "crates/lens-plugins" }
-# Arcade Link v0.3.0 supplies the shared install, tray-host and app-settings APIs.
-arcade-link = { git = "https://github.com/qa-p1/Arcade-link", rev = "4c75f3a7c806ae78f96127c556708e65eaeeb476", features = ["watch", "engines", "install", "trayhost"] }
+# Arcade Link: shared install, tray-host, app-settings APIs and the design kit (design, design-egui).
+arcade-link = { git = "https://github.com/qa-p1/Arcade-Link", tag = "v0.4.12", features = ["watch", "engines", "install", "trayhost", "design", "design-egui"] }
 image = { version = "0.25", default-features = false, features = ["png", "jpeg", "webp"] }
 regex = "1"
 chrono = { version = "0.4", default-features = false, features = ["std", "clock"] }

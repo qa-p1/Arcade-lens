@@ -12,8 +12,7 @@
 | Resize the selected region | Shift+←<br>Shift+→<br>Shift+↑<br>Shift+↓ | Shift+←<br>Shift+→<br>Shift+↑<br>Shift+↓ | ⇧←<br>⇧→<br>⇧↑<br>⇧↓ |
 | Move the selected region by a larger step | Ctrl+←<br>Ctrl+→<br>Ctrl+↑<br>Ctrl+↓ | Ctrl+←<br>Ctrl+→<br>Ctrl+↑<br>Ctrl+↓ | ⌘←<br>⌘→<br>⌘↑<br>⌘↓ |
 | Run the highlighted action | Enter | Enter | ↩ |
-| Show all actions | Space | Space | Space |
-| Show all actions | Tab | Tab | ⇥ |
+| Show all actions | Space<br>Tab | Space<br>Tab | Space<br>⇥ |
 | Copy the selected region as an image | Ctrl+C | Ctrl+C | ⌘C |
 | Enter measure mode | M | M | M |
 | Close the capture or return to main actions | Escape | Escape | ⎋ |
@@ -22,10 +21,8 @@
 
 | Action | Linux | Windows | macOS |
 | --- | --- | --- | --- |
-| Select the next action | ↓ | ↓ | ↓ |
-| Select the next action | Tab | Tab | ⇥ |
-| Select the previous action | ↑ | ↑ | ↑ |
-| Select the previous action | Shift+Tab | Shift+Tab | ⇧⇥ |
+| Select the next action | ↓<br>Tab | ↓<br>Tab | ↓<br>⇥ |
+| Select the previous action | ↑<br>Shift+Tab | ↑<br>Shift+Tab | ↑<br>⇧⇥ |
 | Move down one page | PageDown | PageDown | PageDown |
 | Move up one page | PageUp | PageUp | PageUp |
 | Run the selected action | Enter | Enter | ↩ |
@@ -59,8 +56,7 @@
 
 | Action | Linux | Windows | macOS |
 | --- | --- | --- | --- |
-| Copy the action result | Enter | Enter | ↩ |
-| Copy the action result | Ctrl+C | Ctrl+C | ⌘C |
+| Copy the action result | Enter<br>Ctrl+C | Enter<br>Ctrl+C | ↩<br>⌘C |
 
 ## Action chips
 
@@ -106,8 +102,7 @@
 | Select the text tool | 7 | 7 | 7 |
 | Select the pixelate tool | 8 | 8 | 8 |
 | Undo the last annotation | Ctrl+Z | Ctrl+Z | ⌘Z |
-| Redo an annotation | Ctrl+Shift+Z | Ctrl+Shift+Z | ⇧⌘Z |
-| Redo an annotation | Ctrl+Y | Ctrl+Y | ⌘Y |
+| Redo an annotation | Ctrl+Shift+Z<br>Ctrl+Y | Ctrl+Shift+Z<br>Ctrl+Y | ⇧⌘Z<br>⌘Y |
 | Copy the annotated image | Ctrl+C | Ctrl+C | ⌘C |
 | Save the annotated image | Ctrl+S | Ctrl+S | ⌘S |
 

@@ -22,4 +22,4 @@ The expanded palette marks outbound actions with **↗** and shows exactly what 
 
 Other apps can ask Lens to capture a region, analyze an image, recognize text and codes, or pin an image. Those actions can open Lens on screen; recognition can also run without opening the palette.
 
-The Shelf and Find integrations were exercised with the real apps in an isolated runner. Windows and macOS were not run interactively on real desktops. See [Arcade Link details](../ARCADE_LINK.md) and [STATUS](../STATUS.md).
+The Shelf and Find integrations were exercised with the real apps in an isolated runner. Windows and macOS were not run interactively on real desktops. See [Arcade Link details](https://github.com/qa-p1/Arcade-lens/blob/main/docs/dev/link.md) and [STATUS](https://github.com/qa-p1/Arcade-lens/blob/main/docs/STATUS.md).

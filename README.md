@@ -46,9 +46,9 @@ Pushes to `main` that change the version publish a new latest release; other `ma
 - **Safe by default:** outbound actions are hidden when content looks like a password, key or token. Commands read from the screen never run without confirmation; dangerous ones need Ctrl+Enter or a click.
 - **Customizable:** shortcut, OCR languages, screenshot format and folder, preferred or disabled actions, recognizers, action keys, saved chains, providers, plugins, connected apps, privacy and history (off by default).
 - **Chains** combine compatible actions into a repeatable workflow.
-- **Plugins:** third-party recognizers and actions run out of process with declared permissions and stay disabled until you enable them. See [plugins](docs/PLUGINS.md) and the [ISBN example](examples/plugins/isbn).
+- **Plugins:** third-party recognizers and actions run out of process with declared permissions and stay disabled until you enable them. See [plugins](docs/dev/plugins.md) and the [ISBN example](examples/plugins/isbn).
 
-More in [Features](docs/user/features.md) and [architecture](docs/ARCHITECTURE.md).
+More in [Features](docs/user/features.md) and [architecture](docs/dev/architecture.md).
 
 ## Works with other Arcade apps
 
@@ -68,7 +68,7 @@ The expanded palette marks outbound actions with **↗** and shows exactly what 
 
 When Arcade Tools is running, its tray icon hosts Lens's menu, including **Capture**, **Capture text** and **Pick color**. When Tools quits, crashes or turns hosting off, Lens's own icon returns at once. With **Connect with other Arcade apps** off, Lens always shows its own icon.
 
-See [how Lens works with other Arcade apps](docs/user/with-other-apps.md) and the [Arcade Link reference](docs/ARCADE_LINK.md).
+See [how Lens works with other Arcade apps](docs/user/with-other-apps.md) and the [Arcade Link reference](docs/dev/link.md).
 
 ## Usage
 
@@ -156,9 +156,9 @@ Arcade Link is pinned to a release tag in `Cargo.toml`. A local dependency overr
 ## Documentation
 
 - [User guide](docs/user/): [getting started](docs/user/getting-started.md), [features](docs/user/features.md), [shortcuts](docs/user/shortcuts.md), [FAQ](docs/user/faq.md), [troubleshooting](docs/user/troubleshooting.md)
-- [Architecture](docs/ARCHITECTURE.md): dataflow and safety model
-- [Arcade Link](docs/ARCADE_LINK.md): actions, capture modes and peer integration
-- [Plugins](docs/PLUGINS.md): plugin API and permissions
+- [Architecture](docs/dev/architecture.md): dataflow and safety model
+- [Arcade Link](docs/dev/link.md): actions, capture modes and peer integration
+- [Plugins](docs/dev/plugins.md): plugin API and permissions
 - [Status](docs/STATUS.md): verification record and remaining limits
 - [Changelog](CHANGELOG.md)
 - [Vendored files](VENDORED): source and license details for copied files

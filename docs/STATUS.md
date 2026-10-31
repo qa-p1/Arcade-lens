@@ -98,6 +98,6 @@ and the matching file listed. Run it with `ARCADE_SHELF_BIN` and
 | Document | Contents |
 |---|---|
 | [README](../README.md) | Install, use, recognizers, privacy, platform table, building |
-| [ARCHITECTURE](ARCHITECTURE.md) | Crates, process model, engine, ranking, safety model, platform layer |
-| [ARCADE_LINK](ARCADE_LINK.md) | Exposed actions, capture modes, connected actions, verification commands |
-| [PLUGINS](PLUGINS.md) | Out-of-process plugin manifest, protocol and permissions |
+| [Architecture](dev/architecture.md) | Crates, process model, engine, ranking, safety model, platform layer |
+| [Arcade Link](dev/link.md) | Exposed actions, capture modes, connected actions, verification commands |
+| [Plugins](dev/plugins.md) | Out-of-process plugin manifest, protocol and permissions |

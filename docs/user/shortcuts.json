@@ -23,8 +23,7 @@
         { "id": "resize-selection", "title": "Resize the selected region", "keys": { "default": ["Shift+Left", "Shift+Right", "Shift+Up", "Shift+Down"] } },
         { "id": "move-selection-far", "title": "Move the selected region by a larger step", "keys": { "default": ["Ctrl+Left", "Ctrl+Right", "Ctrl+Up", "Ctrl+Down"], "macos": ["Super+Left", "Super+Right", "Super+Up", "Super+Down"] } },
         { "id": "run-default-action", "title": "Run the highlighted action", "keys": { "default": "Enter" } },
-        { "id": "show-all-actions-space", "title": "Show all actions", "keys": { "default": "Space" } },
-        { "id": "show-all-actions-tab", "title": "Show all actions", "keys": { "default": "Tab" } },
+        { "id": "show-all-actions", "title": "Show all actions", "keys": { "default": ["Space", "Tab"] } },
         { "id": "copy-selection", "title": "Copy the selected region as an image", "keys": { "default": "Ctrl+C", "macos": "Super+C" } },
         { "id": "start-measuring", "title": "Enter measure mode", "keys": { "default": "M" } },
         { "id": "close-selection", "title": "Close the capture or return to main actions", "keys": { "default": "Escape" } }
@@ -34,10 +33,8 @@
       "title": "Expanded action list",
       "context": "expanded-actions",
       "shortcuts": [
-        { "id": "next-action-down", "title": "Select the next action", "keys": { "default": "Down" } },
-        { "id": "next-action-tab", "title": "Select the next action", "keys": { "default": "Tab" } },
-        { "id": "previous-action-up", "title": "Select the previous action", "keys": { "default": "Up" } },
-        { "id": "previous-action-tab", "title": "Select the previous action", "keys": { "default": "Shift+Tab" } },
+        { "id": "next-action", "title": "Select the next action", "keys": { "default": ["Down", "Tab"] } },
+        { "id": "previous-action", "title": "Select the previous action", "keys": { "default": ["Up", "Shift+Tab"] } },
         { "id": "next-action-page", "title": "Move down one page", "keys": { "default": "PageDown" } },
         { "id": "previous-action-page", "title": "Move up one page", "keys": { "default": "PageUp" } },
         { "id": "run-expanded-action", "title": "Run the selected action", "keys": { "default": "Enter" } },
@@ -74,8 +71,7 @@
       "title": "Action result",
       "context": "result",
       "shortcuts": [
-        { "id": "copy-result-enter", "title": "Copy the action result", "keys": { "default": "Enter" } },
-        { "id": "copy-result-shortcut", "title": "Copy the action result", "keys": { "default": "Ctrl+C", "macos": "Super+C" } }
+        { "id": "copy-result", "title": "Copy the action result", "keys": { "default": ["Enter", "Ctrl+C"], "macos": ["Enter", "Super+C"] } }
       ]
     },
     {
@@ -124,8 +120,7 @@
         { "id": "tool-text", "title": "Select the text tool", "keys": { "default": "7" } },
         { "id": "tool-pixelate", "title": "Select the pixelate tool", "keys": { "default": "8" } },
         { "id": "undo-annotation", "title": "Undo the last annotation", "keys": { "default": "Ctrl+Z", "macos": "Super+Z" } },
-        { "id": "redo-annotation-shift-z", "title": "Redo an annotation", "keys": { "default": "Ctrl+Shift+Z", "macos": "Shift+Super+Z" } },
-        { "id": "redo-annotation-y", "title": "Redo an annotation", "keys": { "default": "Ctrl+Y", "macos": "Super+Y" } },
+        { "id": "redo-annotation", "title": "Redo an annotation", "keys": { "default": ["Ctrl+Shift+Z", "Ctrl+Y"], "macos": ["Shift+Super+Z", "Super+Y"] } },
         { "id": "copy-annotated-image", "title": "Copy the annotated image", "keys": { "default": "Ctrl+C", "macos": "Super+C" } },
         { "id": "save-annotated-image", "title": "Save the annotated image", "keys": { "default": "Ctrl+S", "macos": "Super+S" } }
       ]

@@ -4,14 +4,14 @@ A plugin adds recognizers (new things Lens can find in a selection) and
 actions (new things it can do with them). Plugins run **out of process**: a
 plugin is a directory holding a `plugin.toml` manifest and an executable that
 speaks newline-delimited JSON over stdin/stdout. Any language works. The
-reference examples are in [`examples/plugins`](../examples/plugins):
+reference examples are in [`examples/plugins`](../../examples/plugins):
 
 | Example | Shows |
 |---|---|
 | `isbn/` | A recognizer (ISBN-10/13 with checksum) plus two actions, one of them outbound |
 
 Arcade Look, Box, Clipboard and Wheel use the built-in
-[Arcade Link module](ARCADE_LINK.md). They are enabled by default when
+[Arcade Link module](link.md). They are enabled by default when
 installed; switch them off in **Settings → Connected apps**.
 
 ## Installing and enabling

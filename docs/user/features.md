@@ -57,4 +57,4 @@ Third-party recognizers and actions run out of process with declared permissions
 - **Windows:** capture uses xcap and OCR uses Windows.Media.Ocr. The build passes CI, but the app has not been run interactively on a real desktop.
 - **macOS:** capture uses xcap and OCR uses Apple Vision. Screen Recording permission is needed; window detection is available but window commands are not implemented. The build passes CI, but the app has not been run interactively on a real desktop.
 
-See [STATUS](../STATUS.md) for the current verification record.
+See [STATUS](https://github.com/qa-p1/Arcade-lens/blob/main/docs/STATUS.md) for the current verification record.

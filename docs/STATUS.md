@@ -1,5 +1,18 @@
 # Arcade Lens: status
 
+## 2026-10-31: overhaul paused; local-source preservation gap
+
+Actual latest release is v0.3.4, main `c862102c19a9839f40ef371953f7bb922ce055a6`.
+A local 0.4.0 overhaul was started, including shared-kit Settings, themes and
+assets, but was not pushed before the workspace reset. This branch archives
+recoverable edit records and a detailed inventory; it does not contain a complete
+buildable snapshot of that work. Intermediate Clippy and 50 vendored hashes were
+observed passing; offline docs failed four links; final tests/native screenshots/
+three-OS CI/releases were not verified. **Lens is unfinished and not released.**
+See the [checkpoint](dev/checkpoints/2026-10-31/README.md), including what was lost,
+what was written, what remains, and how to resume. Older entries below are historical.
+
+
 ## Release status (2026-10-18)
 
 - Latest release: [v0.3.3](https://github.com/qa-p1/Arcade-lens/releases/tag/v0.3.3), published 2026-10-19 (only programs from another image drop the AppImage's descriptors; see CHANGELOG.md). The CI and e2e notes below were recorded for v0.2.0.

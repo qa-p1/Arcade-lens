@@ -379,9 +379,6 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
                         crate::link::refresh(&settings);
                         crate::app::trayhost::set_link_enabled(settings.link.enabled);
                         shortcut.apply(paths);
-                        if let Some(t) = &tray {
-                            t.set_shortcut(shortcut.current());
-                        }
                     }
                     "rebind" => {
                         // The reload dropped our binding and rules.
@@ -398,7 +395,7 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
                 match state {
                     TrayState::Own if tray.is_none() => {
                         let t = tx.clone();
-                        tray = background::tray(shortcut.current(), move |e| {
+                        tray = background::tray(move |e| {
                             let _ = t.send(Cmd::Named(match e {
                                 TrayEvent::Capture => "capture",
                                 TrayEvent::CaptureText => "capture-text",
@@ -422,9 +419,6 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
             }
             Cmd::Hub(Trigger::ShortcutSet { accelerator, reply }) => {
                 let result = crate::app::hub::set_shortcut(paths, &accelerator, |a| shortcut.bind(a));
-                if let Some(t) = &tray {
-                    t.set_shortcut(shortcut.current());
-                }
                 let _ = reply.send(result);
             }
             Cmd::Hub(Trigger::SettingsImport { inputs, reply }) => {

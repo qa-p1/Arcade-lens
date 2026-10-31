@@ -11,8 +11,8 @@ use crate::config::Paths;
 use crate::icon;
 
 /// Shows the tray icon, if the desktop has a tray.
-pub fn tray(shortcut: Option<String>, on_event: impl Fn(TrayEvent) + Send + Sync + 'static) -> Option<Tray> {
-    match Tray::spawn(icon::tray_icons(), shortcut, on_event) {
+pub fn tray(on_event: impl Fn(TrayEvent) + Send + Sync + 'static) -> Option<Tray> {
+    match Tray::spawn(icon::tray_icons(), on_event) {
         Ok(t) => Some(t),
         Err(e) => {
             crate::lens_debug!("no tray icon: {e}");

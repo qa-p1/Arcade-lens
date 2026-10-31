@@ -207,9 +207,8 @@ impl LensApp {
         use arcade_link::trayhost::TrayState;
         match state {
             TrayState::Own if self.tray.is_none() => {
-                let shortcut = self.state.lock().unwrap_or_else(|e| e.into_inner()).env.rt.settings.activation_shortcut.clone();
                 let tx = self.trigger_sender.clone();
-                self.tray = background::tray(shortcut, move |event| {
+                self.tray = background::tray(move |event| {
                     use lens_platform::tray::TrayEvent;
                     let trigger = match event {
                         TrayEvent::Capture => Trigger::Capture,
@@ -245,10 +244,6 @@ impl LensApp {
     fn apply_hub_shortcut(&mut self, ctx: &egui::Context, accelerator: &str) -> Result<arcade_link::app::ShortcutSetResult, arcade_link::LinkError> {
         let paths = self.paths.clone();
         let result = crate::app::hub::set_shortcut(&paths, accelerator, |a| self.apply_live_shortcut(a))?;
-        if let Some(tray) = &self.tray {
-            let settings = config::load_settings(&self.paths).map_err(arcade_link::LinkError::unavailable)?;
-            tray.set_shortcut(settings.activation_shortcut);
-        }
         self.reload_runtime(ctx);
         Ok(result)
     }
@@ -258,10 +253,6 @@ impl LensApp {
         let result = crate::app::hub::import_settings(&paths, inputs, |a| self.apply_live_shortcut(a))?;
         if result.imported {
             self.reload_runtime(ctx);
-            if let Some(tray) = &self.tray {
-                let settings = config::load_settings(&self.paths).map_err(arcade_link::LinkError::unavailable)?;
-                tray.set_shortcut(settings.activation_shortcut);
-            }
         }
         Ok(result)
     }
@@ -397,9 +388,6 @@ impl LensApp {
                         },
                     };
                     if ok {
-                        if let Some(t) = &self.tray {
-                            t.set_shortcut(settings.activation_shortcut.clone());
-                        }
                         self.reload_runtime(ctx);
                         if self.solo {
                             // The background instance owns the shortcut binding.

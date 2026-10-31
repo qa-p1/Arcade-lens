@@ -1,5 +1,6 @@
 //! The tray icon: shows that Lens is running in the background and gives
-//! quick access to capture, settings, start at login, restart and quit.
+//! quick access to capture, settings, restart and quit. Its tooltip is the
+//! tagline; a click captures (Windows, Linux); on macOS it opens the menu.
 //!
 //! Linux uses StatusNotifierItem over D-Bus (KDE, Waybar, Quickshell, GNOME
 //! with the AppIndicator extension, …); Windows and macOS use the
@@ -15,6 +16,17 @@ pub enum TrayEvent {
     Restart,
     Quit,
 }
+
+/// The tray menu, in the standard order (`None` is a separator).
+pub const MENU: [Option<(&str, TrayEvent)>; 7] = [
+    Some(("Open Arcade Lens", TrayEvent::Capture)),
+    Some(("Capture text", TrayEvent::CaptureText)),
+    Some(("Pick color", TrayEvent::PickColor)),
+    Some(("Settings", TrayEvent::Settings)),
+    None,
+    Some(("Restart Arcade Lens", TrayEvent::Restart)),
+    Some(("Quit Arcade Lens", TrayEvent::Quit)),
+];
 
 /// A square icon as unpremultiplied RGBA.
 pub struct TrayIcon {
@@ -34,31 +46,21 @@ impl Tray {
     /// the main thread. On Windows and macOS this must be called on the main
     /// thread while its event loop runs. On Linux, if no tray is running yet
     /// (early at login), the icon appears once one starts.
-    pub fn spawn(icons: Vec<TrayIcon>, shortcut: Option<String>, on_event: impl Fn(TrayEvent) + Send + Sync + 'static) -> Result<Tray, String> {
+    pub fn spawn(icons: Vec<TrayIcon>, on_event: impl Fn(TrayEvent) + Send + Sync + 'static) -> Result<Tray, String> {
         #[cfg(target_os = "linux")]
         {
             use ksni::blocking::TrayMethods;
-            let item = sni::Item::new(icons, shortcut, Box::new(on_event));
+            let item = sni::Item::new(icons, Box::new(on_event));
             let handle = item.assume_sni_available(true).spawn().map_err(|e| e.to_string())?;
             return Ok(Tray { handle });
         }
         #[cfg(any(windows, target_os = "macos"))]
-        return native::Native::new(icons, shortcut, Box::new(on_event)).map(|native| Tray { native });
+        return native::Native::new(icons, Box::new(on_event)).map(|native| Tray { native });
         #[allow(unreachable_code)]
         {
-            let _ = (icons, shortcut, on_event);
+            let _ = (icons, on_event);
             Err("no tray on this platform".into())
         }
-    }
-
-    /// Updates the shortcut shown in the tooltip.
-    pub fn set_shortcut(&self, shortcut: Option<String>) {
-        #[cfg(target_os = "linux")]
-        self.handle.update(|t| t.shortcut = shortcut);
-        #[cfg(any(windows, target_os = "macos"))]
-        self.native.set_shortcut(shortcut);
-        #[cfg(not(any(target_os = "linux", windows, target_os = "macos")))]
-        let _ = shortcut;
     }
 
     /// Keeps the native object alive while Link temporarily owns its icon.
@@ -86,17 +88,16 @@ mod sni {
     use ksni::menu::StandardItem;
     use ksni::{Icon, MenuItem, ToolTip};
 
-    use super::{TrayEvent, TrayIcon};
+    use super::{TrayEvent, TrayIcon, MENU};
 
     pub struct Item {
         icons: Vec<Icon>,
-        pub shortcut: Option<String>,
         pub visible: bool,
         on_event: Box<dyn Fn(TrayEvent) + Send + Sync>,
     }
 
     impl Item {
-        pub fn new(icons: Vec<TrayIcon>, shortcut: Option<String>, on_event: Box<dyn Fn(TrayEvent) + Send + Sync>) -> Item {
+        pub fn new(icons: Vec<TrayIcon>, on_event: Box<dyn Fn(TrayEvent) + Send + Sync>) -> Item {
             let icons = icons
                 .into_iter()
                 .map(|i| Icon {
@@ -106,7 +107,7 @@ mod sni {
                     data: i.rgba.as_chunks::<4>().0.iter().flat_map(|&[r, g, b, a]| [a, r, g, b]).collect(),
                 })
                 .collect();
-            Item { icons, shortcut, visible: true, on_event }
+            Item { icons, visible: true, on_event }
         }
 
         fn action(label: &str, event: TrayEvent) -> MenuItem<Item> {
@@ -116,7 +117,7 @@ mod sni {
 
     impl ksni::Tray for Item {
         fn id(&self) -> String {
-            "arcade-lens".into()
+            crate::autostart::OS_ID.into()
         }
 
         fn title(&self) -> String {
@@ -136,32 +137,20 @@ mod sni {
         }
 
         fn tool_tip(&self) -> ToolTip {
-            let description = match &self.shortcut {
-                Some(s) => format!("Press {s} to select anything on screen"),
-                None => "Running in the background".into(),
-            };
-            ToolTip { title: "Arcade Lens".into(), description, icon_name: String::new(), icon_pixmap: Vec::new() }
+            ToolTip { title: "Arcade Lens".into(), description: crate::autostart::TAGLINE.into(), icon_name: String::new(), icon_pixmap: Vec::new() }
         }
 
+        /// A click captures; a middle click opens Settings.
         fn activate(&mut self, _x: i32, _y: i32) {
-            (self.on_event)(TrayEvent::Settings);
-        }
-
-        fn secondary_activate(&mut self, _x: i32, _y: i32) {
             (self.on_event)(TrayEvent::Capture);
         }
 
+        fn secondary_activate(&mut self, _x: i32, _y: i32) {
+            (self.on_event)(TrayEvent::Settings);
+        }
+
         fn menu(&self) -> Vec<MenuItem<Self>> {
-            // The same menu as every Arcade app: open, settings, restart, quit.
-            vec![
-                Self::action("Open Lens", TrayEvent::Capture),
-                Self::action("Capture text", TrayEvent::CaptureText),
-                Self::action("Pick color", TrayEvent::PickColor),
-                Self::action("Open Settings", TrayEvent::Settings),
-                Self::action("Restart Arcade Lens", TrayEvent::Restart),
-                MenuItem::Separator,
-                Self::action("Quit Arcade Lens", TrayEvent::Quit),
-            ]
+            MENU.iter().map(|item| item.map_or(MenuItem::Separator, |(label, event)| Self::action(label, event))).collect()
         }
     }
 }
@@ -173,52 +162,39 @@ mod native {
     use tray_icon::menu::{Menu, MenuEvent, MenuId, MenuItem, PredefinedMenuItem};
     use tray_icon::{Icon, MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent};
 
-    use super::{TrayEvent, TrayIcon};
+    use super::{TrayEvent, TrayIcon, MENU};
 
     pub struct Native {
         icon: tray_icon::TrayIcon,
     }
 
-    fn tooltip(shortcut: Option<&str>) -> String {
-        match shortcut {
-            Some(s) => format!("Arcade Lens: press {s} to select anything on screen"),
-            None => "Arcade Lens".into(),
-        }
-    }
-
     impl Native {
-        pub fn new(icons: Vec<TrayIcon>, shortcut: Option<String>, on_event: Box<dyn Fn(TrayEvent) + Send + Sync>) -> Result<Native, String> {
+        pub fn new(icons: Vec<TrayIcon>, on_event: Box<dyn Fn(TrayEvent) + Send + Sync>) -> Result<Native, String> {
             let on_event: Arc<dyn Fn(TrayEvent) + Send + Sync> = on_event.into();
-            let capture = MenuItem::new("Open Lens", true, None);
-            let capture_text = MenuItem::new("Capture text", true, None);
-            let pick_color = MenuItem::new("Pick color", true, None);
-            let settings = MenuItem::new("Open Settings", true, None);
-            let restart = MenuItem::new("Restart Arcade Lens", true, None);
-            let quit = MenuItem::new("Quit Arcade Lens", true, None);
             let menu = Menu::new();
-            menu.append_items(&[&capture, &capture_text, &pick_color, &settings, &restart, &PredefinedMenuItem::separator(), &quit])
-                .map_err(|e| e.to_string())?;
-
-            let actions: Vec<(MenuId, TrayEvent)> = vec![
-                (capture.id().clone(), TrayEvent::Capture),
-                (capture_text.id().clone(), TrayEvent::CaptureText),
-                (pick_color.id().clone(), TrayEvent::PickColor),
-                (settings.id().clone(), TrayEvent::Settings),
-                (restart.id().clone(), TrayEvent::Restart),
-                (quit.id().clone(), TrayEvent::Quit),
-            ];
+            let mut actions: Vec<(MenuId, TrayEvent)> = Vec::new();
+            for item in MENU {
+                match item {
+                    Some((label, event)) => {
+                        let entry = MenuItem::new(label, true, None);
+                        actions.push((entry.id().clone(), event));
+                        menu.append(&entry).map_err(|e| e.to_string())?;
+                    }
+                    None => menu.append(&PredefinedMenuItem::separator()).map_err(|e| e.to_string())?,
+                }
+            }
             let f = on_event.clone();
             MenuEvent::set_event_handler(Some(move |e: MenuEvent| {
                 if let Some((_, event)) = actions.iter().find(|(id, _)| *id == e.id) {
                     f(*event);
                 }
             }));
-            // Windows: a click opens Settings and the menu is on right-click.
+            // Windows: a click captures and the menu is on right-click.
             // macOS: a click opens the menu, as menu bar items do.
             TrayIconEvent::set_event_handler(Some(move |e: TrayIconEvent| {
                 if let TrayIconEvent::Click { button: MouseButton::Left, button_state: MouseButtonState::Up, .. } = e {
                     if cfg!(windows) {
-                        on_event(TrayEvent::Settings);
+                        on_event(TrayEvent::Capture);
                     }
                 }
             }));
@@ -228,20 +204,30 @@ mod native {
             let image = Icon::from_rgba(best.rgba, best.size, best.size).map_err(|e| e.to_string())?;
             let icon = TrayIconBuilder::new()
                 .with_icon(image)
-                .with_tooltip(tooltip(shortcut.as_deref()))
+                .with_tooltip(crate::autostart::TAGLINE)
                 .with_menu(Box::new(menu))
                 .with_menu_on_left_click(cfg!(target_os = "macos"))
+                // A template image: macOS tints it for the menu bar.
+                .with_icon_as_template(cfg!(target_os = "macos"))
                 .build()
                 .map_err(|e| e.to_string())?;
             Ok(Native { icon })
         }
 
-        pub fn set_shortcut(&self, shortcut: Option<String>) {
-            let _ = self.icon.set_tooltip(Some(tooltip(shortcut.as_deref())));
-        }
-
         pub fn set_visible(&self, visible: bool) {
             let _ = self.icon.set_visible(visible);
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn menu_follows_the_standard_order_and_words() {
+        let labels: Vec<&str> = MENU.iter().map(|i| i.map_or("—", |(l, _)| l)).collect();
+        assert_eq!(labels, ["Open Arcade Lens", "Capture text", "Pick color", "Settings", "—", "Restart Arcade Lens", "Quit Arcade Lens"]);
+        assert_eq!(MENU[0].map(|(_, e)| e), Some(TrayEvent::Capture));
     }
 }

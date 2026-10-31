@@ -6,6 +6,8 @@ use std::sync::{mpsc, Arc, Mutex};
 
 use super::installer::{self, DialogState, Options};
 use crate::config::Paths as AppPaths;
+use arcade_link::design::egui::components::{ButtonKind, Toast, Tone};
+use arcade_link::design::size;
 use arcade_link::install::{self, strings, Detection, Environment, Runtime};
 use arcade_link::receipt::ManagedBy;
 use eframe::egui;
@@ -148,6 +150,9 @@ struct Dialog {
     completed: Option<Completed>,
     /// Older pre-installer copies this install replaces (named in the prompt).
     legacy: Vec<PathBuf>,
+    toast: Option<Toast>,
+    /// The Appearance setting last applied, and when it was last read.
+    appearance: Option<(lens_core::settings::Appearance, std::time::Instant)>,
 }
 
 fn format(s: &str, version: &str, from: &str) -> String {
@@ -170,9 +175,9 @@ pub fn text(state: &DialogState) -> (String, Option<String>, Vec<String>) {
         DialogState::OpenInstalled { version } => (&all.same_or_newer, version.as_str(), ""),
         DialogState::MoveToApplications => (&all.macos, crate::link::VERSION, ""),
     };
-    // egui's bundled fonts have no arrow glyph; "→" would show as a box.
-    let plain = |s: String| s.replace(" → ", " to ");
-    (plain(format(&dialog.title, version, from)), dialog.body.as_ref().map(|s| plain(format(s, version, from))), dialog.buttons.clone())
+    // STANDARD (install prompt): "Just run it" (Link's shared string still says "once").
+    let buttons = dialog.buttons.iter().map(|s| if s == "Just run it once" { "Just run it".into() } else { s.clone() }).collect();
+    (format(&dialog.title, version, from), dialog.body.as_ref().map(|s| format(s, version, from)), buttons)
 }
 
 pub fn run_install(
@@ -200,22 +205,23 @@ fn run(paths: AppPaths, mode: Mode) -> Result<Outcome, String> {
     };
     #[cfg(not(target_os = "linux"))]
     let legacy = Vec::new();
+    let title = if matches!(mode, Mode::Uninstall { .. }) { "Uninstall — Arcade Lens" } else { "Install — Arcade Lens" };
     let options = eframe::NativeOptions {
         centered: true,
         viewport: egui::ViewportBuilder::default()
-            .with_title("Arcade Lens — Installation")
+            .with_title(title)
             .with_app_id(crate::link::OS_ID)
-            .with_inner_size([480.0, 250.0])
-            .with_resizable(false)
+            .with_inner_size([size::WINDOW_MIN_WIDTH, size::WINDOW_MIN_HEIGHT])
+            .with_min_inner_size([size::WINDOW_MIN_WIDTH, size::WINDOW_MIN_HEIGHT])
             .with_icon(crate::icon::window_icon()),
         ..Default::default()
     };
     eframe::run_native(
-        "Arcade Lens — Installation",
+        title,
         options,
         Box::new(move |_cc| {
             let (tx, rx) = mpsc::channel();
-            Ok(Box::new(Dialog { paths, mode, result, tx, rx, busy: false, error: None, completed: None, legacy }))
+            Ok(Box::new(Dialog { paths, mode, result, tx, rx, busy: false, error: None, completed: None, legacy, toast: None, appearance: None }))
         }),
     )
     .map_err(|e| e.to_string())?;
@@ -293,74 +299,87 @@ impl eframe::App for Dialog {
                 result.get_or_insert(Outcome::Exit);
             }
         }
-        egui::CentralPanel::default().show(ctx, |ui| {
-            ui.add_space(12.0);
+        if !self.busy && ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+            self.finish(ctx, Outcome::Exit);
+        }
+        // The Appearance setting, re-read once a second so a change made in
+        // Settings shows here too; System follows the desktop by itself.
+        if self.appearance.is_none_or(|(_, read)| read.elapsed() >= std::time::Duration::from_secs(1)) {
+            let appearance = crate::config::load_settings(&self.paths).unwrap_or_default().appearance;
+            if self.appearance.is_none_or(|(applied, _)| applied != appearance) {
+                crate::gui::theme::apply_style(ctx, appearance.as_str());
+            }
+            self.appearance = Some((appearance, std::time::Instant::now()));
+        }
+        crate::gui::theme::sync(ctx);
+        ctx.request_repaint_after(std::time::Duration::from_secs(1));
+        let kit = crate::gui::theme::kit();
+        let glyph = crate::gui::glyphs::texture(ctx, crate::link::ME, 28.0);
+        kit.page(ctx, |ui| {
+            kit.glyph_tile(ui, glyph, "search");
+            ui.add_space(16.0);
             if let Some(done) = &self.completed {
-                ui.heading("Arcade Lens is installed");
-                if let Some(hint) = &done.hint {
-                    ui.add_space(12.0);
-                    ui.label(hint);
-                }
-                ui.add_space(12.0);
-                if ui.button("Open Arcade Lens").clicked() {
-                    self.finish(ctx, done.outcome.clone());
-                }
+                kit.dialog_head(ui, "Arcade Lens is installed", done.hint.as_deref().unwrap_or_default());
+                kit.dialog_actions(ui, |ui| {
+                    if kit.button(ui, "Open Arcade Lens", ButtonKind::Primary).clicked() {
+                        self.finish(ctx, done.outcome.clone());
+                    }
+                });
                 return;
             }
             let mut clicked = None;
             ui.add_enabled_ui(!self.busy, |ui| match &mut self.mode {
                 Mode::Install { state, options, environment, managed, .. } => {
                     let (title, body, buttons) = text(state);
-                    ui.heading(title);
-                    if let Some(body) = body {
-                        ui.add_space(10.0);
-                        ui.label(body);
-                    }
+                    kit.dialog_head(ui, &title, body.as_deref().unwrap_or_default());
                     if *managed {
-                        ui.label(format(&strings::get().managed_by_tools, crate::link::VERSION, ""));
+                        kit.notice(ui, &format(&strings::get().managed_by_tools, crate::link::VERSION, ""), Tone::Neutral);
                     }
                     if let (Some(note), Some(old), DialogState::Install | DialogState::Update { .. }) =
                         (&strings::get().replaces_legacy, self.legacy.first(), &state)
                     {
-                        ui.label(format(note, crate::link::VERSION, &old.display().to_string()));
+                        kit.notice(ui, &format(note, crate::link::VERSION, &old.display().to_string()), Tone::Neutral);
                     }
                     ui.add_space(10.0);
-                    if matches!(state, DialogState::Install | DialogState::Update { .. } | DialogState::MoveToApplications) {
-                        ui.checkbox(&mut options.start_at_login, &strings::get().not_installed.options[0]);
+                    if !*managed && matches!(state, DialogState::Install | DialogState::Update { .. } | DialogState::MoveToApplications) {
+                        kit.checkbox(ui, &mut options.start_at_login, "Start at login");
                         #[cfg(target_os = "linux")]
-                        ui.checkbox(&mut options.remove_download, &strings::get().not_installed.options[1]);
+                        kit.checkbox(ui, &mut options.remove_download, "Remove the downloaded file");
                         #[cfg(target_os = "macos")]
                         {
-                            ui.checkbox(&mut options.install_cli, "Add the arcade-lens terminal command");
+                            kit.checkbox(ui, &mut options.install_cli, "Add the arcade-lens terminal command");
                             if !options.install_cli {
                                 let exe = environment.home.join("Applications/Arcade Lens.app/Contents/MacOS/arcade-lens");
-                                ui.small(install::platform::macos::cli_symlink_offer(environment, installer::CLI_NAME, &exe));
+                                kit.notice(ui, &install::platform::macos::cli_symlink_offer(environment, installer::CLI_NAME, &exe), Tone::Neutral);
                             }
                         }
                     }
                     let _ = environment;
-                    ui.add_space(12.0);
-                    // The main action sits rightmost, as in the other Arcade prompts.
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        for (i, label) in buttons.iter().enumerate() {
-                            let button = if i == 0 { egui::Button::new(egui::RichText::new(label).strong()) } else { egui::Button::new(label) };
-                            if ui.add(button).clicked() {
-                                clicked = Some(i);
+                    // Tools' order: the main action rightmost and primary.
+                    kit.dialog_actions(ui, |ui| {
+                        for (index, label) in buttons.iter().enumerate().rev() {
+                            let kind = match index {
+                                0 => ButtonKind::Primary,
+                                1 => ButtonKind::Default,
+                                _ => ButtonKind::Ghost,
+                            };
+                            let label = if index == 0 && *managed { "Open Tools" } else { label };
+                            if kit.button_state(ui, label, kind, true, self.busy && index == 0, false).clicked() {
+                                clicked = Some(index);
                             }
                         }
                     });
                 }
                 Mode::Uninstall { remove_data, .. } => {
-                    ui.heading("Uninstall Arcade Lens?");
-                    ui.label("Remove this installation, launcher, command and start-at-login entry.");
-                    ui.checkbox(remove_data, "Remove settings and data (history, presets and plugins)");
-                    ui.add_space(12.0);
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.add(egui::Button::new(egui::RichText::new("Uninstall").strong())).clicked() {
-                            clicked = Some(0);
-                        }
-                        if ui.button("Cancel").clicked() {
+                    kit.dialog_head(ui, "Uninstall Arcade Lens?", "Remove this installation, launcher, command and start-at-login entry.");
+                    ui.add_space(10.0);
+                    kit.checkbox(ui, remove_data, "Remove settings and data (history, presets and plugins)");
+                    kit.dialog_actions(ui, |ui| {
+                        if kit.button(ui, "Cancel", ButtonKind::Default).clicked() {
                             clicked = Some(1);
+                        }
+                        if kit.button_state(ui, "Uninstall", ButtonKind::Destructive, true, self.busy, false).clicked() {
+                            clicked = Some(0);
                         }
                     });
                 }
@@ -371,15 +390,27 @@ impl eframe::App for Dialog {
                 None => {}
             }
             if self.busy {
-                ui.horizontal(|ui| {
-                    ui.spinner();
-                    ui.label("Working…");
-                });
+                kit.notice(ui, "Working…", Tone::Neutral);
             }
             if let Some(error) = &self.error {
-                ui.colored_label(ui.visuals().error_fg_color, error);
+                let message = if matches!(self.mode, Mode::Uninstall { .. }) {
+                    "Couldn't uninstall Arcade Lens. Check the app folder's permissions, then try again."
+                } else {
+                    "Couldn't install Arcade Lens. Check the app folder's permissions, then try again."
+                };
+                kit.notice_action(ui, message, Tone::Danger, |ui| {
+                    if kit.button(ui, "Copy details", ButtonKind::Ghost).clicked() {
+                        ctx.copy_text(error.clone());
+                        self.toast = Some(Toast::copied());
+                    }
+                });
             }
         });
+        if let Some(toast) = &self.toast {
+            if !toast.show(ctx, &kit) {
+                self.toast = None;
+            }
+        }
     }
 }
 
@@ -391,8 +422,8 @@ mod tests {
         let (title, body, buttons) = text(&DialogState::Install);
         assert_eq!(title, "Install Arcade Lens?");
         assert_eq!(body.as_deref(), Some("This adds Arcade Lens to the app launcher and your apps folder."));
-        assert_eq!(buttons, strings::get().not_installed.buttons);
-        assert!(text(&DialogState::Update { from: "0.0.1".into() }).0.contains(&format!("0.0.1 to {}", crate::link::VERSION)));
+        assert_eq!(buttons, ["Install", "Just run it", "Don't ask again for this file"]);
+        assert!(text(&DialogState::Update { from: "0.0.1".into() }).0.contains(&format!("0.0.1 → {}", crate::link::VERSION)));
         let (title, body, _) = text(&DialogState::OpenInstalled { version: "99.0.0".into() });
         assert_eq!(title, "A newer Arcade Lens is already installed.");
         assert!(body.unwrap().contains(&format!("this file is the older {}", crate::link::VERSION)));

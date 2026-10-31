@@ -1,5 +1,21 @@
 # Continue here — Claude session checkpoint, 2026-10-31 (evening)
 
+## UPDATE 18:55 UTC (read this first)
+
+- Find PR #11 head **`cf8cbc5`** (CI running). Since `12b0480`: `86bd5d8` macos-14 → macos-15
+  (GitHub macOS 14 brownout, retires 2026-11-02; annotation confirmed), `MACOSX_DEPLOYMENT_TARGET=11.0`
+  + minos check; `cf8cbc5` fixes two *test* bugs from run 109 (xdg-utils 1.1.3 quoted Exec in
+  os-handoffs.py; check-upgrade login-entry text check). Both reproduced locally. Run 109 had
+  everything else green incl. macos-15 check + DMG. When green: read all logs, merge, beta, tag, release, verify.
+- Shelf `build.yml` also uses macos-14 → move to macos-15 in step 9.
+- Lens: **compiles, clippy clean, all tests pass**. Pushed `98e5379` (annotate/pins/recording on kit,
+  history requests), `8a5f16f` (IPC settings:<label>, Wayland History window, one app id + Hyprland
+  title rules), `d2dadfb` (dev.arcade.Lens ids everywhere, launcher metadata, legacy cleanup,
+  folder migration via Link + verified on real binary). Section 3 below is DONE.
+- Lens next: install prompt on kit, tray items/order, Link peer descriptions (Link PR), words pass,
+  CLI flags, then §3–§6 as listed.
+
+
 Written so the next context continues exactly where this one stopped. **Lens is WIP on
 branch `claude/arcade-overhaul-q3xegk` and does not compile yet (15 errors, listed below).**
 Do not merge. Commit trailers / PR footer rules are unchanged (see the session's system reminder).

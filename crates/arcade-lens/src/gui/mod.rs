@@ -40,6 +40,10 @@ pub enum Trigger {
     Capture,
     CaptureText,
     PickColor,
+    /// `--hide`: close the capture overlay if it is open.
+    Hide,
+    /// `--toggle`: capture, or close the overlay when it is open.
+    Toggle,
     Settings,
     /// Settings on a section (IPC `settings:<label>`).
     SettingsAt(settings_view::Section),
@@ -128,6 +132,21 @@ impl AppState {
 }
 
 /// Tells the user something outside of any Lens window.
+/// Whether the capture overlay is open in this (resident) process, for `--status`.
+static OVERLAY_OPEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// `--status`: one line of JSON (STANDARD command line).
+pub fn status_json(paths: &Paths, running: bool, overlay: bool) -> String {
+    let settings = config::load_settings(paths).unwrap_or_default();
+    serde_json::json!({
+        "running": running,
+        "version": crate::link::VERSION,
+        "overlay": overlay,
+        "link": { "enabled": settings.link.enabled },
+    })
+    .to_string()
+}
+
 pub fn notify(msg: &str) {
     eprintln!("arcade-lens: {msg}");
     // Settings › General › Notifications turns the desktop part off; the
@@ -607,6 +626,14 @@ impl LensApp {
         st.overlay.is_some() || !st.pins.is_empty() || !st.editors.is_empty() || st.settings.is_some() || st.history.is_some() || st.recording.is_some()
     }
 
+    /// `--hide`: closes the overlay the normal way (as Esc does).
+    fn close_overlay(&mut self, ctx: &egui::Context) {
+        if let Some(ov) = &mut self.state.lock().unwrap().overlay {
+            ov.close_requested = true;
+        }
+        ctx.request_repaint();
+    }
+
     fn open_settings(&mut self, ctx: &egui::Context) {
         self.open_settings_at(ctx, None);
     }
@@ -671,6 +698,7 @@ impl LensApp {
         if let Some(init) = self.init.take() {
             init(&mut self.state.lock().unwrap(), ctx);
         }
+        OVERLAY_OPEN.store(self.state.lock().unwrap().overlay.is_some(), std::sync::atomic::Ordering::Relaxed);
         // Some window systems map the root window at creation even when asked
         // not to (X11 override-redirect windows). Make sure it is hidden.
         if !self.solo && !self.root_visible && !self.hidden_once {
@@ -680,6 +708,14 @@ impl LensApp {
         while let Ok(t) = self.triggers.try_recv() {
             match t {
                 Trigger::Capture => self.begin_capture(ctx),
+                Trigger::Hide => self.close_overlay(ctx),
+                Trigger::Toggle => {
+                    if self.state.lock().unwrap().overlay.is_some() {
+                        self.close_overlay(ctx);
+                    } else {
+                        self.begin_capture(ctx);
+                    }
+                }
                 Trigger::CaptureText => self.begin_capture_mode(ctx, crate::link::CaptureMode::Text),
                 Trigger::PickColor => self.begin_capture_mode(ctx, crate::link::CaptureMode::Color),
                 Trigger::Settings => self.open_settings(ctx),
@@ -1059,6 +1095,7 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
     let (tx, rx) = mpsc::channel::<Trigger>();
     let t = tx.clone();
     let hub_tx = Mutex::new(tx.clone());
+    let status_paths = paths.clone();
     lens_platform::ipc::serve(&paths.endpoint(), move |cmd| {
         if let Some(reply) = hub_command(cmd, |trigger| {
             let tx = hub_tx.lock().unwrap_or_else(|e| e.into_inner()).clone();
@@ -1078,6 +1115,10 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
         }
         let trig = match cmd {
             "ping" => return "pong".into(),
+            "status" => return status_json(&status_paths, true, OVERLAY_OPEN.load(std::sync::atomic::Ordering::Relaxed)),
+            "show" => Trigger::Capture,
+            "hide" => Trigger::Hide,
+            "toggle" => Trigger::Toggle,
             "history" => Trigger::History,
             "capture" => Trigger::Capture,
             "capture-text" => Trigger::CaptureText,

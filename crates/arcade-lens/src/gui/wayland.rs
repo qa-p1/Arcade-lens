@@ -267,11 +267,22 @@ fn open_once(slot: &mut Option<Child>, solo: &Solo) {
     *slot = spawn(solo);
 }
 
+fn close_child(slot: &mut Option<Child>) {
+    if let Some(mut c) = slot.take() {
+        if matches!(c.try_wait(), Ok(None)) {
+            let _ = c.kill();
+        }
+        let _ = c.wait();
+    }
+}
+
 /// Commands for the background instance's loop.
 enum Cmd {
     Named(&'static str),
     /// Settings on a section (`settings:<label>`).
     SettingsAt(super::settings_view::Section),
+    /// `--status`: answered from the loop, which knows whether a capture is open.
+    Status(mpsc::SyncSender<String>),
     Hub(Trigger),
 }
 
@@ -293,9 +304,16 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
                 None => "unknown section".into(),
             };
         }
+        if cmd == "status" {
+            let (reply, answer) = mpsc::sync_channel(1);
+            return if send(Cmd::Status(reply)) { answer.recv_timeout(std::time::Duration::from_secs(2)).unwrap_or_default() } else { String::new() };
+        }
         let cmd = match cmd {
             "ping" => return "pong".into(),
             "history" => "history",
+            "show" => "capture",
+            "hide" => "hide",
+            "toggle" => "toggle",
             "capture" => "capture",
             "capture-text" => "capture-text",
             "pick-color" => "pick-color",
@@ -350,11 +368,15 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
         let _ = tx.send(Cmd::Hub(Trigger::TrayState(TrayState::Own)));
     }
     let mut tray: Option<lens_platform::tray::Tray> = None;
-    let mut capture = None;
+    let mut capture: Option<Child> = None;
     let mut settings_window: Option<Child> = None;
     let mut history_window: Option<Child> = None;
     for cmd in rx {
         match cmd {
+            Cmd::Status(reply) => {
+                let open = capture.as_mut().is_some_and(|c: &mut Child| matches!(c.try_wait(), Ok(None)));
+                let _ = reply.send(super::status_json(paths, true, open));
+            }
             Cmd::SettingsAt(section) => {
                 // A running Settings process can't be told to switch pages;
                 // settings apply as they change, so reopening loses nothing.
@@ -374,6 +396,15 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
                     "pick-color" => open_once(&mut capture, &Solo::Capture(crate::link::CaptureMode::Color)),
                     "settings" => open_once(&mut settings_window, &Solo::Settings(None)),
                     "history" => open_once(&mut history_window, &Solo::History),
+                    // The overlay is its own process with nothing to save.
+                    "hide" => close_child(&mut capture),
+                    "toggle" => {
+                        if capture.as_mut().is_some_and(|c: &mut Child| matches!(c.try_wait(), Ok(None))) {
+                            close_child(&mut capture);
+                        } else {
+                            open_once(&mut capture, &Solo::Capture(crate::link::CaptureMode::Palette));
+                        }
+                    }
                     "reload" => {
                         let settings = config::load_settings(paths).unwrap_or_default();
                         crate::link::refresh(&settings);

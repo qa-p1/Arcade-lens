@@ -175,9 +175,7 @@ pub fn text(state: &DialogState) -> (String, Option<String>, Vec<String>) {
         DialogState::OpenInstalled { version } => (&all.same_or_newer, version.as_str(), ""),
         DialogState::MoveToApplications => (&all.macos, crate::link::VERSION, ""),
     };
-    // STANDARD (install prompt): "Just run it" (Link's shared string still says "once").
-    let buttons = dialog.buttons.iter().map(|s| if s == "Just run it once" { "Just run it".into() } else { s.clone() }).collect();
-    (format(&dialog.title, version, from), dialog.body.as_ref().map(|s| format(s, version, from)), buttons)
+    (format(&dialog.title, version, from), dialog.body.as_ref().map(|s| format(s, version, from)), dialog.buttons.clone())
 }
 
 pub fn run_install(

@@ -1,8 +1,8 @@
 # Vendored Arcade Link assets
 
 Shared installer, release, shortcut and protocol assets are copied unchanged
-from [Arcade Link](https://github.com/qa-p1/Arcade-link/tree/4c75f3a7c806ae78f96127c556708e65eaeeb476) commit
-`4c75f3a7c806ae78f96127c556708e65eaeeb476` (v0.3.0 plus unreleased installer fixes). License: MIT OR Apache-2.0.
+from [Arcade Link](https://github.com/qa-p1/Arcade-Link/tree/v0.4.13) tag `v0.4.13` (commit
+`e38f5d849656b3f1690d617bb43c2ee07853feb7`), the tag Cargo.toml pins. License: MIT OR Apache-2.0.
 Run `python3 scripts/check-vendored.py` to verify the SHA-256 inventory.
 Refresh the source pin and hashes together.
 
@@ -38,14 +38,14 @@ Refresh the source pin and hashes together.
 
 ```text
 d1f3ac5e6a854a5a46c03eb53600be4c25f698e90cdd818f2aaf3b600bb89398  spec/shortcut-sheet.schema.json
-0c829174d2dd5e15930cd2c4c5cb791ab6f744a3dab13ed557161aabcacf5fce  assets/strings/install.json
+2567789e4eba440240fcf4de8c1e43f126b0eb0aadc6306d743e299cb4c80407  assets/strings/install.json
 9639f9b67267c2d9a3e828fe9db6e1615327a274bb884e61fc7e511a9e4c249c  crates/lens-actions/tests/fixtures/box.json
 5617071f6a2754fad5049a00f237f026d049967286fb3881908beefe1933d88a  crates/lens-actions/tests/fixtures/clipboard.json
 dca87dd7a27badbf7ae4e7ffd2228cb46a327f15186ca6994b9082e17c6ec155  crates/lens-actions/tests/fixtures/find.json
 21f26797e8f16493a9da7c3850b9c616529b347cfa5ac83b7e225f3cfbd6e42f  crates/lens-actions/tests/fixtures/look.json
 c465b26a2dc16802573def0390bf00b4a33d58e78c98e7ce60023d18b68fc8dc  crates/lens-actions/tests/fixtures/shelf.json
 870bfcb97b81231a203edb37a17da13f940c5000d72e23c5af0d7d45bd2ea66f  crates/lens-actions/tests/fixtures/wheel.json
-c0b052a5165ab43390d4cd4f19c05e1a9f9e6ff65e5a64c978087c91331c6c68  packaging/windows/README.md
+11e3deb7969db46ff7b7cc6afc1a0e39b81fa379f96fced2f56624a60512616f  packaging/windows/README.md
 2b2a8b699dc1e6c81c02bb9ad9be1ddf2f8a5447541eb1dfe886056aa5dc4fd6  packaging/windows/arcade-integration.ps1
 fe152028ff674fdacdef4aed8970bb0a7afeb2dd67d2a3af075d7d95683bf96b  packaging/windows/arcade.iss
 1f548b420bc08b479d6c65801a208aa67dc80fef851b5e2a49696d307562831e  packaging/windows/arcade.nsh
@@ -69,8 +69,8 @@ aebde82ca97adebe6c4fdd5d0dea338d1134db5ccddf0678ec4cb6d836f94198  spec/vectors/r
 
 ## Arcade design kit
 
-Copied unchanged from [Arcade Link](https://github.com/qa-p1/Arcade-Link/tree/v0.4.12) tag `v0.4.12` (commit
-`aab656965489d7cdf0fa0b2670c55a20ac88e38a`) by `scripts/sync-design`; never edit these files here.
+Copied unchanged from [Arcade Link](https://github.com/qa-p1/Arcade-Link/tree/v0.4.13) tag `v0.4.13` (commit
+`e38f5d849656b3f1690d617bb43c2ee07853feb7`) by `scripts/sync-design`; never edit these files here.
 License: MIT OR Apache-2.0.
 
 ```text

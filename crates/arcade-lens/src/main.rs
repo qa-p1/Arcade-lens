@@ -122,7 +122,8 @@ fn run(args: &[String]) -> Result<(), String> {
             let image = || args.get(2).map(PathBuf::from).ok_or_else(|| format!("{kind} needs an image path"));
             let solo = match kind {
                 "capture" => gui::wayland::Solo::Capture(link::CaptureMode::parse(args.get(2).map(String::as_str)).map_err(|e| e.to_string())?),
-                "settings" => gui::wayland::Solo::Settings,
+                "settings" => gui::wayland::Solo::Settings(args.get(2).and_then(|l| gui::settings_view::Section::from_label(l))),
+                "history" => gui::wayland::Solo::History,
                 "pin" => gui::wayland::Solo::Pin(image()?),
                 "annotate" => gui::wayland::Solo::Annotate(image()?),
                 "pick" => gui::wayland::Solo::Pick(image()?),

@@ -204,7 +204,7 @@ fn run(paths: AppPaths, mode: Mode) -> Result<Outcome, String> {
         centered: true,
         viewport: egui::ViewportBuilder::default()
             .with_title("Arcade Lens — Installation")
-            .with_app_id("arcade-lens-settings")
+            .with_app_id(crate::link::OS_ID)
             .with_inner_size([480.0, 250.0])
             .with_resizable(false)
             .with_icon(crate::icon::window_icon()),

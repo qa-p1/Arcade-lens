@@ -41,6 +41,9 @@ pub enum Trigger {
     CaptureText,
     PickColor,
     Settings,
+    /// Settings on a section (IPC `settings:<label>`).
+    SettingsAt(settings_view::Section),
+    History,
     Restart,
     Quit,
     TrayState(arcade_link::trayhost::TrayState),
@@ -618,6 +621,14 @@ impl LensApp {
     /// Opens Settings (or brings it to the front), optionally on `section`.
     fn open_settings_at(&mut self, ctx: &egui::Context, section: Option<settings_view::Section>) {
         let mut st = self.state.lock().unwrap();
+        if self.solo && st.settings.is_none() {
+            // One window per process: the background instance opens Settings.
+            let cmd = section.map_or_else(|| "settings".to_string(), |s| format!("settings:{}", s.label()));
+            if let Err(e) = lens_platform::ipc::send(&self.paths.endpoint(), &cmd) {
+                notify(&format!("Couldn't open Settings. {e}"));
+            }
+            return;
+        }
         if st.settings.is_none() {
             st.settings = Some(settings_view::SettingsView::new(st.env.rt.clone()));
         } else {
@@ -647,6 +658,12 @@ impl LensApp {
 
     fn open_history(&mut self, ctx: &egui::Context) {
         let mut st = self.state.lock().unwrap();
+        if self.solo && st.history.is_none() {
+            if let Err(e) = lens_platform::ipc::send(&self.paths.endpoint(), "history") {
+                notify(&format!("Couldn't open History. {e}"));
+            }
+            return;
+        }
         if st.history.is_none() {
             st.history = Some(history::HistoryView::new(self.paths.history()));
         } else {
@@ -673,6 +690,8 @@ impl LensApp {
                 Trigger::CaptureText => self.begin_capture_mode(ctx, crate::link::CaptureMode::Text),
                 Trigger::PickColor => self.begin_capture_mode(ctx, crate::link::CaptureMode::Color),
                 Trigger::Settings => self.open_settings(ctx),
+                Trigger::SettingsAt(section) => self.open_settings_at(ctx, Some(section)),
+                Trigger::History => self.open_history(ctx),
                 Trigger::Restart => {
                     if background::restart() {
                         ctx.send_viewport_cmd(ViewportCommand::Close);
@@ -785,12 +804,8 @@ impl LensApp {
             }
         }
         if let Some(section) = open_after {
-            if self.solo {
-                // This window process is about to exit: the running Lens opens Settings.
-                let _ = lens_platform::ipc::send(&self.paths.endpoint(), &format!("settings:{}", section.label()));
-            } else {
-                self.open_settings_at(&ctx, Some(section));
-            }
+            // In a solo window process (about to exit) this asks the running Lens.
+            self.open_settings_at(&ctx, Some(section));
         }
         if close_overlay && self.solo {
             ctx.send_viewport_cmd(ViewportCommand::Close);
@@ -1045,8 +1060,18 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
         }) {
             return reply;
         }
+        if let Some(label) = cmd.strip_prefix("settings:") {
+            return match settings_view::Section::from_label(label) {
+                Some(section) => {
+                    send_trigger(&t, Trigger::SettingsAt(section));
+                    "ok".into()
+                }
+                None => "unknown section".into(),
+            };
+        }
         let trig = match cmd {
             "ping" => return "pong".into(),
+            "history" => Trigger::History,
             "capture" => Trigger::Capture,
             "capture-text" => Trigger::CaptureText,
             "pick-color" => Trigger::PickColor,
@@ -1073,7 +1098,7 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
     let x11 = lens_platform::display_server() == lens_platform::DisplayServer::X11;
     let root = ViewportBuilder::default()
         .with_title("Arcade Lens")
-        .with_app_id("arcade-lens")
+        .with_app_id(crate::link::OS_ID)
         .with_visible(false)
         .with_decorations(false)
         .with_taskbar(false)
@@ -1152,7 +1177,7 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
     let fullscreen = matches!(solo, Solo::Capture(_) | Solo::Pick(_) | Solo::Analyze(_));
     let root = match &solo {
         Solo::Capture(_) | Solo::Pick(_) | Solo::Analyze(_) => {
-            let b = ViewportBuilder::default().with_title("Arcade Lens").with_app_id("arcade-lens").with_decorations(false).with_fullscreen(true);
+            let b = ViewportBuilder::default().with_title("Arcade Lens").with_app_id(crate::link::OS_ID).with_decorations(false).with_fullscreen(true);
             // Hyprland shows the first frame before making the window full
             // screen; drawn at the default size, it flashes in a corner.
             match lens_platform::hyprland::active().then(lens_platform::hyprland::focused_monitor_size).flatten() {
@@ -1160,7 +1185,8 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
                 None => b,
             }
         }
-        Solo::Settings => settings_view::SettingsView::builder(),
+        Solo::Settings(_) => settings_view::SettingsView::builder(),
+        Solo::History => history::HistoryView::builder(),
         Solo::Pin(_) => pins::Pin::new(0, image.clone().unwrap(), None, 1.0).builder(),
         Solo::Annotate(_) => annotate::Editor::new(0, image.clone().unwrap()).builder(),
     };
@@ -1184,7 +1210,14 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
             }
             st.overlay = Some(ov);
         }
-        Solo::Settings => st.settings = Some(settings_view::SettingsView::new(st.env.rt.clone())),
+        Solo::Settings(section) => {
+            let mut view = settings_view::SettingsView::new(st.env.rt.clone());
+            if let Some(section) = section {
+                view.show_section(section);
+            }
+            st.settings = Some(view);
+        }
+        Solo::History => st.history = Some(history::HistoryView::new(st.env.rt.paths.history())),
         Solo::Pin(_) => {
             let id = st.id();
             st.pins.push(pins::Pin::new(id, image.unwrap(), None, 1.0));

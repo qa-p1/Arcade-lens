@@ -56,6 +56,11 @@ impl Section {
         Section::About,
     ];
 
+    /// The section whose label is `label` (as sent over IPC).
+    pub fn from_label(label: &str) -> Option<Section> {
+        Section::ALL.into_iter().find(|s| s.label().eq_ignore_ascii_case(label.trim()))
+    }
+
     pub fn label(self) -> &'static str {
         match self {
             Section::General => "General",
@@ -1414,6 +1419,16 @@ pub fn peer_description(app: &str) -> &'static str {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn section_labels_round_trip_over_ipc() {
+        for section in Section::ALL {
+            assert_eq!(Section::from_label(section.label()), Some(section));
+        }
+        assert_eq!(Section::from_label(" text recognition "), Some(Section::TextRecognition));
+        assert_eq!(Section::from_label("Nope"), None);
+    }
+
     use super::*;
 
     #[test]

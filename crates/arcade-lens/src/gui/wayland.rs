@@ -22,7 +22,9 @@ use crate::config::{self, Paths};
 #[derive(Debug, Clone)]
 pub enum Solo {
     Capture(crate::link::CaptureMode),
-    Settings,
+    /// Settings, optionally opened on a section.
+    Settings(Option<super::settings_view::Section>),
+    History,
     Pin(PathBuf),
     Annotate(PathBuf),
     /// Arcade Link `lens.capture`: select once, write the region to the path, exit.
@@ -34,10 +36,11 @@ pub enum Solo {
 /// Keeps Lens windows out of the tiling layout and the overlay unanimated.
 /// The overlay maps floating and full-screen at once: as a tiled window it
 /// would first take a tile, push the other windows aside and animate.
+/// Every Lens window has the app id `dev.arcade.Lens`; titles tell them apart.
 const WINDOW_RULES: &[&str] = &[
-    r#"match = { class = "^(arcade-lens)$" }, float = true, fullscreen = true, no_anim = true, opaque = true, no_blur = true, no_shadow = true, no_dim = true"#,
-    r#"match = { class = "^(arcade-lens-pin)$" }, float = true, pin = true, opaque = true, no_anim = true, no_blur = true, no_shadow = true, border_size = 0"#,
-    r#"match = { class = "^(arcade-lens-(annotate|settings))$" }, float = true, center = true, opaque = true"#,
+    r#"match = { class = "^(dev\\.arcade\\.Lens)$", title = "^(Arcade Lens)$" }, float = true, fullscreen = true, no_anim = true, opaque = true, no_blur = true, no_shadow = true, no_dim = true"#,
+    r#"match = { class = "^(dev\\.arcade\\.Lens)$", title = "^(Pin — Arcade Lens)$" }, float = true, pin = true, no_anim = true, no_blur = true, no_shadow = true, border_size = 0"#,
+    r#"match = { class = "^(dev\\.arcade\\.Lens)$", title = "^((Annotate|Settings|History) — Arcade Lens)$" }, float = true, center = true, opaque = true"#,
 ];
 
 use lens_platform::autostart::current_exe as exe;
@@ -54,7 +57,14 @@ fn spawn(solo: &Solo) -> Option<Child> {
     cmd.arg("--window");
     match solo {
         Solo::Capture(mode) => cmd.arg("capture").arg(mode.hint()),
-        Solo::Settings => cmd.arg("settings"),
+        Solo::Settings(section) => {
+            cmd.arg("settings");
+            if let Some(s) = section {
+                cmd.arg(s.label());
+            }
+            &mut cmd
+        }
+        Solo::History => cmd.arg("history"),
         Solo::Pin(p) => cmd.arg("pin").arg(p),
         Solo::Annotate(p) => cmd.arg("annotate").arg(p),
         Solo::Pick(p) => cmd.arg("pick").arg(p),
@@ -260,6 +270,8 @@ fn open_once(slot: &mut Option<Child>, solo: &Solo) {
 /// Commands for the background instance's loop.
 enum Cmd {
     Named(&'static str),
+    /// Settings on a section (`settings:<label>`).
+    SettingsAt(super::settings_view::Section),
     Hub(Trigger),
 }
 
@@ -274,8 +286,16 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
         if let Some(reply) = super::hub_command(cmd, |trigger| send(Cmd::Hub(trigger))) {
             return reply;
         }
+        if let Some(label) = cmd.strip_prefix("settings:") {
+            return match super::settings_view::Section::from_label(label) {
+                Some(section) if send(Cmd::SettingsAt(section)) => "ok".into(),
+                Some(_) => "busy".into(),
+                None => "unknown section".into(),
+            };
+        }
         let cmd = match cmd {
             "ping" => return "pong".into(),
+            "history" => "history",
             "capture" => "capture",
             "capture-text" => "capture-text",
             "pick-color" => "pick-color",
@@ -331,16 +351,29 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
     }
     let mut tray: Option<lens_platform::tray::Tray> = None;
     let mut capture = None;
-    let mut settings_window = None;
+    let mut settings_window: Option<Child> = None;
+    let mut history_window: Option<Child> = None;
     for cmd in rx {
         match cmd {
+            Cmd::SettingsAt(section) => {
+                // A running Settings process can't be told to switch pages;
+                // settings apply as they change, so reopening loses nothing.
+                if let Some(mut c) = settings_window.take() {
+                    if matches!(c.try_wait(), Ok(None)) {
+                        let _ = c.kill();
+                        let _ = c.wait();
+                    }
+                }
+                open_once(&mut settings_window, &Solo::Settings(Some(section)));
+            }
             Cmd::Named(cmd) => {
                 crate::lens_debug!("command {cmd}");
                 match cmd {
                     "capture" => open_once(&mut capture, &Solo::Capture(crate::link::CaptureMode::Palette)),
                     "capture-text" => open_once(&mut capture, &Solo::Capture(crate::link::CaptureMode::Text)),
                     "pick-color" => open_once(&mut capture, &Solo::Capture(crate::link::CaptureMode::Color)),
-                    "settings" => open_once(&mut settings_window, &Solo::Settings),
+                    "settings" => open_once(&mut settings_window, &Solo::Settings(None)),
+                    "history" => open_once(&mut history_window, &Solo::History),
                     "reload" => {
                         let settings = config::load_settings(paths).unwrap_or_default();
                         crate::link::refresh(&settings);
@@ -409,4 +442,21 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
     crate::link::stop();
     drop(tray);
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn every_window_title_has_a_hyprland_rule() {
+        let rules = WINDOW_RULES.join("\n");
+        assert!(rules.contains("^(Arcade Lens)$"), "overlay");
+        assert!(rules.contains("^(Pin — Arcade Lens)$"), "pin");
+        for title in ["Annotate", "Settings", "History"] {
+            assert!(rules.contains(title), "{title}");
+        }
+        // Every rule is scoped to Lens's own app id (Lua sees `\.`).
+        assert_eq!(rules.matches(r#"class = "^(dev\\.arcade\\.Lens)$""#).count(), WINDOW_RULES.len());
+    }
 }

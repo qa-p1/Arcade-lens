@@ -1257,9 +1257,9 @@ fn hand_off(env: &Env, job: Job) {
             }
             Ok(JobOutcome::Invocation(Err(e)) | JobOutcome::Chain(Err(e))) => {
                 crate::lens_debug!("failed action {key}");
-                super::notify(&format!("{}: {e}", job.entry.label));
+                super::notify(&format!("Couldn't finish {}. {e}", job.entry.label));
             }
-            Ok(_) => super::notify(&format!("{}: open Lens again to finish this action", job.entry.label)),
+            Ok(_) => super::notify(&format!("Open Arcade Lens again to finish {}.", job.entry.label)),
             Err(_) => {}
         }
     });

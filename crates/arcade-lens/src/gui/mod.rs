@@ -130,6 +130,11 @@ impl AppState {
 /// Tells the user something outside of any Lens window.
 pub fn notify(msg: &str) {
     eprintln!("arcade-lens: {msg}");
+    // Settings › General › Notifications turns the desktop part off; the
+    // message still reaches the log.
+    if !crate::config::notifications_enabled() {
+        return;
+    }
     // Best effort desktop notification; never required.
     let _ = std::process::Command::new(if cfg!(target_os = "macos") { "osascript" } else { "notify-send" })
         .args(if cfg!(target_os = "macos") {
@@ -271,8 +276,8 @@ impl LensApp {
         // Capture before anything of ours is visible.
         let captures = match lens_platform::capture_all() {
             Ok(c) if !c.is_empty() => c,
-            Ok(_) => return notify("no monitors to capture"),
-            Err(e) => return notify(&format!("screen capture failed: {e}")),
+            Ok(_) => return notify("Couldn't capture the screen. No monitor was found."),
+            Err(e) => return notify(&format!("Couldn't capture the screen. {e}")),
         };
         self.show_overlay(ctx, captures);
         if let Some(overlay) = self.state.lock().unwrap().overlay.as_mut() {
@@ -327,7 +332,7 @@ impl LensApp {
                     .or(monitors.first())
                     .cloned()
                 else {
-                    return notify("no monitor to show the image on");
+                    return notify("Couldn't show the image. No monitor was found.");
                 };
                 let (canvas, rect) = crate::link::analyze_canvas(&image, &monitor);
                 self.show_overlay(ctx, vec![lens_platform::Capture { monitor, image: Arc::new(canvas) }]);
@@ -515,7 +520,7 @@ impl LensApp {
                     v.refresh_runtime(rt);
                 }
             }
-            Err(e) => notify(&format!("could not reload settings: {e}")),
+            Err(e) => notify(&format!("Couldn't reload settings. {e}")),
         }
     }
 
@@ -559,7 +564,7 @@ impl LensApp {
                 drop(st);
                 match r {
                     Ok(()) => self.reload_runtime(ctx),
-                    Err(e) => notify(&format!("Tesseract download failed: {e}")),
+                    Err(e) => notify(&format!("Couldn't download text recognition. {e}")),
                 }
                 let mut st = self.state.lock().unwrap();
                 if let Some(v) = &mut st.settings {
@@ -1157,7 +1162,7 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
         Solo::Capture(_) | Solo::Pick(_) => match lens_platform::capture_all() {
             Ok(c) if !c.is_empty() => c,
             Ok(_) => return Err("no monitors to capture".into()),
-            Err(e) => return Err(format!("screen capture failed: {e}")),
+            Err(e) => return Err(format!("Couldn't capture the screen. {e}")),
         },
         Solo::Analyze(p) => {
             let image = wayland::load_image(p)?;
@@ -1174,7 +1179,7 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
         Solo::Pin(p) | Solo::Annotate(p) => Some(Arc::new(wayland::load_image(p)?)),
         _ => None,
     };
-    let rt = Arc::new(loading.join().map_err(|_| "loading settings failed".to_string())??);
+    let rt = Arc::new(loading.join().map_err(|_| "Couldn't load settings.".to_string())??);
     crate::lens_debug!("ready after {:?}", started.elapsed());
     let fullscreen = matches!(solo, Solo::Capture(_) | Solo::Pick(_) | Solo::Analyze(_));
     let root = match &solo {
@@ -1266,6 +1271,10 @@ fn start_app(
             let ctx = cc.egui_ctx.clone();
             let _ = CONTEXT.set(ctx.clone());
             theme::apply_style(&ctx, rt.settings.appearance.as_str());
+            // Screenshots and checks at 125 % text size (ARCADE_LENS_UI_SCALE=1.25).
+            if let Some(scale) = std::env::var("ARCADE_LENS_UI_SCALE").ok().and_then(|s| s.parse::<f32>().ok()).filter(|s| (1.0..=1.25).contains(s)) {
+                ctx.set_zoom_factor(scale);
+            }
             let mut shortcuts = None;
             let tray = None;
             if daemon {
@@ -1279,7 +1288,7 @@ fn start_app(
                 match lens_platform::shortcut::Shortcuts::new() {
                     Ok(mut s) => {
                         if let Err(e) = s.set(rt.settings.activation_shortcut.as_deref()) {
-                            notify(&format!("{e}. Change it in Settings → Shortcut."));
+                            notify(&format!("{e}. Change it in Settings › Shortcuts."));
                         }
                         let t = tx.clone();
                         let c = ctx.clone();
@@ -1289,7 +1298,7 @@ fn start_app(
                         });
                         shortcuts = Some(s);
                     }
-                    Err(e) => notify(&format!("global shortcut unavailable: {e}")),
+                    Err(e) => notify(&format!("Couldn't register the global shortcut. {e}")),
                 }
             }
             // Wake the event loop for queued initial triggers.

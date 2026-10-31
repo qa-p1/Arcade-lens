@@ -113,16 +113,28 @@ fn write_atomic(path: &Path, contents: &str) -> std::io::Result<()> {
     fs::rename(tmp, path)
 }
 
+/// The Notifications setting, for [`crate::gui::notify`]: every process reads
+/// settings through here, so the switch takes effect wherever it last loaded.
+static NOTIFICATIONS: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(true);
+
+pub fn notifications_enabled() -> bool {
+    NOTIFICATIONS.load(std::sync::atomic::Ordering::Relaxed)
+}
+
 pub fn load_settings(p: &Paths) -> Result<Settings, String> {
-    match fs::read_to_string(p.settings()) {
-        Ok(s) => toml::from_str(&s).map_err(|e| format!("{}: {e}", p.settings().display())),
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Ok(Settings::default()),
-        Err(e) => Err(e.to_string()),
-    }
+    let settings: Settings = match fs::read_to_string(p.settings()) {
+        Ok(s) => toml::from_str(&s).map_err(|e| format!("{}: {e}", p.settings().display()))?,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Settings::default(),
+        Err(e) => return Err(e.to_string()),
+    };
+    NOTIFICATIONS.store(settings.notifications, std::sync::atomic::Ordering::Relaxed);
+    Ok(settings)
 }
 
 pub fn save_settings(p: &Paths, s: &Settings) -> std::io::Result<()> {
-    write_atomic(&p.settings(), &toml::to_string_pretty(s).expect("settings serialize"))
+    write_atomic(&p.settings(), &toml::to_string_pretty(s).expect("settings serialize"))?;
+    NOTIFICATIONS.store(s.notifications, std::sync::atomic::Ordering::Relaxed);
+    Ok(())
 }
 
 pub fn load_chains(p: &Paths) -> Vec<Chain> {

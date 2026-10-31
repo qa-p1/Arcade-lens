@@ -49,7 +49,7 @@ fn spawn(solo: &Solo) -> Option<Child> {
     let exe = match exe() {
         Ok(e) => e,
         Err(e) => {
-            notify(&format!("cannot locate arcade-lens: {e}"));
+            notify(&format!("Couldn't find the Arcade Lens program. {e}"));
             return None;
         }
     };
@@ -70,7 +70,7 @@ fn spawn(solo: &Solo) -> Option<Child> {
         Solo::Pick(p) => cmd.arg("pick").arg(p),
         Solo::Analyze(p) => cmd.arg("analyze").arg(p),
     };
-    cmd.spawn().map_err(|e| notify(&format!("cannot open window: {e}"))).ok()
+    cmd.spawn().map_err(|e| notify(&format!("Couldn't open the window. {e}"))).ok()
 }
 
 /// Opens a window process and reaps it when it exits.
@@ -109,7 +109,7 @@ pub fn open_image(kind: fn(PathBuf) -> Solo, image: &RgbaImage) -> bool {
             started
         }
         Err(e) => {
-            notify(&format!("cannot hand over image: {e}"));
+            notify(&format!("Couldn't pass the image to its window. {e}"));
             false
         }
     }
@@ -142,7 +142,7 @@ impl Shortcut {
         if let Some((native, current)) = &mut self.native {
             match native.set(wanted.as_deref()) {
                 Ok(()) => *current = wanted,
-                Err(e) => notify(&format!("{e}. Change it in Settings → Shortcut.")),
+                Err(e) => notify(&format!("{e}. Change it in Settings › Shortcuts.")),
             }
             return;
         }
@@ -164,7 +164,7 @@ impl Shortcut {
                 crate::lens_debug!("bound {s} in Hyprland");
                 self.bound = Some((s, b));
             }
-            Err(e) => notify(&format!("could not bind {s}: {e}")),
+            Err(e) => notify(&format!("Couldn't set the shortcut {s}. {e}")),
         }
     }
 
@@ -337,7 +337,7 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
                     let _ = t.lock().unwrap_or_else(|e| e.into_inner()).send(Cmd::Named("capture"));
                 });
             }
-            Err(e) => notify(&format!("global shortcut unavailable: {e}")),
+            Err(e) => notify(&format!("Couldn't register the global shortcut. {e}")),
         }
     }
     shortcut.apply(paths);

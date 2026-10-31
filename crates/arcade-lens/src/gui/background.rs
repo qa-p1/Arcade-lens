@@ -75,7 +75,7 @@ pub fn restart() -> bool {
     match autostart::launch_path().and_then(start) {
         Ok(_) => true,
         Err(e) => {
-            notify(&format!("could not restart: {e}"));
+            notify(&format!("Couldn't restart Arcade Lens. {e}"));
             false
         }
     }

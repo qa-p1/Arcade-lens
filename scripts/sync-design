@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+cd "$(dirname "$0")/.."
+python=$(command -v python3 || command -v python)
+exec "$python" scripts/sync-design.py "$@"

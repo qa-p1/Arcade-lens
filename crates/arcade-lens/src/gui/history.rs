@@ -114,6 +114,242 @@ pub fn save_async(dir: PathBuf, image: Arc<RgbaImage>, findings: &[Finding]) {
     });
 }
 
+/// One saved history entry, as the History window lists it.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Entry {
+    /// Unix milliseconds (local wall-clock stamp).
+    pub time_ms: i64,
+    pub summary: String,
+    pub kinds: Vec<String>,
+    pub thumbnail: PathBuf,
+}
+
+/// Newest first. Unreadable entries are skipped; an unreadable folder is an
+/// error unless it simply doesn't exist yet (nothing saved).
+pub fn load(dir: &Path) -> Result<Vec<Entry>, String> {
+    let read = match fs::read_dir(dir) {
+        Ok(read) => read,
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => return Ok(Vec::new()),
+        Err(e) => return Err(format!("Couldn't read the history folder. {e}")),
+    };
+    let mut paths: Vec<PathBuf> = read.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "json")).collect();
+    paths.sort();
+    paths.reverse();
+    let mut out = Vec::new();
+    for path in paths {
+        let Ok(text) = fs::read_to_string(&path) else { continue };
+        let Ok(doc) = serde_json::from_str::<serde_json::Value>(&text) else { continue };
+        let stamp = doc["time"].as_str().unwrap_or_default();
+        let Some(time_ms) = chrono::NaiveDateTime::parse_from_str(stamp, "%Y%m%d-%H%M%S%3f")
+            .ok()
+            .and_then(|t| t.and_local_timezone(chrono::Local).earliest())
+            .map(|t| t.timestamp_millis())
+        else {
+            continue;
+        };
+        let findings = doc["findings"].as_array().cloned().unwrap_or_default();
+        let summary = findings
+            .iter()
+            .filter_map(|f| f["summary"].as_str())
+            .find(|s| !s.trim().is_empty())
+            .unwrap_or("A screen selection")
+            .to_string();
+        let mut kinds: Vec<String> = Vec::new();
+        for f in &findings {
+            if let Some(c) = f["capability"].as_str() {
+                let label = super::overlay::cap_label(&lens_core::Capability::custom(c));
+                if !kinds.contains(&label) {
+                    kinds.push(label);
+                }
+            }
+        }
+        out.push(Entry { time_ms, summary, kinds, thumbnail: path.with_extension("png") });
+    }
+    Ok(out)
+}
+
+pub enum HistoryRequest {
+    /// "Turn on in Privacy": open Settings › Privacy.
+    OpenPrivacy,
+    OpenFolder(PathBuf),
+}
+
+/// History — Arcade Lens: a Template A window listing saved selections.
+pub struct HistoryView {
+    dir: PathBuf,
+    entries: Option<Result<Vec<Entry>, String>>,
+    loading: Option<std::sync::mpsc::Receiver<Result<Vec<Entry>, String>>>,
+    thumbs: std::collections::HashMap<PathBuf, Option<eframe::egui::TextureHandle>>,
+    pub closed: bool,
+}
+
+impl HistoryView {
+    pub fn new(dir: PathBuf) -> Self {
+        let mut view = Self { dir, entries: None, loading: None, thumbs: Default::default(), closed: false };
+        view.reload();
+        view
+    }
+
+    pub fn viewport_id() -> eframe::egui::ViewportId {
+        eframe::egui::ViewportId::from_hash_of("lens-history")
+    }
+
+    pub fn builder() -> eframe::egui::ViewportBuilder {
+        eframe::egui::ViewportBuilder::default()
+            .with_title("History — Arcade Lens")
+            .with_inner_size([760.0, 560.0])
+            .with_min_inner_size([720.0, 520.0])
+            .with_app_id(crate::link::OS_ID)
+            .with_icon(crate::icon::window_icon())
+    }
+
+    pub fn reload(&mut self) {
+        let (tx, rx) = std::sync::mpsc::channel();
+        let dir = self.dir.clone();
+        std::thread::spawn(move || {
+            let _ = tx.send(load(&dir));
+        });
+        self.loading = Some(rx);
+        self.thumbs.clear();
+    }
+
+    fn thumbnail(&mut self, ctx: &eframe::egui::Context, path: &Path, budget: &mut u32) -> Option<eframe::egui::TextureId> {
+        if let Some(t) = self.thumbs.get(path) {
+            return t.as_ref().map(|t| t.id());
+        }
+        if *budget == 0 {
+            ctx.request_repaint();
+            return None;
+        }
+        *budget -= 1;
+        let texture = image::open(path).ok().map(|img| {
+            let img = img.to_rgba8();
+            let size = [img.width() as usize, img.height() as usize];
+            ctx.load_texture(path.display().to_string(), eframe::egui::ColorImage::from_rgba_unmultiplied(size, img.as_raw()), Default::default())
+        });
+        let id = texture.as_ref().map(|t| t.id());
+        self.thumbs.insert(path.to_path_buf(), texture);
+        id
+    }
+
+    pub fn ui(&mut self, ctx: &eframe::egui::Context, enabled: bool) -> Vec<HistoryRequest> {
+        use arcade_link::design::egui::components::{ButtonKind, Tone};
+        use eframe::egui::{self, Rect, Sense, Vec2};
+        super::theme::sync(ctx);
+        if ctx.input(|i| i.viewport().close_requested()) {
+            self.closed = true;
+        }
+        if ctx.input_mut(|i| i.consume_key(egui::Modifiers::NONE, egui::Key::Escape) || i.consume_key(egui::Modifiers::COMMAND, egui::Key::W)) {
+            self.closed = true;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+        }
+        if let Some(rx) = &self.loading {
+            match rx.try_recv() {
+                Ok(result) => {
+                    self.entries = Some(result);
+                    self.loading = None;
+                }
+                Err(_) => ctx.request_repaint_after(std::time::Duration::from_millis(50)),
+            }
+        }
+        let kit = super::theme::kit();
+        let c = super::theme::c();
+        let mut out = Vec::new();
+        let count = self.entries.as_ref().and_then(|e| e.as_ref().ok()).map_or(0, Vec::len);
+        let description = if count == 0 {
+            "What Lens recognized in your selections, newest first.".to_string()
+        } else {
+            format!("{} item{}, newest first. Secrets are masked.", arcade_link::design::format::format_count(count as i64), if count == 1 { "" } else { "s" })
+        };
+        let mut reload = false;
+        let mut budget = 4;
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64);
+        let offset = chrono::Local::now().offset().local_minus_utc() / 60;
+        let dir = self.dir.clone();
+        let entries = self.entries.clone();
+        let loading = self.loading.is_some();
+        kit.page_with_head_actions(
+            ctx,
+            "History",
+            &description,
+            |ui| {
+                if kit.button(ui, "Open folder", ButtonKind::Default).clicked() {
+                    out.push(HistoryRequest::OpenFolder(dir.clone()));
+                }
+                if kit.button_state(ui, "Refresh", ButtonKind::Default, !loading, loading, false).clicked() {
+                    reload = true;
+                }
+            },
+            |ui| match entries {
+                None => {
+                    kit.list(ui, |ui| {
+                        for _ in 0..4 {
+                            kit.skeleton_row(ui);
+                        }
+                    });
+                }
+                Some(Err(error)) => {
+                    kit.notice_action(ui, &error, Tone::Danger, |ui| {
+                        if kit.button_state(ui, "Retry", ButtonKind::Default, true, false, true).clicked() {
+                            reload = true;
+                        }
+                    });
+                }
+                Some(Ok(list)) if list.is_empty() && !enabled => {
+                    kit.empty_state(ui, "clock", "History is off", "Turn it on to keep thumbnails and what Lens recognized, on this computer only.", |ui| {
+                        if kit.button(ui, "Turn on in Privacy", ButtonKind::Primary).clicked() {
+                            out.push(HistoryRequest::OpenPrivacy);
+                        }
+                    });
+                }
+                Some(Ok(list)) if list.is_empty() => {
+                    kit.empty_state(ui, "clock", "Nothing yet", "Selections you make with Lens appear here.", |_| ());
+                }
+                Some(Ok(list)) => {
+                    if !enabled {
+                        kit.notice_action(ui, "History is off. These items stay until you clear them.", Tone::Neutral, |ui| {
+                            if kit.button_state(ui, "Turn on in Privacy", ButtonKind::Default, true, false, true).clicked() {
+                                out.push(HistoryRequest::OpenPrivacy);
+                            }
+                        });
+                        ui.add_space(16.0);
+                    }
+                    kit.list(ui, |ui| {
+                        for entry in &list {
+                            let thumb = self.thumbnail(ui.ctx(), &entry.thumbnail, &mut budget);
+                            ui.horizontal(|ui| {
+                                ui.add_space(14.0);
+                                let (rect, _) = ui.allocate_exact_size(Vec2::new(52.0, 52.0), Sense::hover());
+                                ui.painter().rect_filled(rect, arcade_link::design::radius::SM, c.sunken);
+                                if let Some(t) = thumb {
+                                    let size = self.thumbs.get(&entry.thumbnail).and_then(|t| t.as_ref()).map_or(Vec2::splat(52.0), |t| t.size_vec2());
+                                    let fit = (52.0 / size.x.max(size.y)).min(1.0);
+                                    let img = Rect::from_center_size(rect.center(), size * fit);
+                                    ui.painter().image(t, img, Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)), egui::Color32::WHITE);
+                                }
+                                ui.add_space(8.0);
+                                let width = ui.available_width();
+                                kit.row(ui, &entry.summary, &entry.kinds.join(", "), |ui| {
+                                    ui.set_max_width(width * 0.3);
+                                    ui.label(
+                                        egui::RichText::new(arcade_link::design::format::format_relative(entry.time_ms, now, offset))
+                                            .font(super::theme::font(arcade_link::design::text::SMALL))
+                                            .color(c.muted),
+                                    );
+                                });
+                            });
+                        }
+                    });
+                }
+            },
+        );
+        if reload {
+            self.reload();
+        }
+        out
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

@@ -29,6 +29,26 @@ use crate::gui::runtime::Runtime;
 
 pub const ME: &str = ids::LENS;
 pub const NAME: &str = "Arcade Lens";
+/// The OS identifier (STANDARD §10): desktop file, Wayland app_id / X11
+/// WM_CLASS, bundle id and Windows AppUserModelID.
+pub const OS_ID: &str = "dev.arcade.Lens";
+
+static ACTIVITY: std::sync::Mutex<Vec<(i64, String)>> = std::sync::Mutex::new(Vec::new());
+
+/// Records one Link exchange for Settings › Connected apps › Recent activity:
+/// which app and which action, never the content.
+pub fn note_activity(line: impl Into<String>) {
+    let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64);
+    let mut log = ACTIVITY.lock().unwrap_or_else(|e| e.into_inner());
+    log.push((now, line.into()));
+    let excess = log.len().saturating_sub(50);
+    log.drain(..excess);
+}
+
+/// This session's Link activity, oldest first: (Unix ms, line).
+pub fn recent_activity() -> Vec<(i64, String)> {
+    ACTIVITY.lock().unwrap_or_else(|e| e.into_inner()).clone()
+}
 /// Release artifacts embed the published version, including the nightly suffix.
 pub const VERSION: &str = match option_env!("ARCADE_RELEASE_VERSION") {
     Some(version) => version,
@@ -419,6 +439,7 @@ impl Handler for LensHandler {
     }
 
     fn invoke(&self, request: InvokeRequest, ctx: &InvokeContext) -> Result<Reply, LinkError> {
+        note_activity(format!("{} used {}", arcade_link::manifest::app_name(&request.context.source), request.action));
         match request.action.as_str() {
             "lens.recognize" => {
                 let job = ctx.start_job();

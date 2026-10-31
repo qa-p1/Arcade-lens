@@ -66,3 +66,34 @@ aebde82ca97adebe6c4fdd5d0dea338d1134db5ccddf0678ec4cb6d836f94198  spec/vectors/r
 8e616c4585084906a4976b207b4cb657c26ab05388e78fc3cdd79df942689dae  tools/test_validate_shortcuts.py
 3b5d2981ab87fdf07437daa294dce825d59b63580430e9ffa2b58e87d5d72cf0  tools/validate_shortcuts.py
 ```
+
+## Arcade design kit
+
+Copied unchanged from [Arcade Link](https://github.com/qa-p1/Arcade-Link/tree/v0.4.12) tag `v0.4.12` (commit
+`aab656965489d7cdf0fa0b2670c55a20ac88e38a`) by `scripts/sync-design`; never edit these files here.
+License: MIT OR Apache-2.0.
+
+```text
+262481e844521b326f5ecd053e59b98c8b2da78c8ee1bdbb6e8174305e54935a  assets/design-licenses/Inter-OFL.txt
+11405845a97dcec4150fb3943d03dbd11eeb086ded31a5cab27aa92b620838c1  assets/glyphs/arcade.box.svg
+bbf1518dc224aa8f8df59f432cf5eb8b6e25b1f4a4e4676fe231d84770dac156  assets/glyphs/arcade.clipboard.svg
+54c0b3e869912313a7b543175ad6bda5853b0bc8118d753e2c67de6dfdd07df9  assets/glyphs/arcade.find.svg
+ba869f44636f28ea28ebd71c8e00b8206fd1eaa28ce23cfc628b8feac1bb556b  assets/glyphs/arcade.lens.svg
+ce15684dfd003b0beb7e21a6e8c5a080433a0e25b804e48f024f3ba17794279b  assets/glyphs/arcade.look.svg
+42ff3fbca18365d18875061617446aca6876bf5f740160412663d3460f81e0cc  assets/glyphs/arcade.shelf.svg
+dd2aa2c70bb8ebe8b597eb8440dfc032a548ff43f90f2ffd08ec00cd02b4fac2  assets/glyphs/arcade.tools.svg
+6718ccee834c345aac4b4a71ea83461412e5f4ae6f24179ab897192cf243ce63  assets/glyphs/arcade.wheel.svg
+fcbc1b29fdae3943eacad6a30b85267742537bdef08d00d576479de1b24d470b  packaging/icons/icon.svg
+dece9861aebbbfa8f57137200b8f106d0ac610a115f3d990c74c5336e51d7b2d  packaging/icons/arcade-lens.ico
+5a542c9a8208050325787a9bbb79f747b6d55846fe60d8cb68b09e5a5606966d  packaging/icons/arcade-lens.icns
+d8bb3e6b2c4e84e976bde6436b23b5a2ba67034b8ab5bace442aa8b67d2c7722  packaging/icons/arcade-lens.png
+0a69b2ffd16b50381846609b39c69286e20af327d18051402cec9890a9d3fe5b  packaging/icons/png/1024.png
+9d3cc90d7ac6e85200fa98e8449200fe50b992ef098c2ce805316412d8611a12  packaging/icons/png/128.png
+da6930ae4e180d5b04e204a43b89fe706d2506dffa736d678aa2f8e3de628ad2  packaging/icons/png/16.png
+0366e30ac048406a2657ca182a5a02b1412c625b8710bbbc900896d98c1a2569  packaging/icons/png/24.png
+d8bb3e6b2c4e84e976bde6436b23b5a2ba67034b8ab5bace442aa8b67d2c7722  packaging/icons/png/256.png
+9e98112f7116d573dff6f80df23716cf9574a6185a5ef5df840f1ecb7645aa3f  packaging/icons/png/32.png
+ddef9e7d617dd14ab43636098d6c85663f571063126a45b9959943fa60a39658  packaging/icons/png/48.png
+5002cb84c229aafae7beea8e469362d36408cf176f963b0abd55ed288d80c4e2  packaging/icons/png/512.png
+ecd287ef551cf49966e30bdf006689c6d6942e075fde96cf553d24d493c4d94e  packaging/icons/png/64.png
+```

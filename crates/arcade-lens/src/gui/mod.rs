@@ -62,10 +62,12 @@ struct AppState {
     pins: Vec<pins::Pin>,
     editors: Vec<annotate::Editor>,
     settings: Option<settings_view::SettingsView>,
+    history: Option<history::HistoryView>,
     recording: Option<pins::Recording>,
     ui_tx: Sender<UiCommand>,
     ui_rx: Receiver<UiCommand>,
     settings_requests: Vec<settings_view::SettingsRequest>,
+    history_requests: Vec<history::HistoryRequest>,
     notices: Vec<String>,
     next_id: u64,
     tesseract_rx: Option<Receiver<Result<(), String>>>,
@@ -423,7 +425,40 @@ impl LensApp {
                     st.env.usage.lock().unwrap().reset();
                     let _ = config::save_usage(&self.paths, &UsageStore::default());
                 }
-                settings_view::SettingsRequest::ClearHistory => history::clear(&self.paths.history()),
+                settings_view::SettingsRequest::ClearHistory => {
+                    history::clear(&self.paths.history());
+                    if let Some(h) = &mut self.state.lock().unwrap().history {
+                        h.reload();
+                    }
+                }
+                settings_view::SettingsRequest::ShowHistory => self.open_history(ctx),
+                settings_view::SettingsRequest::OpenUrl(url) => {
+                    let mut st = self.state.lock().unwrap();
+                    if let Err(e) = st.env.host.open_uri(&url, false) {
+                        if let Some(v) = &mut st.settings {
+                            v.status = Some((format!("Couldn't open the page. {e}"), false));
+                        }
+                    }
+                }
+                settings_view::SettingsRequest::OpenApp(app) => {
+                    let st = self.state.lock().unwrap();
+                    let arcade = st.env.rt.arcade.clone();
+                    let tx = st.ui_tx.clone();
+                    let repaint = ctx.clone();
+                    std::thread::spawn(move || {
+                        if let Err(e) = arcade.open(&app) {
+                            let message = format!("Couldn't open {}. {e}", arcade_link::manifest::app_name(&app));
+                            let _ = tx.send(UiCommand::SettingsStatus { message, ok: false });
+                        }
+                        repaint.request_repaint();
+                    });
+                }
+                settings_view::SettingsRequest::Quit => {
+                    if self.solo {
+                        let _ = lens_platform::ipc::send(&self.paths.endpoint(), "quit");
+                    }
+                    ctx.send_viewport_cmd(ViewportCommand::Close);
+                }
                 settings_view::SettingsRequest::Autostart(on) => {
                     let r = match lens_platform::autostart::launch_path() {
                         Ok(exe) if on => lens_platform::autostart::enable(&exe),
@@ -573,15 +608,33 @@ impl LensApp {
 
     fn anything_open(&self) -> bool {
         let st = self.state.lock().unwrap();
-        st.overlay.is_some() || !st.pins.is_empty() || !st.editors.is_empty() || st.settings.is_some() || st.recording.is_some()
+        st.overlay.is_some() || !st.pins.is_empty() || !st.editors.is_empty() || st.settings.is_some() || st.history.is_some() || st.recording.is_some()
     }
 
     fn open_settings(&mut self, ctx: &egui::Context) {
+        self.open_settings_at(ctx, None);
+    }
+
+    /// Opens Settings (or brings it to the front), optionally on `section`.
+    fn open_settings_at(&mut self, ctx: &egui::Context, section: Option<settings_view::Section>) {
         let mut st = self.state.lock().unwrap();
         if st.settings.is_none() {
             st.settings = Some(settings_view::SettingsView::new(st.env.rt.clone()));
         } else {
             ctx.send_viewport_cmd_to(settings_view::SettingsView::viewport_id(), ViewportCommand::Focus);
+        }
+        if let (Some(view), Some(section)) = (&mut st.settings, section) {
+            view.show_section(section);
+        }
+        self.activity = true;
+    }
+
+    fn open_history(&mut self, ctx: &egui::Context) {
+        let mut st = self.state.lock().unwrap();
+        if st.history.is_none() {
+            st.history = Some(history::HistoryView::new(self.paths.history()));
+        } else {
+            ctx.send_viewport_cmd_to(history::HistoryView::viewport_id(), ViewportCommand::Focus);
         }
         self.activity = true;
     }
@@ -680,6 +733,7 @@ impl LensApp {
 
         // Root window: the overlay for the monitor under the pointer.
         let mut close_overlay = false;
+        let mut open_after: Option<settings_view::Section> = None;
         {
             let mut guard = self.state.lock().unwrap();
             let st = &mut *guard;
@@ -703,11 +757,22 @@ impl LensApp {
                     }
                 }
                 close_overlay = ov.close_requested;
+                if close_overlay {
+                    open_after = ov.open_settings.take();
+                }
             }
             // A closing solo window paints one more pass before it goes;
             // without the overlay that pass would flash black.
             if close_overlay && !self.solo {
                 st.overlay = None;
+            }
+        }
+        if let Some(section) = open_after {
+            if self.solo {
+                // This window process is about to exit: the running Lens opens Settings.
+                let _ = lens_platform::ipc::send(&self.paths.endpoint(), &format!("settings:{}", section.label()));
+            } else {
+                self.open_settings_at(&ctx, Some(section));
             }
         }
         if close_overlay && self.solo {
@@ -751,6 +816,9 @@ impl LensApp {
             }
             if st.settings.is_some() {
                 ids.push((settings_view::SettingsView::viewport_id(), settings_view::SettingsView::builder(), Child::Settings));
+            }
+            if st.history.is_some() {
+                ids.push((history::HistoryView::viewport_id(), history::HistoryView::builder(), Child::History));
             }
             if let Some(r) = &st.recording {
                 let b = ViewportBuilder::default()
@@ -805,6 +873,7 @@ enum Child {
     Pin(u64),
     Editor(u64),
     Settings,
+    History,
     Recording,
 }
 
@@ -869,6 +938,17 @@ impl Child {
                     let closed = v.closed;
                     st.settings_requests.extend(reqs);
                     if closed || !st.settings_requests.is_empty() {
+                        ctx.request_repaint_of(ViewportId::ROOT);
+                    }
+                }
+            }
+            Child::History => {
+                let enabled = st.env.rt.settings.privacy.history_enabled;
+                if let Some(v) = &mut st.history {
+                    let reqs = v.ui(&ctx, enabled);
+                    let closed = v.closed;
+                    st.history_requests.extend(reqs);
+                    if closed || !st.history_requests.is_empty() {
                         ctx.request_repaint_of(ViewportId::ROOT);
                     }
                 }
@@ -1129,7 +1209,7 @@ fn start_app(
         Box::new(move |cc| {
             let ctx = cc.egui_ctx.clone();
             let _ = CONTEXT.set(ctx.clone());
-            theme::apply_style(&ctx);
+            theme::apply_style(&ctx, rt.settings.appearance.as_str());
             let mut shortcuts = None;
             let tray = None;
             if daemon {
@@ -1167,10 +1247,12 @@ fn start_app(
                 pins: Vec::new(),
                 editors: Vec::new(),
                 settings: None,
+                history: None,
                 recording: None,
                 ui_tx,
                 ui_rx,
                 settings_requests: Vec::new(),
+                history_requests: Vec::new(),
                 notices: Vec::new(),
                 next_id: 0,
                 tesseract_rx: None,

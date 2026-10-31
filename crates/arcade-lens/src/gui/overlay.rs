@@ -19,7 +19,7 @@ use lens_core::{Analysis, AnalysisEvent, AnalysisReport, Capability, Finding, Va
 use super::ghost::GuiHost;
 use super::measure;
 use super::runtime::Runtime;
-use super::theme::{self, ACCENT, ACCENT_SOFT, BORDER, DANGER, MUTED, SUCCESS, TEXT};
+use super::theme;
 
 /// Shared services the overlay needs to analyze and act.
 pub struct Env {
@@ -71,7 +71,8 @@ pub struct Sel {
 
 pub enum Panel {
     Primary,
-    Expanded { filter: String, cursor: usize },
+    /// `peers`: only connected apps' actions (the result panel's "Send to…").
+    Expanded { filter: String, cursor: usize, peers: bool },
     Confirm { entry: PaletteEntry, req: ConfirmRequest, params: Params },
     Choice { entry: PaletteEntry, choices: Vec<Choice>, cursor: usize, params: Params },
     Result { title: String, body: String },
@@ -140,6 +141,9 @@ pub struct Overlay {
     measure_rect: Option<(usize, Rect)>,
     reanalyze_at: Option<Instant>,
     pub history_saved: bool,
+    /// A Settings page to open once the overlay closes (e.g. Text recognition
+    /// from the missing-Tesseract notice).
+    pub open_settings: Option<super::settings_view::Section>,
     /// Set for Arcade Link's `lens.capture`: the first selection is handed
     /// back to the caller and the overlay closes, without the palette.
     pub pick: Option<crate::link::PickTarget>,
@@ -184,6 +188,25 @@ pub fn cap_label(c: &Capability) -> String {
     .to_string()
 }
 
+/// The overlay's top hint before anything is selected: what to do, then
+/// the keys that work now as key chips.
+fn hud_hint(measure: bool, mode: crate::link::CaptureMode, windows: bool) -> (&'static str, &'static [(&'static str, &'static str)]) {
+    use crate::link::CaptureMode;
+    if measure {
+        ("Drag to measure a box", &[("C", "Copy"), ("M", "Back"), ("Esc", "Close")])
+    } else if mode == CaptureMode::Pin {
+        ("Drag to select a region to pin", &[("Esc", "Close")])
+    } else if mode == CaptureMode::Color {
+        ("Click a pixel or drag a region", &[("Esc", "Close")])
+    } else if mode == CaptureMode::Text {
+        ("Drag over the text to copy it", &[("Esc", "Close")])
+    } else if windows {
+        ("Drag to select, or click a window", &[("M", "Measure"), ("Esc", "Close")])
+    } else {
+        ("Drag to select", &[("M", "Measure"), ("Esc", "Close")])
+    }
+}
+
 fn key_name(k: Key) -> Option<char> {
     let n = k.name();
     let mut c = n.chars();
@@ -220,6 +243,7 @@ impl Overlay {
             measure_rect: None,
             reanalyze_at: None,
             history_saved: false,
+            open_settings: None,
             pick: None,
         }
     }
@@ -403,6 +427,56 @@ impl Overlay {
         self.toast = Some(Toast { text: text.into(), kind, until: Instant::now() + Duration::from_millis(ms), then_close });
     }
 
+    /// The shared "Copied" feedback.
+    pub fn toast_copied(&mut self) {
+        self.toast("Copied", ToastKind::Success, true);
+    }
+
+    pub fn toast_error(&mut self, text: impl Into<String>) {
+        self.toast(text, ToastKind::Error, false);
+    }
+
+    /// Result panel "Save": a text file in the configured save folder.
+    pub fn save_text_result(&mut self, env: &Env, title: &str, body: &str) {
+        let stem: String = title.chars().map(|c| if c.is_alphanumeric() || c == ' ' || c == '-' { c } else { ' ' }).collect();
+        let stem = stem.split_whitespace().collect::<Vec<_>>().join(" ");
+        let request = lens_core::host::SaveRequest {
+            suggested_name: format!("{}.txt", if stem.is_empty() { "Lens result" } else { stem.as_str() }),
+            bytes: body.as_bytes().to_vec(),
+            directory: None,
+            mime: "text/plain".into(),
+        };
+        match env.host.save_file(request) {
+            Ok(path) => {
+                let name = path.file_name().map_or_else(|| path.display().to_string(), |n| n.to_string_lossy().into_owned());
+                self.toast(format!("Saved {name}"), ToastKind::Success, true)
+            }
+            Err(e) => self.toast(format!("Couldn't save the result. {e}"), ToastKind::Error, false),
+        }
+    }
+
+    /// Result panel "Pin": pins the selection the result came from.
+    pub fn pin_selection(&mut self, env: &Env) {
+        let Some(sel) = &self.sel else { return };
+        match env.host.pin(Arc::new(sel.selection.image.as_ref().clone()), Some(sel.selection.rect)) {
+            Ok(()) => self.close_requested = true,
+            Err(e) => self.toast(format!("Couldn't pin the selection. {e}"), ToastKind::Error, false),
+        }
+    }
+
+    /// Result panel "Send to…": the result becomes the text to act on, and
+    /// the list shows what connected apps can do with it.
+    pub fn send_text_result(&mut self, body: &str) {
+        let mut finding = Finding::new(lens_core::caps::TEXT, Value::text(body.to_string()));
+        finding.recognizer = "lens.result".into();
+        self.report = AnalysisReport::default();
+        self.report.findings.push(finding);
+        self.palette = Palette::default();
+        // The next poll rebuilds the palette for the new finding.
+        self.palette_revision = u64::MAX;
+        self.panel = Panel::Expanded { filter: String::new(), cursor: 0, peers: true };
+    }
+
     pub fn run_entry(&mut self, env: &Env, entry: PaletteEntry, params: Params, confirmed: bool) {
         if self.job.is_some() {
             return;
@@ -452,6 +526,9 @@ impl Overlay {
                 });
             }
             Target::Action(id) => {
+                if let Some(app) = id.strip_prefix("arcade.").and_then(|rest| rest.split('.').next()) {
+                    crate::link::note_activity(format!("Sent to {}: {}", arcade_link::manifest::app_name(&format!("arcade.{app}")), entry.label));
+                }
                 let id = id.clone();
                 let finding = entry.finding;
                 let p = params.clone();
@@ -558,6 +635,8 @@ impl Overlay {
         self.pointer(env, &ctx, &bg, mon, hover_px, view_size, ppp);
 
         // --- Paint ---
+        theme::sync(&ctx);
+        let c = theme::c();
         let painter = ui.painter_at(screen);
         let v = self.view(mon);
         painter.image(v.texture.id(), screen, egui::Rect::from_min_max(Pos2::ZERO, Pos2::new(1.0, 1.0)), Color32::WHITE);
@@ -571,32 +650,25 @@ impl Overlay {
                     egui::Rect::from_min_max(Pos2::new(screen.min.x, r.min.y), Pos2::new(r.min.x, r.max.y)),
                     egui::Rect::from_min_max(Pos2::new(r.max.x, r.min.y), Pos2::new(screen.max.x, r.max.y)),
                 ] {
-                    painter.rect_filled(d, 0.0, theme::DIM);
+                    painter.rect_filled(d, 0.0, c.scrim);
                 }
-                let px1 = 1.0 / ppp;
-                painter.rect_stroke(r.expand(px1 * 0.5), 0.0, Stroke::new(px1.max(1.0), ACCENT_SOFT), StrokeKind::Middle);
+                theme::selection_outline(&painter, r, 1.0);
                 if self.drag.is_none() && self.sel.as_ref().is_some_and(|s| s.mon == mon) && !self.measure {
                     for h in handle_points(r) {
-                        painter.rect(
-                            egui::Rect::from_center_size(h.1, Vec2::splat(6.0)),
-                            CornerRadius::same(1),
-                            TEXT,
-                            Stroke::new(1.0_f32, ACCENT),
-                            StrokeKind::Middle,
-                        );
+                        theme::handle(&painter, h.1);
                     }
                 }
                 let size = sel_rect.unwrap();
                 let label = format!("{} × {}", size.width, size.height);
-                let anchor = if r.min.y > 28.0 {
-                    (r.left_top() + Vec2::new(0.0, -6.0), Align2::LEFT_BOTTOM)
+                let anchor = if r.min.y > 34.0 {
+                    (r.left_top() + Vec2::new(0.0, -8.0), Align2::LEFT_BOTTOM)
                 } else {
-                    (r.left_top() + Vec2::new(6.0, 6.0), Align2::LEFT_TOP)
+                    (r.left_top() + Vec2::new(8.0, 8.0), Align2::LEFT_TOP)
                 };
-                theme::pill(&painter, anchor.0, anchor.1, &label, TEXT, 11.5);
+                theme::label_chip(&painter, anchor.0, anchor.1, &label, true);
             }
             None => {
-                painter.rect_filled(screen, 0.0, theme::DIM.gamma_multiply(0.55));
+                painter.rect_filled(screen, 0.0, c.scrim.gamma_multiply(0.55));
             }
         }
 
@@ -607,9 +679,9 @@ impl Overlay {
                     let m = &self.view(mon).monitor.rect;
                     let local = Rect::new(w.rect.x - m.x, w.rect.y - m.y, w.rect.width, w.rect.height);
                     let r = rect_pt(&local).intersect(screen);
-                    painter.rect_stroke(r, 2.0, Stroke::new(2.0_f32, ACCENT.gamma_multiply(0.85)), StrokeKind::Inside);
+                    theme::selection_outline(&painter, r.shrink(1.0), 1.0);
                     let name = w.app_name.clone().filter(|a| !a.is_empty()).unwrap_or_else(|| w.title.clone());
-                    theme::pill(&painter, r.left_top() + Vec2::new(8.0, 8.0), Align2::LEFT_TOP, &format!("{name} · click to select"), TEXT, 11.0);
+                    theme::label_chip(&painter, r.left_top() + Vec2::new(8.0, 8.0), Align2::LEFT_TOP, &format!("{name} · Click to select"), false);
                 }
             }
         }
@@ -619,9 +691,10 @@ impl Overlay {
         } else if self.sel.is_none() || self.drag.is_some() {
             if let (Some(p), Some((x, y))) = (hover, hover_px) {
                 if self.drag.is_none() {
-                    let s = Stroke::new(1.0_f32, Color32::from_white_alpha(70));
-                    painter.line_segment([Pos2::new(screen.min.x, p.y), Pos2::new(screen.max.x, p.y)], s);
-                    painter.line_segment([Pos2::new(p.x, screen.min.y), Pos2::new(p.x, screen.max.y)], s);
+                    theme::on_image_lines(
+                        &painter,
+                        &[[Pos2::new(screen.min.x, p.y), Pos2::new(screen.max.x, p.y)], [Pos2::new(p.x, screen.min.y), Pos2::new(p.x, screen.max.y)]],
+                    );
                 }
                 self.paint_loupe(&painter, screen, p, (x, y), mon);
             }
@@ -629,20 +702,8 @@ impl Overlay {
 
         // HUD hint.
         if primary && self.sel.is_none() && self.drag.is_none() {
-            let hint = if self.measure {
-                "Measure · drag to measure a box · C copy · M back · Esc close"
-            } else if self.mode == crate::link::CaptureMode::Pin {
-                "Pin · drag to select a region · Esc close"
-            } else if self.mode == crate::link::CaptureMode::Color {
-                "Color · click a pixel or drag a region · Esc close"
-            } else if self.mode == crate::link::CaptureMode::Text {
-                "Text · drag over the text to copy it · Esc close"
-            } else if self.windows.is_empty() {
-                "Drag to select · M measure · Esc close"
-            } else {
-                "Drag to select · Click a window · M measure · Esc close"
-            };
-            theme::pill(&painter, Pos2::new(screen.center().x, screen.min.y + 14.0), Align2::CENTER_TOP, hint, MUTED, 12.0);
+            let (lead, keys) = hud_hint(self.measure, self.mode, !self.windows.is_empty());
+            theme::hint_bar(&painter, Pos2::new(screen.center().x, screen.min.y + 14.0), Align2::CENTER_TOP, Some(lead), keys);
         }
 
         if bg.hovered() {
@@ -670,18 +731,23 @@ impl Overlay {
                 Some(r) => (Pos2::new(r.center().x, (r.max.y + 100.0).min(screen.max.y - 30.0)), Align2::CENTER_TOP),
                 None => (screen.center(), Align2::CENTER_CENTER),
             };
-            let color = match t.kind {
-                ToastKind::Success => SUCCESS,
-                ToastKind::Error => DANGER,
-                ToastKind::Info => TEXT,
+            let (icon, icon_colour) = match t.kind {
+                ToastKind::Success => ("check", c.ok),
+                ToastKind::Error => ("alert", c.danger),
+                ToastKind::Info => ("info", c.muted),
             };
             let text = t.text.clone();
             egui::Area::new(egui::Id::new("lens-toast")).order(egui::Order::Tooltip).pivot(pivot).fixed_pos(anchor).constrain_to(screen).show(&ctx, |ui| {
-                theme::panel_frame().show(ui, |ui| {
-                    // Short messages stay on one line; long errors wrap at a readable width.
-                    let galley_width = ui.fonts_mut(|f| f.layout_no_wrap(text.clone(), egui::FontId::proportional(13.5), color).size().x);
-                    ui.set_width(galley_width.min(420.0));
-                    ui.add(egui::Label::new(egui::RichText::new(text).color(color).size(13.5)).wrap());
+                theme::panel_frame().inner_margin(egui::Margin::symmetric(12, 8)).show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        let (r, _) = ui.allocate_exact_size(Vec2::splat(16.0), Sense::hover());
+                        theme::paint_icon(ui.painter(), icon, r.center(), 16.0, icon_colour);
+                        // Short messages stay on one line; long errors wrap at a readable width.
+                        let body = theme::font(arcade_link::design::text::BODY);
+                        let galley_width = ui.fonts_mut(|f| f.layout_no_wrap(text.clone(), body.clone(), c.text).size().x);
+                        ui.set_max_width(galley_width.min(420.0) + 24.0);
+                        ui.add(egui::Label::new(egui::RichText::new(text).font(body).color(c.text)).wrap());
+                    });
                 });
             });
         }
@@ -880,7 +946,7 @@ impl Overlay {
                                 self.run_entry(env, e, Params::new(), false);
                             }
                         }
-                        Key::Space | Key::Tab => self.panel = Panel::Expanded { filter: String::new(), cursor: 0 },
+                        Key::Space | Key::Tab => self.panel = Panel::Expanded { filter: String::new(), cursor: 0, peers: false },
                         Key::C if modifiers.ctrl || modifiers.command => {
                             if let Some(e) = self.palette.all.iter().find(|e| e.target == Target::Action("core.region.copy".into())).cloned() {
                                 self.run_entry(env, e, Params::new(), false);
@@ -981,26 +1047,21 @@ impl Overlay {
             origin.y = p.y - 22.0 - BOX - 26.0;
         }
         let r = egui::Rect::from_min_size(origin, Vec2::splat(BOX));
-        painter.rect_filled(r.expand(1.0), CornerRadius::same(8), Color32::BLACK);
+        let c = theme::c();
+        let radius = arcade_link::design::radius::MD;
+        painter.rect_filled(r.expand(1.0), radius, c.sunken);
         painter.image(v.texture.id(), r, uv, Color32::WHITE);
         let cell = BOX / (2 * N + 1) as f32;
-        let c = egui::Rect::from_min_size(r.min + Vec2::splat(N as f32 * cell), Vec2::splat(cell));
-        painter.rect_stroke(c, 0.0, Stroke::new(1.0_f32, Color32::WHITE), StrokeKind::Outside);
-        painter.rect_stroke(r, CornerRadius::same(8), Stroke::new(1.0_f32, BORDER), StrokeKind::Outside);
+        let centre = egui::Rect::from_min_size(r.min + Vec2::splat(N as f32 * cell), Vec2::splat(cell));
+        painter.rect_stroke(centre, 0.0, Stroke::new(1.0_f32, c.accent), StrokeKind::Outside);
+        painter.rect_stroke(r, radius, Stroke::new(1.0_f32, c.line_strong), StrokeKind::Outside);
         let px = v.image.get_pixel(x.clamp(0, v.image.width() as i32 - 1) as u32, y.clamp(0, v.image.height() as i32 - 1) as u32);
         let hex = format!("#{:02X}{:02X}{:02X}", px[0], px[1], px[2]);
-        let lr = egui::Rect::from_min_size(Pos2::new(r.min.x, r.max.y + 4.0), Vec2::new(BOX, 22.0));
-        painter.rect(lr, CornerRadius::same(6), theme::SURFACE, Stroke::new(1.0_f32, BORDER), StrokeKind::Inside);
-        let sw = egui::Rect::from_min_size(lr.min + Vec2::new(6.0, 6.0), Vec2::splat(10.0));
-        painter.rect(
-            sw,
-            CornerRadius::same(2),
-            Color32::from_rgb(px[0], px[1], px[2]),
-            Stroke::new(1.0_f32, Color32::from_white_alpha(60)),
-            StrokeKind::Inside,
-        );
         let m = &v.monitor.rect;
-        painter.text(Pos2::new(sw.max.x + 6.0, lr.center().y), Align2::LEFT_CENTER, format!("{hex}  {}, {}", m.x + x, m.y + y), theme::mono(10.5), TEXT);
+        let label = theme::label_chip(painter, Pos2::new(r.min.x, r.max.y + 4.0), Align2::LEFT_TOP, &format!("     {hex}  {}, {}", m.x + x, m.y + y), true);
+        // The sampled pixel's own colour, as a swatch inside the label.
+        let sw = egui::Rect::from_center_size(Pos2::new(label.min.x + 13.0, label.center().y), Vec2::splat(10.0));
+        painter.rect(sw, 2.0, Color32::from_rgb(px[0], px[1], px[2]), Stroke::new(1.0_f32, c.line_strong), StrokeKind::Outside);
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -1013,14 +1074,14 @@ impl Overlay {
         to_pt: &dyn Fn(f32, f32) -> Pos2,
         _ppp: f32,
     ) {
-        let accent = Stroke::new(1.5_f32, Color32::from_rgb(244, 114, 182));
-        let halo = Stroke::new(3.5_f32, Color32::from_black_alpha(150));
+        let [halo, accent] = theme::guide_strokes();
         if let Some((m, r)) = self.measure_rect {
             if m == mon {
                 let rr = rect_pt(&r);
-                painter.rect_filled(rr, 0.0, Color32::from_rgba_unmultiplied(244, 114, 182, 28));
+                painter.rect_filled(rr, 0.0, theme::guide_fill());
+                painter.rect_stroke(rr, 0.0, halo, StrokeKind::Middle);
                 painter.rect_stroke(rr, 0.0, accent, StrokeKind::Middle);
-                theme::pill(painter, Pos2::new(rr.center().x, rr.max.y + 6.0), Align2::CENTER_TOP, &format!("{} × {}", r.width, r.height), TEXT, 12.0);
+                theme::label_chip(painter, Pos2::new(rr.center().x, rr.max.y + 6.0), Align2::CENTER_TOP, &format!("{} × {}", r.width, r.height), true);
             }
         }
         if self.drag.is_some() {
@@ -1049,7 +1110,7 @@ impl Overlay {
         }
         let w = l + r + 1;
         let h = u + d + 1;
-        theme::pill(painter, to_pt(cx, cy) + Vec2::new(10.0, 10.0), Align2::LEFT_TOP, &format!("W {w}  H {h}"), TEXT, 11.5);
+        theme::label_chip(painter, to_pt(cx, cy) + Vec2::new(10.0, 10.0), Align2::LEFT_TOP, &format!("W {w}  H {h}"), true);
     }
 
     /// The top finding to describe in the palette header.

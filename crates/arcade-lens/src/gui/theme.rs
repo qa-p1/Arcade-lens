@@ -180,7 +180,9 @@ pub fn paint_icon(painter: &egui::Painter, name: &str, center: Pos2, px: f32, co
                 for step in 1..=12 {
                     let t = step as f32 / 12.0;
                     let s = 1.0 - t;
-                    points.push((p0.to_vec2() * s.powi(3) + p1.to_vec2() * (3.0 * s * s * t) + p2.to_vec2() * (3.0 * s * t * t) + p3.to_vec2() * t.powi(3)).to_pos2());
+                    points.push(
+                        (p0.to_vec2() * s.powi(3) + p1.to_vec2() * (3.0 * s * s * t) + p2.to_vec2() * (3.0 * s * t * t) + p3.to_vec2() * t.powi(3)).to_pos2(),
+                    );
                 }
                 current = p3;
             }
@@ -201,7 +203,8 @@ pub fn key_chip_width(painter: &egui::Painter, key: &str) -> f32 {
 pub fn key_chip(painter: &egui::Painter, left_center: Pos2, key: &str) -> f32 {
     let c = c();
     let g = painter.layout_no_wrap(key.to_string(), font(text::CAPTION), c.text);
-    let rect = Rect::from_min_size(Pos2::new(left_center.x, left_center.y - size::KEY_CHIP / 2.0), Vec2::new((g.size().x + 12.0).max(size::KEY_CHIP), size::KEY_CHIP));
+    let rect =
+        Rect::from_min_size(Pos2::new(left_center.x, left_center.y - size::KEY_CHIP / 2.0), Vec2::new((g.size().x + 12.0).max(size::KEY_CHIP), size::KEY_CHIP));
     let edge = Stroke::new(1.0_f32, c.line_strong);
     painter.rect(rect, radius::XS, c.sunken, edge, StrokeKind::Inside);
     painter.hline(rect.x_range().shrink(radius::XS), rect.bottom() - 1.5, edge);
@@ -273,7 +276,7 @@ pub fn selection_outline(painter: &egui::Painter, rect: Rect, pixel: f32) {
 /// A 1 px line drawn over the frozen screenshot (crosshair): white with a
 /// dark halo underneath, so it reads on any image.
 pub fn on_image_lines(painter: &egui::Painter, segments: &[[Pos2; 2]]) {
-    for (width, colour) in [(3.0, Color32::from_black_alpha(90)), (1.0, Color32::from_white_alpha(170))] {
+    for (width, colour) in [(3.0_f32, Color32::from_black_alpha(90)), (1.0_f32, Color32::from_white_alpha(170))] {
         for s in segments {
             painter.line_segment(*s, Stroke::new(width, colour));
         }
@@ -325,6 +328,48 @@ pub fn handle(painter: &egui::Painter, center: Pos2) {
     let c = c();
     let r = Rect::from_center_size(center, Vec2::splat(8.0));
     painter.rect(r, 2.0, c.panel, Stroke::new(1.5_f32, c.accent), StrokeKind::Middle);
+}
+
+/// The command modifier as the platform writes it in hints.
+pub fn cmd_key() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "⌘"
+    } else {
+        "Ctrl"
+    }
+}
+
+/// A 32 px icon-only tool button (Template B toolbars). The active tool uses
+/// `accent-soft` with an accent icon; hover uses `hover`. `paint` draws the
+/// icon at the given centre in the given colour.
+pub fn tool_button(ui: &mut egui::Ui, active: bool, label: &str, paint: impl FnOnce(&egui::Painter, Pos2, Color32)) -> egui::Response {
+    let c = c();
+    let (rect, resp) = ui.allocate_exact_size(Vec2::splat(size::CONTROL), Sense::click());
+    let enabled = ui.is_enabled();
+    let hovered = enabled && (resp.hovered() || resp.has_focus());
+    let fill = if active {
+        c.accent_soft
+    } else if hovered {
+        c.hover
+    } else {
+        Color32::TRANSPARENT
+    };
+    ui.painter().rect_filled(rect, radius::SM, fill);
+    if resp.has_focus() {
+        ui.painter().rect_stroke(rect.expand(1.0), radius::SM, Stroke::new(2.0_f32, c.accent), StrokeKind::Outside);
+    }
+    let fg = if !enabled {
+        c.line_strong
+    } else if active {
+        c.accent_text
+    } else if hovered {
+        c.text
+    } else {
+        c.muted
+    };
+    paint(ui.painter(), rect.center(), fg);
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::Button, enabled, active, label));
+    resp.on_hover_text(label)
 }
 
 pub struct ChipState {
@@ -432,10 +477,10 @@ mod tests {
     fn theme_follows_the_context() {
         let ctx = egui::Context::default();
         apply_style(&ctx, "light");
-        let _ = ctx.run(egui::RawInput::default(), |ctx| sync(ctx));
+        let _ = ctx.run(egui::RawInput::default(), sync);
         assert_eq!(current(), Theme::Light);
         apply_style(&ctx, "dark");
-        let _ = ctx.run(egui::RawInput::default(), |ctx| sync(ctx));
+        let _ = ctx.run(egui::RawInput::default(), sync);
         assert_eq!(current(), Theme::Dark);
     }
 }

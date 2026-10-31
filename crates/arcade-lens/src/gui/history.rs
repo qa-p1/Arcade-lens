@@ -148,12 +148,7 @@ pub fn load(dir: &Path) -> Result<Vec<Entry>, String> {
             continue;
         };
         let findings = doc["findings"].as_array().cloned().unwrap_or_default();
-        let summary = findings
-            .iter()
-            .filter_map(|f| f["summary"].as_str())
-            .find(|s| !s.trim().is_empty())
-            .unwrap_or("A screen selection")
-            .to_string();
+        let summary = findings.iter().filter_map(|f| f["summary"].as_str()).find(|s| !s.trim().is_empty()).unwrap_or("A screen selection").to_string();
         let mut kinds: Vec<String> = Vec::new();
         for f in &findings {
             if let Some(c) = f["capability"].as_str() {
@@ -254,14 +249,15 @@ impl HistoryView {
         }
         let kit = super::theme::kit();
         let c = super::theme::c();
-        let mut out = Vec::new();
+        // Both page closures can ask for things, so they share these cells.
+        let out = std::cell::RefCell::new(Vec::new());
         let count = self.entries.as_ref().and_then(|e| e.as_ref().ok()).map_or(0, Vec::len);
         let description = if count == 0 {
             "What Lens recognized in your selections, newest first.".to_string()
         } else {
             format!("{} item{}, newest first. Secrets are masked.", arcade_link::design::format::format_count(count as i64), if count == 1 { "" } else { "s" })
         };
-        let mut reload = false;
+        let reload = std::cell::Cell::new(false);
         let mut budget = 4;
         let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_millis() as i64);
         let offset = chrono::Local::now().offset().local_minus_utc() / 60;
@@ -274,10 +270,10 @@ impl HistoryView {
             &description,
             |ui| {
                 if kit.button(ui, "Open folder", ButtonKind::Default).clicked() {
-                    out.push(HistoryRequest::OpenFolder(dir.clone()));
+                    out.borrow_mut().push(HistoryRequest::OpenFolder(dir.clone()));
                 }
                 if kit.button_state(ui, "Refresh", ButtonKind::Default, !loading, loading, false).clicked() {
-                    reload = true;
+                    reload.set(true);
                 }
             },
             |ui| match entries {
@@ -291,14 +287,14 @@ impl HistoryView {
                 Some(Err(error)) => {
                     kit.notice_action(ui, &error, Tone::Danger, |ui| {
                         if kit.button_state(ui, "Retry", ButtonKind::Default, true, false, true).clicked() {
-                            reload = true;
+                            reload.set(true);
                         }
                     });
                 }
                 Some(Ok(list)) if list.is_empty() && !enabled => {
                     kit.empty_state(ui, "clock", "History is off", "Turn it on to keep thumbnails and what Lens recognized, on this computer only.", |ui| {
                         if kit.button(ui, "Turn on in Privacy", ButtonKind::Primary).clicked() {
-                            out.push(HistoryRequest::OpenPrivacy);
+                            out.borrow_mut().push(HistoryRequest::OpenPrivacy);
                         }
                     });
                 }
@@ -309,7 +305,7 @@ impl HistoryView {
                     if !enabled {
                         kit.notice_action(ui, "History is off. These items stay until you clear them.", Tone::Neutral, |ui| {
                             if kit.button_state(ui, "Turn on in Privacy", ButtonKind::Default, true, false, true).clicked() {
-                                out.push(HistoryRequest::OpenPrivacy);
+                                out.borrow_mut().push(HistoryRequest::OpenPrivacy);
                             }
                         });
                         ui.add_space(16.0);
@@ -343,10 +339,10 @@ impl HistoryView {
                 }
             },
         );
-        if reload {
+        if reload.get() {
             self.reload();
         }
-        out
+        out.into_inner()
     }
 }
 

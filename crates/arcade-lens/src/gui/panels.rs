@@ -386,7 +386,11 @@ fn expanded(ov: &mut Overlay, ctx: &egui::Context, env: &Env, screen: egui::Rect
                 } else if visible.is_empty() {
                     ui.add_space(12.0);
                     ui.vertical_centered(|ui| {
-                        let title = if query.trim().is_empty() { "No matching actions".to_string() } else { format!("No actions match \u{201c}{}\u{201d}", query.trim()) };
+                        let title = if query.trim().is_empty() {
+                            "No matching actions".to_string()
+                        } else {
+                            format!("No actions match \u{201c}{}\u{201d}", query.trim())
+                        };
                         ui.label(RichText::new(title).font(theme::font(text::HEADING)).color(c.text));
                         ui.label(RichText::new("Try a shorter word, or clear the filter.").font(theme::font(text::SMALL)).color(c.muted));
                     });
@@ -588,12 +592,10 @@ fn result(ov: &mut Overlay, ctx: &egui::Context, env: &Env, screen: egui::Rect, 
         });
     });
     match action {
-        Some(ResultAction::Copy) => {
-            match lens_core::host::Host::set_clipboard_text(&*env.host, &body) {
-                Ok(()) => ov.toast_copied(),
-                Err(e) => ov.toast_error(format!("Couldn't copy the result. {e}")),
-            }
-        }
+        Some(ResultAction::Copy) => match lens_core::host::Host::set_clipboard_text(&*env.host, &body) {
+            Ok(()) => ov.toast_copied(),
+            Err(e) => ov.toast_error(format!("Couldn't copy the result. {e}")),
+        },
         Some(ResultAction::Save) => ov.save_text_result(env, &title, &body),
         Some(ResultAction::Pin) => ov.pin_selection(env),
         Some(ResultAction::Send) => ov.send_text_result(&body),

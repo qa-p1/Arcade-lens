@@ -170,7 +170,8 @@ impl Arcade {
     /// Settings' Open button: starts an installed app in the background.
     pub fn open(&self, app: &str) -> Result<()> {
         let snapshot = self.snapshot();
-        let manifest = snapshot.installed.get(app).ok_or_else(|| LensError::InvalidInput(format!("{} isn't installed", arcade_link::manifest::app_name(app))))?;
+        let manifest =
+            snapshot.installed.get(app).ok_or_else(|| LensError::InvalidInput(format!("{} isn't installed", arcade_link::manifest::app_name(app))))?;
         client::launch_and_connect(&self.0.locations, manifest, &me()).map(|_| ()).map_err(|e| LensError::Failed(e.to_string()))
     }
 

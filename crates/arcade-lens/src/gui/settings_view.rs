@@ -103,7 +103,10 @@ impl Section {
 }
 
 pub enum SettingsRequest {
-    Save { settings: Box<Settings>, chains: Vec<Chain> },
+    Save {
+        settings: Box<Settings>,
+        chains: Vec<Chain>,
+    },
     DownloadTesseract,
     ResetUsage,
     ClearHistory,
@@ -375,10 +378,11 @@ impl SettingsView {
     /// Ctrl+Q quits Lens.
     fn keys(&mut self, ctx: &egui::Context, out: &mut Vec<SettingsRequest>) {
         let recording = self.recorder.recording;
+        let editing = ctx.memory(|m| m.focused().is_some());
         let (close, help, filter, quit) = ctx.input_mut(|i| {
             let cmd = egui::Modifiers::COMMAND;
             (
-                (!recording && self.confirm.is_none() && !i.focused_widget_wants_escape() && i.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
+                (!recording && self.confirm.is_none() && !editing && i.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
                     || i.consume_key(cmd, egui::Key::W),
                 i.consume_key(egui::Modifiers::NONE, egui::Key::F1),
                 i.consume_key(cmd, egui::Key::K),
@@ -407,7 +411,6 @@ impl SettingsView {
     fn field(
         &mut self,
         ui: &mut egui::Ui,
-        kit: &Kit,
         key: &'static str,
         current: String,
         hint: &str,
@@ -416,7 +419,7 @@ impl SettingsView {
     ) -> egui::Response {
         let mut value = self.buffers.get(key).cloned().unwrap_or(current);
         let error = self.errors.get(key).cloned();
-        let r = kit.text_input(ui, &mut value, hint, error.as_deref());
+        let r = super::theme::kit().text_input(ui, &mut value, hint, error.as_deref());
         if r.changed() {
             self.buffers.insert(key, value.clone());
         }
@@ -444,14 +447,18 @@ impl SettingsView {
         let mut changed = false;
         kit.list(ui, |ui| {
             kit.row(ui, "Appearance", "System, light or dark.", |ui| {
-                changed |= kit.segmented(ui, &mut self.settings.appearance, &[(Appearance::System, "System"), (Appearance::Light, "Light"), (Appearance::Dark, "Dark")]).changed();
+                changed |= kit
+                    .segmented(ui, &mut self.settings.appearance, &[(Appearance::System, "System"), (Appearance::Light, "Light"), (Appearance::Dark, "Dark")])
+                    .changed();
             });
             let mut login = self.autostart;
             if kit.switch_row(ui, &mut login, "Start at login", "Lens starts in the background, ready for the shortcut.").changed() {
                 out.push(SettingsRequest::Autostart(login));
                 self.autostart = login;
             }
-            changed |= kit.switch_row(ui, &mut self.settings.notifications, "Notifications", "When an action fails or finishes while no Lens window is open.").changed();
+            changed |= kit
+                .switch_row(ui, &mut self.settings.notifications, "Notifications", "When an action fails or finishes while no Lens window is open.")
+                .changed();
         });
         if changed {
             theme::apply_style(ui.ctx(), self.settings.appearance.as_str());
@@ -463,15 +470,16 @@ impl SettingsView {
             let dir = self.settings.screenshot_dir.as_ref().map(|p| p.display().to_string()).unwrap_or_default();
             kit.row(ui, "Save folder", "Where images and results are saved. Empty uses Pictures/Arcade Lens.", |ui| {
                 ui.set_max_width(300.0);
-                self.field(ui, kit, "save_dir", dir, "Pictures/Arcade Lens", out, |s, v| {
+                self.field(ui, "save_dir", dir, "Pictures/Arcade Lens", out, |s, v| {
                     let v = v.trim();
                     s.screenshot_dir = (!v.is_empty()).then(|| std::path::PathBuf::from(v));
                     Ok(())
                 });
             });
             kit.row(ui, "Image format", "", |ui| {
-                format_changed |=
-                    kit.segmented(ui, &mut self.settings.image_format, &[(ImageFormat::Png, "PNG"), (ImageFormat::Jpeg, "JPEG"), (ImageFormat::Webp, "WebP")]).changed();
+                format_changed |= kit
+                    .segmented(ui, &mut self.settings.image_format, &[(ImageFormat::Png, "PNG"), (ImageFormat::Jpeg, "JPEG"), (ImageFormat::Webp, "WebP")])
+                    .changed();
             });
         });
         if format_changed {
@@ -492,7 +500,7 @@ impl SettingsView {
                 .unwrap_or_default();
                 kit.row(ui, title, "", |ui| {
                     ui.set_max_width(300.0);
-                    self.field(ui, kit, key, current, hint, out, |s, v| {
+                    self.field(ui, key, current, hint, out, |s, v| {
                         let v = (!v.trim().is_empty()).then(|| v.trim().to_string());
                         match key {
                             "browser" => s.browser = v,
@@ -514,7 +522,7 @@ impl SettingsView {
             let currency = self.settings.home_currency.clone().unwrap_or_default();
             kit.row(ui, "Home currency", "Amounts convert to this currency.", |ui| {
                 ui.set_max_width(160.0);
-                self.field(ui, kit, "currency", currency, "e.g. EUR", out, |s, v| {
+                self.field(ui, "currency", currency, "e.g. EUR", out, |s, v| {
                     s.home_currency = valid_currency(v)?;
                     Ok(())
                 });
@@ -575,7 +583,11 @@ impl SettingsView {
             if lens_platform::hyprland::active() {
                 kit.notice(ui, "Lens adds this shortcut to Hyprland while it runs. There's nothing to set up.", Tone::Neutral);
             } else {
-                kit.notice(ui, "This desktop doesn't let apps register global shortcuts. Bind a shortcut in its keyboard settings to the command below.", Tone::Warn);
+                kit.notice(
+                    ui,
+                    "This desktop doesn't let apps register global shortcuts. Bind a shortcut in its keyboard settings to the command below.",
+                    Tone::Warn,
+                );
                 let exe = lens_platform::autostart::launch_path().map(|p| p.display().to_string()).unwrap_or_else(|_| "arcade-lens".into());
                 let cmd = format!("{exe} --capture");
                 ui.add_space(10.0);
@@ -634,11 +646,17 @@ impl SettingsView {
         r.widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::TextEdit, true, format!("Filter actions, {shown} shown")));
         if by_cap.is_empty() {
             ui.add_space(16.0);
-            kit.empty_state(ui, "search", &format!("Nothing matches \u{201c}{}\u{201d}", self.action_filter.trim()), "Try another word, or clear the filter.", |ui| {
-                if kit.button(ui, "Clear filter", ButtonKind::Default).clicked() {
-                    self.action_filter.clear();
-                }
-            });
+            kit.empty_state(
+                ui,
+                "search",
+                &format!("Nothing matches \u{201c}{}\u{201d}", self.action_filter.trim()),
+                "Try another word, or clear the filter.",
+                |ui| {
+                    if kit.button(ui, "Clear filter", ButtonKind::Default).clicked() {
+                        self.action_filter.clear();
+                    }
+                },
+            );
             return;
         }
         let mut changed = false;
@@ -675,7 +693,8 @@ impl SettingsView {
                         let error_id = field.with("error");
                         let error = ui.data(|m| m.get_temp::<String>(error_id));
                         ui.allocate_ui(egui::vec2(44.0, size::CONTROL_SM), |ui| {
-                            let r = kit.text_input(ui, &mut value, "Key", None).on_hover_text(error.clone().unwrap_or_else(|| "The action's palette key".into()));
+                            let r =
+                                kit.text_input(ui, &mut value, "Key", None).on_hover_text(error.clone().unwrap_or_else(|| "The action's palette key".into()));
                             if r.changed() {
                                 ui.data_mut(|m| m.insert_temp(field, value.clone()));
                             }
@@ -728,7 +747,7 @@ impl SettingsView {
                 if missing {
                     match arcade_link::engines::tesseract_source() {
                         Some(source) => {
-                            let label = format!("Download ({})", arcade_link::design::format::format_size(source.size_mb.saturating_mul(1_000_000)));
+                            let label = format!("Download ({})", arcade_link::design::format::format_size(u64::from(source.size_mb) * 1_000_000));
                             if kit.button_state(ui, &label, ButtonKind::Primary, !self.tesseract_busy, self.tesseract_busy, true).clicked() {
                                 out.push(SettingsRequest::DownloadTesseract);
                             }
@@ -744,7 +763,7 @@ impl SettingsView {
             let langs = self.settings.ocr_languages.join(", ");
             kit.row(ui, "Languages", "Tesseract language codes, separated by commas.", |ui| {
                 ui.set_max_width(220.0);
-                self.field(ui, kit, "ocr_languages", langs, "eng", out, |s, v| {
+                self.field(ui, "ocr_languages", langs, "eng", out, |s, v| {
                     s.ocr_languages = valid_languages(v)?;
                     Ok(())
                 });
@@ -772,8 +791,20 @@ impl SettingsView {
     }
 
     fn capabilities(&self) -> Vec<Capability> {
-        let mut v: Vec<Capability> =
-            vec![caps::REGION, caps::IMAGE, caps::TEXT, caps::TABLE, caps::CODE, caps::URL, caps::COLOR, caps::PALETTE, caps::ERROR, caps::COMMAND, caps::PATH, caps::QR_CODE];
+        let mut v: Vec<Capability> = vec![
+            caps::REGION,
+            caps::IMAGE,
+            caps::TEXT,
+            caps::TABLE,
+            caps::CODE,
+            caps::URL,
+            caps::COLOR,
+            caps::PALETTE,
+            caps::ERROR,
+            caps::COMMAND,
+            caps::PATH,
+            caps::QR_CODE,
+        ];
         for a in self.rt.registry.actions() {
             for c in &a.descriptor().accepts {
                 if *c != caps::ANY && !v.contains(c) {
@@ -866,7 +897,8 @@ impl SettingsView {
                         }
                         match step {
                             ChainStep::Take { capability } => {
-                                let options: Vec<(Capability, String)> = caps_list.iter().map(|c| (c.clone(), format!("Take {}", cap_label(c).to_lowercase()))).collect();
+                                let options: Vec<(Capability, String)> =
+                                    caps_list.iter().map(|c| (c.clone(), format!("Take {}", cap_label(c).to_lowercase()))).collect();
                                 let options: Vec<(Capability, &str)> = options.iter().map(|(c, l)| (c.clone(), l.as_str())).collect();
                                 kit.select(ui, ("take", sel, i), capability, &options);
                                 current = Some(capability.clone());
@@ -919,8 +951,11 @@ impl SettingsView {
             ui.add_space(10.0);
             ui.horizontal(|ui| {
                 if current.is_some() && kit.button(ui, "Add step", ButtonKind::Default).clicked() {
-                    let first =
-                        registry.actions().iter().map(|a| a.descriptor()).find(|d| current.as_ref().is_some_and(|c| d.accepts.iter().any(|acc| graph.is_a(c, acc))));
+                    let first = registry
+                        .actions()
+                        .iter()
+                        .map(|a| a.descriptor())
+                        .find(|d| current.as_ref().is_some_and(|c| d.accepts.iter().any(|acc| graph.is_a(c, acc))));
                     if let Some(d) = first {
                         chain.steps.push(ChainStep::Run { action: d.id.clone(), params: Default::default() });
                     }
@@ -966,7 +1001,7 @@ impl SettingsView {
                 };
                 kit.row(ui, title, "", |ui| {
                     ui.set_max_width(360.0);
-                    self.field(ui, kit, key, current, "https://", out, |s, v| {
+                    self.field(ui, key, current, "https://", out, |s, v| {
                         let v = valid_service(v, needs)?;
                         let p = &mut s.providers;
                         match key {
@@ -1059,7 +1094,12 @@ impl SettingsView {
         let mut changed = false;
         kit.list(ui, |ui| {
             changed |= kit
-                .switch_row(ui, &mut self.settings.privacy.guard_secrets, "Protect secrets", "Hide online actions when a selection contains passwords, keys or tokens.")
+                .switch_row(
+                    ui,
+                    &mut self.settings.privacy.guard_secrets,
+                    "Protect secrets",
+                    "Hide online actions when a selection contains passwords, keys or tokens.",
+                )
                 .changed();
             changed |= kit
                 .switch_row(ui, &mut self.settings.privacy.learn_action_usage, "Learn which actions I use", "Local counters only, never what you selected.")
@@ -1075,7 +1115,12 @@ impl SettingsView {
         let count = super::history::count(&self.rt.paths.history());
         kit.list(ui, |ui| {
             changed |= kit
-                .switch_row(ui, &mut self.settings.privacy.history_enabled, "Keep a history", "Thumbnails and what was recognized, with secrets masked. Off by default.")
+                .switch_row(
+                    ui,
+                    &mut self.settings.privacy.history_enabled,
+                    "Keep a history",
+                    "Thumbnails and what was recognized, with secrets masked. Off by default.",
+                )
                 .changed();
             let items = format!("{} item{}", arcade_link::design::format::format_count(count as i64), if count == 1 { "" } else { "s" });
             kit.row(ui, &items, &format!("Stored on this computer in {}", self.rt.paths.history().display()), |ui| {
@@ -1109,7 +1154,12 @@ impl SettingsView {
         }
         kit.list(ui, |ui| {
             changed |= kit
-                .switch_row(ui, &mut self.settings.link.enabled, "Connect with other Arcade apps", "Their actions appear in the palette, and they can use Lens to capture.")
+                .switch_row(
+                    ui,
+                    &mut self.settings.link.enabled,
+                    "Connect with other Arcade apps",
+                    "Their actions appear in the palette, and they can use Lens to capture.",
+                )
                 .changed();
         });
         kit.section_head(ui, "Apps");
@@ -1156,7 +1206,10 @@ impl SettingsView {
                 ui.label(RichText::new("Nothing yet. Actions Lens sends to other apps appear here.").font(theme::font(text::SMALL)).color(theme::c().muted));
             }
             for (when, line) in activity.iter().rev().take(20) {
-                ui.label(RichText::new(format!("{}  {line}", arcade_link::design::format::format_relative(*when, now_ms(), local_offset_minutes()))).font(theme::font(text::SMALL)));
+                ui.label(
+                    RichText::new(format!("{}  {line}", arcade_link::design::format::format_relative(*when, now_ms(), local_offset_minutes())))
+                        .font(theme::font(text::SMALL)),
+                );
             }
         });
         kit.disclosure(ui, "link-diagnostics", "Diagnostics", |ui| {
@@ -1302,9 +1355,12 @@ fn local_offset_minutes() -> i32 {
     chrono::Local::now().offset().local_minus_utc() / 60
 }
 
+/// A shortcut-sheet group: its title and (action, bindings) rows.
+pub type KeyGroup = (String, Vec<(String, Vec<String>)>);
+
 /// The in-capture keys, from the shortcut sheet Tools shows too
 /// (`docs/user/shortcuts.json`), grouped as there.
-pub fn palette_keys() -> Vec<(String, Vec<(String, Vec<String>)>)> {
+pub fn palette_keys() -> Vec<KeyGroup> {
     let doc: serde_json::Value = serde_json::from_str(include_str!("../../../../docs/user/shortcuts.json")).unwrap_or(serde_json::Value::Null);
     let platform = if cfg!(target_os = "macos") { "macos" } else { "default" };
     let mut out = Vec::new();

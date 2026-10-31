@@ -4,7 +4,7 @@ use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use eframe::egui::{self, Align2, Color32, CornerRadius, CursorIcon, Key, Pos2, Sense, Stroke, StrokeKind, Vec2};
+use eframe::egui::{self, Align2, Color32, CursorIcon, Key, Pos2, Sense, Stroke, StrokeKind, Vec2};
 use image::RgbaImage;
 use lens_core::action::{ActionOutcome, Choice, ConfirmRequest, Params};
 use lens_core::cancel::CancelToken;
@@ -72,10 +72,26 @@ pub struct Sel {
 pub enum Panel {
     Primary,
     /// `peers`: only connected apps' actions (the result panel's "Send to…").
-    Expanded { filter: String, cursor: usize, peers: bool },
-    Confirm { entry: PaletteEntry, req: ConfirmRequest, params: Params },
-    Choice { entry: PaletteEntry, choices: Vec<Choice>, cursor: usize, params: Params },
-    Result { title: String, body: String },
+    Expanded {
+        filter: String,
+        cursor: usize,
+        peers: bool,
+    },
+    Confirm {
+        entry: PaletteEntry,
+        req: ConfirmRequest,
+        params: Params,
+    },
+    Choice {
+        entry: PaletteEntry,
+        choices: Vec<Choice>,
+        cursor: usize,
+        params: Params,
+    },
+    Result {
+        title: String,
+        body: String,
+    },
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -467,8 +483,21 @@ impl Overlay {
     /// Result panel "Send to…": the result becomes the text to act on, and
     /// the list shows what connected apps can do with it.
     pub fn send_text_result(&mut self, body: &str) {
-        let mut finding = Finding::new(lens_core::caps::TEXT, Value::text(body.to_string()));
-        finding.recognizer = "lens.result".into();
+        let finding = Finding {
+            id: lens_core::FindingId(0),
+            capability: lens_core::caps::TEXT,
+            value: Value::text(body),
+            confidence: 1.0,
+            recognizer: "lens.result".into(),
+            derived_from: None,
+            span: None,
+            details: Vec::new(),
+        };
+        // Stop the selection's analysis so its findings don't come back.
+        if let Some(a) = self.analysis.take() {
+            a.cancel();
+        }
+        self.analysis_done = true;
         self.report = AnalysisReport::default();
         self.report.findings.push(finding);
         self.palette = Palette::default();

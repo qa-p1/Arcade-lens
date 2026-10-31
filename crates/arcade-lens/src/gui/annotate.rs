@@ -6,10 +6,13 @@
 
 use std::sync::Arc;
 
-use eframe::egui::{self, Color32, Pos2, Rect as ERect, RichText, Sense, Shape, Stroke, Vec2, ViewportBuilder, ViewportId};
+use eframe::egui::{self, Color32, Pos2, Rect as ERect, Sense, Shape, Stroke, Vec2, ViewportBuilder, ViewportId};
 use image::{Rgba, RgbaImage};
 
-use super::theme::{self, ACCENT, MUTED, TEXT};
+use arcade_link::design::egui::components::ButtonKind;
+use arcade_link::design::size;
+
+use super::theme;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub enum Tool {
@@ -49,16 +52,23 @@ pub enum Mark {
     Pixelate { min: [f32; 2], max: [f32; 2] },
 }
 
-const COLORS: [[u8; 4]; 8] = [
-    [239, 68, 68, 255],
-    [249, 115, 22, 255],
-    [234, 179, 8, 255],
-    [34, 197, 94, 255],
-    [59, 130, 246, 255],
-    [139, 92, 246, 255],
-    [250, 250, 250, 255],
-    [24, 24, 27, 255],
+/// Lens's pen palette. These are content colours (they end up in the
+/// exported image), so they stay the same in both themes and are the only
+/// colour literals outside `theme.rs`.
+pub const PEN_COLOURS: [([u8; 4], &str); 8] = [
+    ([239, 68, 68, 255], "Red"),
+    ([249, 115, 22, 255], "Orange"),
+    ([234, 179, 8, 255], "Yellow"),
+    ([34, 197, 94, 255], "Green"),
+    ([59, 130, 246, 255], "Blue"),
+    ([139, 92, 246, 255], "Purple"),
+    ([250, 250, 250, 255], "White"),
+    ([24, 24, 27, 255], "Black"),
 ];
+
+fn pen(c: [u8; 4], alpha: f32) -> Color32 {
+    Color32::from_rgba_unmultiplied(c[0], c[1], c[2], (c[3] as f32 * alpha) as u8)
+}
 
 pub enum EditorRequest {
     Copy(Arc<RgbaImage>),
@@ -137,12 +147,10 @@ fn arrow_head(a: [f32; 2], b: [f32; 2], width: f32) -> [[f32; 2]; 3] {
     [b, [base[0] + px, base[1] + py], [base[0] - px, base[1] - py]]
 }
 
-/// Draws text with the bundled UI font onto `img`.
+/// Draws text onto `img` in Inter, the font the canvas shows it in.
 fn draw_text(img: &mut RgbaImage, pos: [f32; 2], text: &str, color: [u8; 4], size: f32) {
     use ab_glyph::{Font, FontRef, PxScale, ScaleFont};
-    let defs = egui::FontDefinitions::default();
-    let Some(data) = defs.font_data.get("Ubuntu-Light").or_else(|| defs.font_data.values().next()) else { return };
-    let Ok(font) = FontRef::try_from_slice(&data.font) else { return };
+    let Ok(font) = FontRef::try_from_slice(arcade_link::design::inter_font_bytes()) else { return };
     let scaled = font.as_scaled(PxScale::from(size));
     let mut caret = ab_glyph::point(pos[0], pos[1] + scaled.ascent());
     let mut prev = None;
@@ -256,7 +264,7 @@ impl Editor {
             marks: Vec::new(),
             redo: Vec::new(),
             tool: Tool::Arrow,
-            color: COLORS[0],
+            color: PEN_COLOURS[0].0,
             width: 4.0,
             current: None,
             text_at: None,
@@ -276,7 +284,7 @@ impl Editor {
             .with_inner_size(size)
             .with_min_inner_size([480.0, 300.0])
             .with_always_on_top()
-            .with_app_id("arcade-lens-annotate")
+            .with_app_id(crate::link::OS_ID)
             .with_icon(crate::icon::window_icon())
     }
 
@@ -362,53 +370,90 @@ impl Editor {
             }
         });
 
-        egui::TopBottomPanel::top("toolbar").frame(egui::Frame::new().fill(Color32::from_rgb(24, 24, 27)).inner_margin(8)).show(&ctx, |ui| {
-            ui.horizontal_wrapped(|ui| {
-                for (n, t) in Tool::ALL.iter().enumerate() {
-                    let sel = self.tool == *t;
-                    let b = egui::Button::new(RichText::new(t.label()).size(12.5).color(if sel { Color32::WHITE } else { TEXT })).fill(if sel {
-                        ACCENT.gamma_multiply(0.7)
-                    } else {
-                        theme::SURFACE_HI
+        let kit = theme::kit();
+        let c = theme::c();
+        // Template B: a floating toolbar above the canvas.
+        egui::TopBottomPanel::top("toolbar")
+            .frame(egui::Frame::new().fill(c.bg).inner_margin(egui::Margin::symmetric(12, 10)))
+            .show_separator_line(false)
+            .show(&ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    theme::panel_frame().show(ui, |ui| {
+                        ui.horizontal_wrapped(|ui| {
+                            ui.spacing_mut().item_spacing.x = 2.0;
+                            for (n, t) in Tool::ALL.iter().enumerate() {
+                                let tool = *t;
+                                let label = format!("{} ({})", t.label(), n + 1);
+                                if theme::tool_button(ui, self.tool == tool, &label, |p, at, col| tool_icon(p, tool, at, col)).clicked() {
+                                    self.tool = tool;
+                                }
+                            }
+                            separator(ui);
+                            ui.spacing_mut().item_spacing.x = 4.0;
+                            for (colour, name) in PEN_COLOURS {
+                                let (r, resp) = ui.allocate_exact_size(Vec2::splat(size::CONTROL_SM), Sense::click());
+                                let fill = pen(colour, 1.0);
+                                if self.color == colour {
+                                    ui.painter().circle_stroke(r.center(), 10.5, Stroke::new(2.0_f32, c.accent));
+                                } else if resp.hovered() {
+                                    ui.painter().circle_filled(r.center(), 11.0, c.hover);
+                                }
+                                ui.painter().circle(r.center(), 7.5, fill, Stroke::new(1.0_f32, c.line_strong));
+                                let resp = resp.on_hover_text(name);
+                                resp.widget_info(|| egui::WidgetInfo::selected(egui::WidgetType::RadioButton, true, self.color == colour, name));
+                                if resp.clicked() {
+                                    self.color = colour;
+                                }
+                            }
+                            separator(ui);
+                            ui.add_sized([96.0, size::CONTROL_SM], egui::Slider::new(&mut self.width, 1.0..=16.0).show_value(false))
+                                .on_hover_text("Stroke width");
+                            separator(ui);
+                            ui.spacing_mut().item_spacing.x = 2.0;
+                            let cmd = theme::cmd_key();
+                            if ui
+                                .add_enabled_ui(!self.marks.is_empty(), |ui| {
+                                    theme::tool_button(ui, false, &format!("Undo ({cmd}+Z)"), |p, at, col| history_icon(p, at, col, false))
+                                })
+                                .inner
+                                .clicked()
+                            {
+                                self.undo();
+                            }
+                            if ui
+                                .add_enabled_ui(!self.redo.is_empty(), |ui| {
+                                    theme::tool_button(ui, false, &format!("Redo ({cmd}+Shift+Z)"), |p, at, col| history_icon(p, at, col, true))
+                                })
+                                .inner
+                                .clicked()
+                            {
+                                self.redo();
+                            }
+                            separator(ui);
+                            ui.spacing_mut().item_spacing.x = 6.0;
+                            if kit.button(ui, "Copy", ButtonKind::Default).on_hover_text(format!("{cmd}+C")).clicked() {
+                                out.push(EditorRequest::Copy(self.export()));
+                            }
+                            if kit.button(ui, "Save", ButtonKind::Default).on_hover_text(format!("{cmd}+S")).clicked() {
+                                out.push(EditorRequest::Save(self.export()));
+                            }
+                            if kit.button(ui, "Pin", ButtonKind::Default).clicked() {
+                                out.push(EditorRequest::Pin(self.export()));
+                            }
+                            let done = kit.button(ui, "Done", ButtonKind::Primary);
+                            let done = if self.marks.is_empty() { done.on_hover_text("Close") } else { done.on_hover_text("Copy and close") };
+                            if done.clicked() {
+                                if !self.marks.is_empty() {
+                                    out.push(EditorRequest::Copy(self.export()));
+                                }
+                                self.closed = true;
+                            }
+                        });
                     });
-                    if ui.add(b).on_hover_text(format!("{} ({})", t.label(), n + 1)).clicked() {
-                        self.tool = *t;
-                    }
-                }
-                ui.separator();
-                for c in COLORS {
-                    let (r, resp) = ui.allocate_exact_size(Vec2::splat(18.0), Sense::click());
-                    ui.painter().circle_filled(r.center(), 7.5, Color32::from_rgba_unmultiplied(c[0], c[1], c[2], c[3]));
-                    if self.color == c {
-                        ui.painter().circle_stroke(r.center(), 9.0, Stroke::new(1.5_f32, TEXT));
-                    }
-                    if resp.clicked() {
-                        self.color = c;
-                    }
-                }
-                ui.separator();
-                ui.add(egui::Slider::new(&mut self.width, 1.0..=16.0).show_value(false)).on_hover_text("Stroke width");
-                ui.separator();
-                if ui.add_enabled(!self.marks.is_empty(), egui::Button::new("Undo")).clicked() {
-                    self.undo();
-                }
-                if ui.add_enabled(!self.redo.is_empty(), egui::Button::new("Redo")).clicked() {
-                    self.redo();
-                }
-                ui.separator();
-                if ui.add(egui::Button::new(RichText::new("Copy").color(Color32::WHITE)).fill(ACCENT.gamma_multiply(0.85))).clicked() {
-                    out.push(EditorRequest::Copy(self.export()));
-                }
-                if ui.button("Save").clicked() {
-                    out.push(EditorRequest::Save(self.export()));
-                }
-                if ui.button("Pin").clicked() {
-                    out.push(EditorRequest::Pin(self.export()));
-                }
+                });
             });
-        });
 
-        egui::CentralPanel::default().frame(egui::Frame::new().fill(Color32::from_rgb(9, 9, 11))).show(&ctx, |ui| {
+        egui::CentralPanel::default().frame(egui::Frame::new().fill(c.bg)).show(&ctx, |ui| {
             let avail = ui.max_rect();
             let (iw, ih) = (self.base.width() as f32, self.base.height() as f32);
             // Fit inside the window, never upscale past 1:1 physical pixels.
@@ -472,7 +517,8 @@ impl Editor {
                 let mut cancel = false;
                 egui::Area::new(egui::Id::new(("annotate-text", self.id))).fixed_pos(p).order(egui::Order::Foreground).show(&ctx, |ui| {
                     theme::panel_frame().show(ui, |ui| {
-                        let r = ui.add(egui::TextEdit::singleline(text).hint_text("Type, then Enter").desired_width(220.0));
+                        ui.set_width(240.0);
+                        let r = kit.text_input(ui, text, "Type, then press Enter", None);
                         r.request_focus();
                         if ui.input(|i| i.key_pressed(egui::Key::Enter)) {
                             commit = true;
@@ -492,13 +538,15 @@ impl Editor {
                     self.text_at = None;
                 }
             }
-            if self.marks.is_empty() && self.current.is_none() {
-                painter.text(
-                    canvas.center_bottom() + Vec2::new(0.0, -12.0),
+            if self.marks.is_empty() && self.current.is_none() && self.text_at.is_none() {
+                let cmd = theme::cmd_key();
+                let (undo, copy) = (format!("{cmd}+Z"), format!("{cmd}+C"));
+                theme::hint_bar(
+                    &painter,
+                    avail.center_bottom() + Vec2::new(0.0, -12.0),
                     egui::Align2::CENTER_BOTTOM,
-                    "Draw on the image · 1–8 tools · Ctrl+Z undo · Ctrl+C copy",
-                    theme::font(12.0),
-                    MUTED,
+                    Some("Draw on the image"),
+                    &[("1–8", "Tools"), (&undo, "Undo"), (&copy, "Copy")],
                 );
             }
         });
@@ -506,8 +554,60 @@ impl Editor {
     }
 }
 
+fn separator(ui: &mut egui::Ui) {
+    let (r, _) = ui.allocate_exact_size(Vec2::new(9.0, size::CONTROL), Sense::hover());
+    ui.painter().vline(r.center().x, r.y_range().shrink(6.0), Stroke::new(1.0_f32, theme::c().line));
+}
+
+/// Tool icons on the kit's 16 px, 1.5 px-stroke grid. Pen, arrow and text use
+/// kit icons; the kit has no shape tools, so those are drawn the same way.
+fn tool_icon(p: &egui::Painter, tool: Tool, at: Pos2, col: Color32) {
+    let s = Stroke::new(size::ICON_STROKE, col);
+    let v = |x: f32, y: f32| at + Vec2::new(x, y);
+    match tool {
+        Tool::Pen => theme::paint_icon(p, "edit", at, 16.0, col),
+        Tool::Arrow => theme::paint_icon(p, "arrowUpRight", at, 16.0, col),
+        Tool::Text => theme::paint_icon(p, "type", at, 16.0, col),
+        Tool::Highlighter => {
+            p.line_segment([v(-5.0, 3.0), v(3.0, -5.0)], Stroke::new(4.0_f32, col.gamma_multiply(0.55)));
+            p.line_segment([v(-7.0, 7.0), v(7.0, 7.0)], s);
+        }
+        Tool::Line => {
+            p.line_segment([v(-6.0, 6.0), v(6.0, -6.0)], s);
+        }
+        Tool::Rect => {
+            p.rect_stroke(ERect::from_center_size(at, Vec2::new(14.0, 11.0)), 2.0, s, egui::StrokeKind::Middle);
+        }
+        Tool::Ellipse => {
+            p.add(Shape::ellipse_stroke(at, Vec2::new(7.0, 5.5), s));
+        }
+        Tool::Pixelate => {
+            for (x, y) in [(-6.0, -6.0), (0.0, -6.0), (-3.0, 0.0), (3.0, 0.0), (-6.0, 6.0), (0.0, 6.0)] {
+                p.rect_filled(ERect::from_min_size(v(x, y - 2.0), Vec2::splat(5.0)), 1.0, col);
+            }
+        }
+    }
+}
+
+/// Undo (a counter-clockwise hook) or redo (mirrored).
+fn history_icon(p: &egui::Painter, at: Pos2, col: Color32, redo: bool) {
+    let flip = if redo { -1.0 } else { 1.0 };
+    let v = |x: f32, y: f32| at + Vec2::new(x * flip, y);
+    let s = Stroke::new(size::ICON_STROKE, col);
+    let arc: Vec<Pos2> = (0..=12)
+        .map(|i| {
+            let t = std::f32::consts::PI * (1.5 - i as f32 / 12.0);
+            v(1.0 + 5.0 * t.cos(), 1.5 - 4.5 * t.sin())
+        })
+        .collect();
+    p.add(Shape::line(vec![v(-6.0, 6.0), v(1.0, 6.0)], s));
+    p.add(Shape::line(arc, s));
+    p.add(Shape::line(vec![v(-3.0, -6.0), v(-6.0, -3.0), v(-3.0, 0.0)], s));
+    p.line_segment([v(-6.0, -3.0), v(1.0, -3.0)], s);
+}
+
 fn draw_mark(p: &egui::Painter, m: &Mark, to_scr: &dyn Fn([f32; 2]) -> Pos2, scale: f32) {
-    let col = |c: &[u8; 4], a: f32| Color32::from_rgba_unmultiplied(c[0], c[1], c[2], (c[3] as f32 * a) as u8);
+    let col = |c: &[u8; 4], a: f32| pen(*c, a);
     match m {
         Mark::Stroke { points, color, width, highlight } => {
             let (a, wm) = if *highlight { (0.35, 3.0) } else { (1.0, 1.0) };
@@ -529,10 +629,10 @@ fn draw_mark(p: &egui::Painter, m: &Mark, to_scr: &dyn Fn([f32; 2]) -> Pos2, sca
             p.add(Shape::ellipse_stroke(r.center(), r.size() / 2.0, Stroke::new(width * scale, col(color, 1.0))));
         }
         Mark::Text { pos, text, color, size } => {
-            p.text(to_scr(*pos), egui::Align2::LEFT_TOP, text, theme::font(size * scale), col(color, 1.0));
+            p.text(to_scr(*pos), egui::Align2::LEFT_TOP, text, egui::FontId::proportional(size * scale), col(color, 1.0));
         }
         Mark::Pixelate { min, max } => {
-            p.rect_stroke(ERect::from_two_pos(to_scr(*min), to_scr(*max)), 0.0, Stroke::new(1.0_f32, Color32::from_white_alpha(90)), egui::StrokeKind::Middle);
+            p.rect_stroke(ERect::from_two_pos(to_scr(*min), to_scr(*max)), 0.0, Stroke::new(1.0_f32, theme::c().accent), egui::StrokeKind::Middle);
         }
     }
 }

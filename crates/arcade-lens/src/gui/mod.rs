@@ -629,6 +629,22 @@ impl LensApp {
         self.activity = true;
     }
 
+    fn apply_history_requests(&mut self, ctx: &egui::Context) {
+        let requests = std::mem::take(&mut self.state.lock().unwrap().history_requests);
+        for r in requests {
+            match r {
+                history::HistoryRequest::OpenPrivacy => self.open_settings_at(ctx, Some(settings_view::Section::Privacy)),
+                history::HistoryRequest::OpenFolder(p) => {
+                    let _ = std::fs::create_dir_all(&p);
+                    let st = self.state.lock().unwrap();
+                    if let Err(e) = st.env.host.open_path(&p, lens_core::host::OpenPathMode::Default) {
+                        notify(&format!("Couldn't open the history folder. {e}"));
+                    }
+                }
+            }
+        }
+    }
+
     fn open_history(&mut self, ctx: &egui::Context) {
         let mut st = self.state.lock().unwrap();
         if st.history.is_none() {
@@ -677,6 +693,7 @@ impl LensApp {
         }
         self.handle_ui_commands(ctx);
         self.apply_settings_requests(ctx);
+        self.apply_history_requests(ctx);
         // eframe only runs UI passes while some window is visible, and child
         // windows can only be created from a UI pass. If something must appear
         // while everything is hidden, map the root as a 1×1 window
@@ -790,6 +807,9 @@ impl LensApp {
             if st.settings.as_ref().is_some_and(|s| s.closed) {
                 st.settings = None;
             }
+            if st.history.as_ref().is_some_and(|h| h.closed) {
+                st.history = None;
+            }
             if let Some(ov) = &st.overlay {
                 for (i, v) in ov.views.iter().enumerate() {
                     if i == ov.root_monitor {
@@ -823,8 +843,9 @@ impl LensApp {
             if let Some(r) = &st.recording {
                 let b = ViewportBuilder::default()
                     .with_title("Recording — Arcade Lens")
-                    .with_inner_size([220.0, 44.0])
+                    .with_inner_size([240.0, 52.0])
                     .with_decorations(false)
+                    .with_app_id(crate::link::OS_ID)
                     .with_always_on_top()
                     .with_taskbar(false);
                 let _ = r;
@@ -896,7 +917,7 @@ impl Child {
             Child::Pin(id) => {
                 crate::lens_debug!("pin {id} frame");
                 let Some(pin) = st.pins.iter_mut().find(|p| p.id == id) else { return };
-                let reqs = egui::CentralPanel::default().show(&ctx, |ui| pin.ui(ui)).inner;
+                let reqs = egui::CentralPanel::default().frame(egui::Frame::NONE).show(&ctx, |ui| pin.ui(ui)).inner;
                 for r in reqs {
                     match r {
                         pins::PinRequest::Copy(img) => {
@@ -955,7 +976,7 @@ impl Child {
             }
             Child::Recording => {
                 if let Some(r) = &st.recording {
-                    if egui::CentralPanel::default().show(&ctx, |ui| r.ui(ui)).inner {
+                    if egui::CentralPanel::default().frame(egui::Frame::NONE).show(&ctx, |ui| r.ui(ui)).inner {
                         let rec = st.recording.take().unwrap();
                         let path = rec.stop();
                         st.notices.push(format!("Recording saved to {}", path.display()));

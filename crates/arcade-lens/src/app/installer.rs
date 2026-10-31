@@ -39,10 +39,7 @@ pub fn app_info() -> AppInfo {
 /// The release channel this copy was installed from ("stable", "nightly"),
 /// or "development" for a build that isn't installed.
 pub fn channel() -> String {
-    Environment::discover()
-        .ok()
-        .and_then(|e| e.receipts().read(crate::link::ME).ok().flatten())
-        .map_or_else(|| "development".to_string(), |r| r.channel)
+    Environment::discover().ok().and_then(|e| e.receipts().read(crate::link::ME).ok().flatten()).map_or_else(|| "development".to_string(), |r| r.channel)
 }
 
 pub fn method() -> InstallMethod {

@@ -39,12 +39,12 @@ pub fn integrate(paths: &Paths, shortcut: Option<String>) {
         if !installed && std::env::var_os("APPIMAGE").is_none() {
             if first_run || autostart::is_enabled() {
                 if let Err(e) = autostart::enable(&exe) {
-                    notify(&format!("could not start at login: {e}"));
+                    notify(&format!("Couldn't turn on Start at login. {e}"));
                 }
             }
             let icons: Vec<(u32, Vec<u8>)> = icon::THEME_SIZES.iter().map(|&s| (s, icon::png(s))).collect();
             if let Err(e) = autostart::install_launcher(&exe, &icons) {
-                notify(&format!("could not add Lens to the applications menu: {e}"));
+                notify(&format!("Couldn't add Arcade Lens to the applications menu. {e}"));
             }
         }
         if first_run {

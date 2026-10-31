@@ -612,6 +612,13 @@ pub fn analyze_canvas(image: &RgbaImage, monitor: &lens_core::geometry::MonitorI
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn platform_identity_matches_the_app() {
+        assert_eq!(lens_platform::autostart::OS_ID, OS_ID);
+        assert_eq!(lens_platform::autostart::TAGLINE, crate::gui::settings_view::TAGLINE);
+    }
+
     use super::*;
 
     #[test]

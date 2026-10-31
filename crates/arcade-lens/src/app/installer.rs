@@ -19,8 +19,9 @@ use crate::config::Paths;
 
 #[cfg(any(target_os = "linux", target_os = "macos"))]
 pub const CLI_NAME: &str = "arcade-lens";
+/// The desktop id is the OS identifier (STANDARD §10).
 #[cfg(target_os = "linux")]
-pub const DESKTOP_ID: &str = "arcade-lens";
+pub const DESKTOP_ID: &str = crate::link::OS_ID;
 
 #[cfg(target_os = "linux")]
 pub fn app_info() -> AppInfo {
@@ -31,9 +32,91 @@ pub fn app_info() -> AppInfo {
         desktop_id: DESKTOP_ID.into(),
         cli_name: CLI_NAME.into(),
         background_args: vec!["--background".into()],
-        legacy_desktop_ids: vec![DESKTOP_ID.into()],
+        // Before 0.4: arcade-lens.desktop, and earlier a Settings-only entry.
+        legacy_desktop_ids: vec!["arcade-lens".into(), "arcade-lens-settings".into()],
         autostart_id: DESKTOP_ID.into(),
     }
+}
+
+/// Link writes a generic launcher; Lens adds its standard metadata (tagline,
+/// keywords, window class) and a Capture action, and names the actions the
+/// way the tray does. Only an entry carrying Lens's ownership marker changes.
+#[cfg(target_os = "linux")]
+pub(crate) fn finish_desktop_metadata(receipt: &Receipt) -> io::Result<()> {
+    let Some(path) = &receipt.integration.desktop_entry else { return Ok(()) };
+    let content = fs::read_to_string(path)?;
+    arcade_link::paths::write_atomic(path, lens_desktop_entry(&content)?.as_bytes(), false)
+}
+
+#[cfg(target_os = "linux")]
+fn lens_desktop_entry(content: &str) -> io::Result<String> {
+    if !content.lines().any(|line| line == format!("X-Arcade-Id={}", crate::link::ME)) {
+        return Err(io::Error::other("Couldn't update the launcher. Its ownership marker changed."));
+    }
+    let main_exec = content.lines().skip_while(|l| *l != "[Desktop Entry]").find_map(|l| l.strip_prefix("Exec=")).unwrap_or("arcade-lens").to_string();
+    let mut section = "";
+    let mut result = String::new();
+    for line in content.lines() {
+        if line.starts_with('[') {
+            section = line;
+        }
+        if section == "[Desktop Action Capture]"
+            || (section == "[Desktop Entry]" && ["Comment=", "Keywords=", "StartupWMClass=", "GenericName="].iter().any(|key| line.starts_with(key)))
+        {
+            continue;
+        }
+        let line = match (section, line) {
+            ("[Desktop Entry]", "Categories=Utility;") => "Categories=Utility;Graphics;".to_string(),
+            ("[Desktop Entry]", l) if l.starts_with("Actions=") && !l.contains("Capture;") => format!("Actions=Capture;{}", &l["Actions=".len()..]),
+            ("[Desktop Action Settings]", "Name=Open Settings") => "Name=Settings".to_string(),
+            ("[Desktop Action Quit]", "Name=Quit") => "Name=Quit Arcade Lens".to_string(),
+            (_, l) => l.to_string(),
+        };
+        result.push_str(&line);
+        result.push('\n');
+        if section == "[Desktop Entry]" && line == "Name=Arcade Lens" {
+            result += &format!(
+                "GenericName=Screen Lens\nComment={}\nKeywords=screenshot;capture;ocr;text;qr;color;pin;annotate;lens;\nStartupWMClass={}\n",
+                crate::gui::settings_view::TAGLINE,
+                DESKTOP_ID
+            );
+        }
+    }
+    result += &format!("\n[Desktop Action Capture]\nName=Capture\nExec={main_exec} --capture\n");
+    Ok(result)
+}
+
+/// An installed AppImage from before 0.4 has a launcher and login entry
+/// under the old desktop id. Reinstalling the running copy in place moves
+/// both to `dev.arcade.Lens` (Link replaces the entries the old receipt
+/// recorded) and keeps Start at login as it was.
+#[cfg(target_os = "linux")]
+pub fn migrate_integration(paths: &Paths) -> io::Result<()> {
+    if Paths::isolated() {
+        return Ok(());
+    }
+    let environment = Environment::discover()?;
+    let runtime = Runtime::discover()?;
+    let detection = install::detect(&environment, crate::link::ME, &runtime)?;
+    if detection.state != State::InstalledHere || !runtime.is_appimage() {
+        return Ok(());
+    }
+    let Some(receipt) = detection.receipt else { return Ok(()) };
+    let current = format!("{DESKTOP_ID}.desktop");
+    if receipt.integration.desktop_entry.as_ref().is_some_and(|p| p.file_name().is_some_and(|n| n == current.as_str())) {
+        return Ok(());
+    }
+    let mut options = Options::defaults(&environment);
+    options.remove_download = false;
+    options.channel = receipt.channel.clone();
+    let updated = install_copy(&environment, &runtime, paths, &options)?;
+    if let Some(old) = receipt.integration.autostart.filter(|path| updated.integration.autostart.as_ref() != Some(path)) {
+        let content = fs::read_to_string(&old).unwrap_or_default();
+        if content.lines().any(|line| line == format!("X-Arcade-Id={}", crate::link::ME)) {
+            remove_file(&old)?;
+        }
+    }
+    Ok(())
 }
 
 /// The release channel this copy was installed from ("stable", "nightly"),
@@ -264,6 +347,7 @@ pub fn install_copy(environment: &Environment, runtime: &Runtime, paths: &Paths,
             environment.receipts().write(&receipt)?;
         }
     }
+    finish_desktop_metadata(&receipt)?;
     Ok(receipt)
 }
 
@@ -370,7 +454,9 @@ pub fn repair(environment: &Environment, runtime: &Runtime) -> io::Result<Receip
     #[cfg(target_os = "linux")]
     {
         let moved = (detection.state != State::DevBuild && detection.is_app_image).then_some(detection.running_from.as_path());
-        install::repair(environment, &app_info(), moved)
+        let receipt = install::repair(environment, &app_info(), moved)?;
+        finish_desktop_metadata(&receipt)?;
+        Ok(receipt)
     }
     #[cfg(target_os = "macos")]
     {
@@ -604,7 +690,29 @@ mod tests {
         assert!(receipt.integration.desktop_entry.as_ref().unwrap().is_file());
         assert!(receipt.integration.cli.as_ref().unwrap().exists());
         assert!(receipt.integration.autostart.as_ref().unwrap().is_file());
-        assert!(receipt.integration.icons.iter().any(|p| p.ends_with("scalable/apps/arcade-lens.svg")));
+        assert!(receipt.integration.icons.iter().any(|p| p.ends_with("scalable/apps/dev.arcade.Lens.svg")));
+        let desktop = receipt.integration.desktop_entry.clone().unwrap();
+        assert_eq!(desktop.file_name().unwrap(), "dev.arcade.Lens.desktop");
+        let entry = fs::read_to_string(&desktop).unwrap();
+        for line in [
+            "StartupWMClass=dev.arcade.Lens",
+            "Icon=dev.arcade.Lens",
+            "Comment=Select anything on screen and act on it.",
+            "Categories=Utility;Graphics;",
+            "Name=Settings",
+            "Name=Quit Arcade Lens",
+            "Name=Capture",
+        ] {
+            assert!(entry.lines().any(|l| l == line), "{line} missing from\n{entry}");
+        }
+        assert!(entry.lines().any(|l| l.starts_with("Actions=Capture;")), "{entry}");
+        assert!(entry.lines().any(|l| l.starts_with("Exec=") && l.ends_with(" --capture")), "{entry}");
+        assert_eq!(receipt.integration.autostart.as_ref().unwrap().file_name().unwrap(), "dev.arcade.Lens.desktop");
+        // Running it again leaves one of each line.
+        finish_desktop_metadata(&receipt).unwrap();
+        let again = fs::read_to_string(&desktop).unwrap();
+        assert_eq!(again.matches("[Desktop Action Capture]").count(), 1, "{again}");
+        assert_eq!(again.matches("StartupWMClass=").count(), 1, "{again}");
         let repaired = install::repair(&env, &app_info(), None).unwrap();
         assert_eq!(repaired.path, receipt.path);
         assert!(uninstall(&env, &paths, false).unwrap());

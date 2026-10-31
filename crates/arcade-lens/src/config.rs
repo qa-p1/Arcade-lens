@@ -22,10 +22,63 @@ impl Paths {
             let base = PathBuf::from(dir);
             return Paths { config: base.join("config"), data: base.join("data") };
         }
-        match directories::ProjectDirs::from("dev", "Arcade", "Arcade Lens") {
-            Some(p) => Paths { config: p.config_dir().into(), data: p.data_dir().into() },
-            None => Paths { config: PathBuf::from(".arcade-lens/config"), data: PathBuf::from(".arcade-lens/data") },
+        // The shared Arcade layout: ~/.config/arcade/lens and
+        // ~/.local/share/arcade/lens on Linux, Arcade\Lens on Windows,
+        // Application Support/Arcade/Lens on macOS.
+        let dirs = arcade_link::paths::app_dirs(crate::link::ME);
+        let current = Paths { config: dirs.config, data: dirs.data };
+        // Until the old folders have moved (or if moving them failed), keep
+        // using them, so no process starts on default settings.
+        match Self::legacy() {
+            Some(old) if !current.settings().exists() && old.settings().exists() => old,
+            _ => current,
         }
+    }
+
+    /// Where Lens kept its files before 0.4.
+    fn legacy() -> Option<Paths> {
+        use arcade_link::paths::Kind;
+        let dirs = arcade_link::paths::legacy_dirs(crate::link::ME);
+        let find = |kind: Kind| dirs.iter().find(|d| d.kind == kind).map(|d| d.path.clone());
+        let data = find(Kind::Data)?;
+        Some(Paths { config: find(Kind::Config).unwrap_or_else(|| data.clone()), data })
+    }
+
+    /// True for `ARCADE_LENS_HOME` (tests, portable runs): no migration.
+    pub fn isolated() -> bool {
+        std::env::var_os("ARCADE_LENS_HOME").is_some()
+    }
+
+    /// Moves Lens's files from the folders it used before 0.4 (`arcadelens`
+    /// on Linux, `Arcade\Arcade Lens` on Windows, `dev.Arcade.Arcade-Lens`
+    /// on macOS): copy, verify, then remove, through Arcade Link. A Lens
+    /// from before the move that is still running is asked to quit first,
+    /// so nothing is written to the old folders mid-copy. Returns whether
+    /// anything moved; on a conflict the old folders stay and the error says
+    /// why. Safe to run on every start.
+    pub fn migrate() -> Result<bool, String> {
+        if Self::isolated() {
+            return Ok(false);
+        }
+        let legacy = arcade_link::paths::legacy_dirs(crate::link::ME);
+        if !legacy.iter().any(|d| d.path.is_dir()) {
+            return Ok(false);
+        }
+        for dir in legacy.iter().filter(|d| d.kind == arcade_link::paths::Kind::Data) {
+            let endpoint = dir.path.join("instance");
+            if lens_platform::ipc::send(&endpoint, "quit").is_ok() {
+                let deadline = std::time::Instant::now() + std::time::Duration::from_secs(5);
+                while lens_platform::ipc::send(&endpoint, "ping").is_ok() && std::time::Instant::now() < deadline {
+                    std::thread::sleep(std::time::Duration::from_millis(100));
+                }
+            }
+        }
+        let report = arcade_link::paths::migrate_app_dirs(crate::link::ME);
+        if !report.kept.is_empty() {
+            let reasons = report.kept.iter().map(|(path, reason)| format!("{}: {reason}", path.display())).collect::<Vec<_>>().join("; ");
+            return Err(format!("Couldn't move Lens's settings to the new folder. The originals were kept. {reasons}"));
+        }
+        Ok(!report.moved.is_empty())
     }
 
     pub fn settings(&self) -> PathBuf {

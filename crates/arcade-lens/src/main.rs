@@ -52,6 +52,7 @@ fn main() -> ExitCode {
         libc::mallopt(libc::M_ARENA_MAX, 2);
     }
     arcade_link::childenv::on_startup();
+    lens_platform::autostart::init_app_identity();
     // Older macOS passes `-psn_…` to apps opened from Finder.
     let args: Vec<String> = std::env::args().skip(1).filter(|a| !a.starts_with("-psn_")).collect();
     match run(&args) {

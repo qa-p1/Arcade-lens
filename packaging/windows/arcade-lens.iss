@@ -42,7 +42,7 @@ WizardStyle=modern
 Source: "{#SourceExe}"; DestDir: "{app}"; DestName: "arcade-lens.exe"; Flags: ignoreversion
 
 [Icons]
-Name: "{userprograms}\Arcade Lens\Arcade Lens Settings"; Filename: "{app}\arcade-lens.exe"; Parameters: "--settings"; Flags: uninsneveruninstall
+Name: "{userprograms}\Arcade Lens\Arcade Lens Settings"; Filename: "{app}\arcade-lens.exe"; Parameters: "--settings"; AppUserModelID: "dev.arcade.Lens"; Flags: uninsneveruninstall
 
 [Run]
 Filename: "{app}\arcade-lens.exe"; Description: "{cm:LaunchProgram,Arcade Lens}"; Flags: nowait postinstall skipifsilent

@@ -1034,11 +1034,25 @@ macro_rules! lens_debug {
 /// tray icon and IPC, then `initial` if given.
 pub fn run(initial: Option<Trigger>) -> Result<(), String> {
     let background = initial.is_none();
+    // Before anything opens a file: move the pre-0.4 folders.
+    let migration = Paths::migrate();
     let paths = Paths::discover();
     // The log folder the manifest advertises: without a terminal, warnings
     // and errors go there instead of nowhere.
     if let Err(e) = arcade_link::logs::capture_stderr(&paths.data.join("logs"), "arcade-lens") {
         eprintln!("arcade-lens: log file: {e}");
+    }
+    #[cfg(target_os = "linux")]
+    if let Err(e) = crate::app::installer::migrate_integration(&paths) {
+        eprintln!("arcade-lens: couldn't move the launcher to {}: {e}", crate::link::OS_ID);
+    }
+    match migration {
+        Ok(true) => eprintln!("arcade-lens: moved settings and data to {} and {}", paths.config.display(), paths.data.display()),
+        Ok(false) => {}
+        Err(e) => {
+            eprintln!("arcade-lens: {e}");
+            notify(&e);
+        }
     }
     // The resident instance holds no window, GL context or egui state: each
     // capture, settings, pin or editor window is its own short-lived process

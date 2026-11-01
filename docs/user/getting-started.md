@@ -16,7 +16,7 @@ Download the AppImage and run it. On first launch, choose **Install** to add Len
 
 To uninstall, run **arcade-lens --uninstall**, use the launcher’s **Uninstall** action, or remove Lens in Arcade Tools. Your settings stay unless you choose to remove them.
 
-Linux OCR needs Tesseract and English language data. Install it with your package manager, or use **Settings → General → Download Tesseract** to fetch a private copy shared by Arcade apps.
+Linux OCR needs Tesseract and English language data. Install it with your package manager, or use **Download** in **Settings › Text recognition** to fetch a private copy shared by Arcade apps.
 
 ### Windows
 
@@ -34,8 +34,8 @@ macOS uses Apple Vision for OCR. The macOS app has not yet been run interactivel
 
 Press **Ctrl+Alt+Shift+L** to capture the screen, then drag a rectangle around a URL, a short paragraph, or a QR code. Lens freezes the screen after capturing it, so menus and tooltips remain available to select. Press **Enter** to run the highlighted action, or press **Space** or **Tab** to browse more actions.
 
-On Hyprland, Lens can bind this shortcut while it runs. On other Wayland desktops, add **arcade-lens --capture** as a keyboard shortcut in the desktop settings. Change the activation shortcut in **Settings → Shortcut**.
+On Hyprland, Lens can bind this shortcut while it runs. On other Wayland desktops, add **arcade-lens --capture** as a keyboard shortcut in the desktop settings. Change the activation shortcut in **Settings › Shortcuts**.
 
 ## Keep Lens available
 
-Lens runs in the background so the activation shortcut and tray icon work. Click the tray icon for Settings; choose **Open Lens** to start a capture. From a terminal, **arcade-lens --capture** starts one immediately.
+Lens runs in the background so the activation shortcut and tray icon work. Click the tray icon to start a capture (on macOS it opens the menu); its menu also has **Settings**. From a terminal, **arcade-lens --capture** starts one immediately.

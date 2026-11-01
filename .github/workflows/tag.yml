@@ -1,0 +1,36 @@
+# Creates an annotated version tag on a commit that is already on main, after
+# checking it matches the app version. Then run "Release" on the tag (Actions →
+# Release → Run workflow → the tag, channel stable) to build, test and publish.
+name: Tag a release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Tag to create, e.g. v0.4.0
+        required: true
+      sha:
+        description: Full SHA of a commit on main
+        required: true
+permissions:
+  contents: write
+jobs:
+  tag:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Create and push the tag
+        env:
+          TAG: ${{ inputs.tag }}
+          SHA: ${{ inputs.sha }}
+        run: |
+          [[ "$SHA" =~ ^[0-9a-f]{40}$ ]] || { echo "sha must be a full 40-character commit"; exit 1; }
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "tag must look like v1.2.3"; exit 1; }
+          git merge-base --is-ancestor "$SHA" origin/main || { echo "$SHA is not on main"; exit 1; }
+          v=$(git show "$SHA:Cargo.toml" | python3 -c 'import sys, tomllib; print(tomllib.loads(sys.stdin.read())["workspace"]["package"]["version"])')
+          [ "$v" = "${TAG#v}" ] || { echo "version at $SHA is $v, not ${TAG#v}"; exit 1; }
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" "$SHA" -m "Arcade Lens ${TAG#v}" -m "See CHANGELOG.md."
+          git push origin "refs/tags/$TAG"

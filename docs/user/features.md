@@ -22,6 +22,8 @@ These image actions are available as soon as Lens has a selection:
 - **Annotate** opens an editor with pen, highlighter, line, arrow, rectangle, ellipse, text, and pixelation tools. Pixelation can obscure private details. Undo and redo edits, then copy, save, or pin the result.
 - **Measure** lets you draw a second rectangle to measure distance. Press M to enter or leave the mode, use arrow keys to place the cursor, and press C to copy the measured size.
 
+![The annotate editor: a toolbar with drawing tools, pen colours, stroke width, undo and redo, and Copy, Save, Pin and Done above a capture marked with a rectangle and an arrow](images/annotate-light.png)
+
 ## Read text and recognize content
 
 Lens uses OCR to read text. Its built-in recognizers can identify:
@@ -32,7 +34,7 @@ Lens uses OCR to read text. Its built-in recognizers can identify:
 - Tables in CSV, TSV, or Markdown form; document text for clean copy, PDF, or print; subtitles; and Git commits on forge pages.
 - Colors, palettes, foreground and background colors, contrast, UI element measurements, QR codes, barcodes, images, icons, and media-player frames.
 
-Actions depend on what Lens recognizes and which platform services are available. The action key is shown on each chip; those single-letter keys can be changed in **Settings → Actions**. Press **Enter** for the default action or **Space**/**Tab** for the full list and a filter.
+Actions depend on what Lens recognizes and which platform services are available. The action key is shown on each chip; those single-letter keys can be changed in **Settings › Actions**. Press **Enter** for the default action or **Space**/**Tab** for the full list and a filter.
 
 ## Use results safely
 
@@ -44,11 +46,13 @@ Lens hides outbound actions when selected content appears to contain a password,
 
 Settings let you change the activation shortcut, OCR languages, screenshot format and folder, preferred or disabled actions, recognizers, action keys, saved chains, providers, plugins, connected apps, privacy, and history. You can disable selection history; it is off by default. The default online search providers are opened in your browser, and reverse image search is not configured by default because it uploads image pixels.
 
+![Settings, General page: Appearance, Start at login, Notifications, the save folder and the image format](images/settings-light.png)
+
 ## Use chains and plugins
 
 A chain combines compatible actions into a repeatable workflow. Lens checks the actions and their effects before running the chain.
 
-Third-party recognizers and actions run out of process with declared permissions. Copy a plugin folder into the location opened from **Settings → Plugins → Open plugins folder**, then enable it. Review its permissions before using it.
+Third-party recognizers and actions run out of process with declared permissions. Copy a plugin folder into the location opened from **Settings › Plugins › Open plugins folder**, then enable it. Review its permissions before using it.
 
 ## Platform behavior
 
@@ -57,4 +61,4 @@ Third-party recognizers and actions run out of process with declared permissions
 - **Windows:** capture uses xcap and OCR uses Windows.Media.Ocr. The build passes CI, but the app has not been run interactively on a real desktop.
 - **macOS:** capture uses xcap and OCR uses Apple Vision. Screen Recording permission is needed; window detection is available but window commands are not implemented. The build passes CI, but the app has not been run interactively on a real desktop.
 
-See [STATUS](../STATUS.md) for the current verification record.
+See [STATUS](https://github.com/qa-p1/Arcade-lens/blob/main/docs/STATUS.md) for the current verification record.

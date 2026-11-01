@@ -11,6 +11,7 @@ import importlib.util
 import json
 import os
 import signal
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -38,6 +39,8 @@ def verify(peers):
     # its environment and track only the processes this command starts.
     s = harness.Session.__new__(harness.Session)
     s.root, s.env, s.procs = root, dict(os.environ), {}
+    # Everything Session.__init__ would set (Link adds fields over time).
+    s.mock_peers, s.real_apps, s.xvfb, s.keyring = False, peers, None, None
     label = "peers" if peers else "alone"
     assert json.loads(s.cli("ls", "--json", check=True).stdout) == [], "session has existing peers"
     try:
@@ -57,7 +60,7 @@ def verify(peers):
         assert all(row["state"].startswith("running") for row in registered), registered
 
         fixture = root / "lens-ocr-fixture.png"
-        subprocess.run(["magick", "-size", "840x210", "xc:white", "-font", "DejaVu-Sans",
+        subprocess.run([shutil.which("convert") or "magick", "-size", "840x210", "xc:white", "-font", "DejaVu-Sans",
                         "-pointsize", "38", "-fill", "black",
                         "-annotate", "+25+75", "Arcade Lens reads this text",
                         "-annotate", "+25+145", "Capture and copy locally", str(fixture)],

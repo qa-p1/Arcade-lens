@@ -8,6 +8,11 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
+    /// System, Light or Dark (Settings › General). Follows the system by default.
+    pub appearance: Appearance,
+    /// System notifications for things that finish or fail while Lens has no
+    /// window open (Settings › General).
+    pub notifications: bool,
     /// Global activation shortcut. `None` disables it. The default is only a
     /// proposal shown on first run; it deliberately avoids common OS bindings
     /// (Win+Shift+S, Cmd+Shift+4, Ctrl+Alt+L, Print Screen).
@@ -40,6 +45,8 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            appearance: Appearance::System,
+            notifications: true,
             activation_shortcut: Some("Ctrl+Alt+Shift+L".into()),
             browser: None,
             terminal: None,
@@ -83,6 +90,27 @@ impl LinkSettings {
     /// Whether entries from `peer` may appear in Lens.
     pub fn uses(&self, peer: &str) -> bool {
         self.enabled && !self.disabled_peers.iter().any(|p| p == peer)
+    }
+}
+
+/// The Appearance setting: follow the system theme, or force light or dark.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Appearance {
+    #[default]
+    System,
+    Light,
+    Dark,
+}
+
+impl Appearance {
+    /// The kit's name for it: `"system"`, `"light"` or `"dark"`.
+    pub fn as_str(self) -> &'static str {
+        match self {
+            Appearance::System => "system",
+            Appearance::Light => "light",
+            Appearance::Dark => "dark",
+        }
     }
 }
 

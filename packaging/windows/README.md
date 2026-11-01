@@ -23,8 +23,8 @@ changes machine PATH, or bypasses SmartScreen.
 With `ARCADE_HOME`, tests use the isolated filesystem root and HKCU
 `Software\ArcadeLink\Isolated\<hash>` instead of native user integration.
 Rust, Qt and PowerShell share the FNV-1a identity specified in
-[SPEC §8.6](../../SPEC.md#86-install-standard), with fixed cross-language
-[vectors](../../spec/vectors/windows-path-identity.json). Receipt operations
+[SPEC §8.6](https://github.com/qa-p1/Arcade-Link/blob/main/SPEC.md#86-install-standard), with fixed cross-language
+[vectors](https://github.com/qa-p1/Arcade-Link/blob/main/spec/vectors/windows-path-identity.json). Receipt operations
 still require native absolute paths; the hash is only an identity.
 
 Define these before including either file:

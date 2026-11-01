@@ -24,11 +24,16 @@ use crate::config::Paths;
 const HELP: &str = "Arcade Lens: select anything on screen and act on it.
 
   arcade-lens               Open Settings; Lens keeps running in the tray
+  arcade-lens --settings    Open Settings
   arcade-lens --background  Start in the background (used at login)
-  arcade-lens --capture     Select something on screen now
+  arcade-lens --capture     Select something on screen now (also --show)
+  arcade-lens --hide        Close the selection overlay
+  arcade-lens --toggle      Select something, or close the overlay if it is open
+  arcade-lens --status      Print one line of JSON: running, version, overlay, Link
   arcade-lens --restart     Restart the background instance
   arcade-lens --quit        Quit the background instance
   arcade-lens --version     Print the version
+  arcade-lens --help        Print this help
   arcade-lens --install [--silent] [--no-launch] [--keep-download] [--channel C]
                             Install this AppImage / macOS bundle
   arcade-lens --uninstall [--silent] [--remove-data]
@@ -52,6 +57,7 @@ fn main() -> ExitCode {
         libc::mallopt(libc::M_ARENA_MAX, 2);
     }
     arcade_link::childenv::on_startup();
+    lens_platform::autostart::init_app_identity();
     // Older macOS passes `-psn_…` to apps opened from Finder.
     let args: Vec<String> = std::env::args().skip(1).filter(|a| !a.starts_with("-psn_")).collect();
     match run(&args) {
@@ -100,7 +106,26 @@ fn run(args: &[String]) -> Result<(), String> {
             }
             gui::run(None)
         }
-        Some("capture") => {
+        Some("status") => {
+            let paths = Paths::discover();
+            match lens_platform::ipc::send(&paths.endpoint(), "status") {
+                Ok(reply) if !reply.trim().is_empty() => println!("{}", reply.trim()),
+                _ => println!("{}", gui::status_json(&paths, false, false)),
+            }
+            Ok(())
+        }
+        Some("hide") => {
+            // Nothing to hide when Lens isn't running.
+            tell_running("hide");
+            Ok(())
+        }
+        Some("toggle") => {
+            if !tell_running("toggle") {
+                gui::run(Some(gui::Trigger::Capture))?;
+            }
+            Ok(())
+        }
+        Some("capture" | "show") => {
             if !tell_running("capture") {
                 gui::run(Some(gui::Trigger::Capture))?;
             }
@@ -122,7 +147,8 @@ fn run(args: &[String]) -> Result<(), String> {
             let image = || args.get(2).map(PathBuf::from).ok_or_else(|| format!("{kind} needs an image path"));
             let solo = match kind {
                 "capture" => gui::wayland::Solo::Capture(link::CaptureMode::parse(args.get(2).map(String::as_str)).map_err(|e| e.to_string())?),
-                "settings" => gui::wayland::Solo::Settings,
+                "settings" => gui::wayland::Solo::Settings(args.get(2).and_then(|l| gui::settings_view::Section::from_label(l))),
+                "history" => gui::wayland::Solo::History,
                 "pin" => gui::wayland::Solo::Pin(image()?),
                 "annotate" => gui::wayland::Solo::Annotate(image()?),
                 "pick" => gui::wayland::Solo::Pick(image()?),

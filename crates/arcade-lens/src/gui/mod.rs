@@ -8,6 +8,7 @@
 
 pub mod annotate;
 pub mod background;
+pub mod geometry;
 pub mod ghost;
 pub mod glyphs;
 pub mod history;
@@ -22,7 +23,7 @@ pub mod wayland;
 
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use eframe::egui::{self, ViewportBuilder, ViewportCommand, ViewportId};
 use image::RgbaImage;
@@ -40,7 +41,14 @@ pub enum Trigger {
     Capture,
     CaptureText,
     PickColor,
+    /// `--hide`: close the capture overlay if it is open.
+    Hide,
+    /// `--toggle`: capture, or close the overlay when it is open.
+    Toggle,
     Settings,
+    /// Settings on a section (IPC `settings:<label>`).
+    SettingsAt(settings_view::Section),
+    History,
     Restart,
     Quit,
     TrayState(arcade_link::trayhost::TrayState),
@@ -62,10 +70,12 @@ struct AppState {
     pins: Vec<pins::Pin>,
     editors: Vec<annotate::Editor>,
     settings: Option<settings_view::SettingsView>,
+    history: Option<history::HistoryView>,
     recording: Option<pins::Recording>,
     ui_tx: Sender<UiCommand>,
     ui_rx: Receiver<UiCommand>,
     settings_requests: Vec<settings_view::SettingsRequest>,
+    history_requests: Vec<history::HistoryRequest>,
     notices: Vec<String>,
     next_id: u64,
     tesseract_rx: Option<Receiver<Result<(), String>>>,
@@ -123,8 +133,28 @@ impl AppState {
 }
 
 /// Tells the user something outside of any Lens window.
+/// Whether the capture overlay is open in this (resident) process, for `--status`.
+static OVERLAY_OPEN: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
+
+/// `--status`: one line of JSON (STANDARD command line).
+pub fn status_json(paths: &Paths, running: bool, overlay: bool) -> String {
+    let settings = config::load_settings(paths).unwrap_or_default();
+    serde_json::json!({
+        "running": running,
+        "version": crate::link::VERSION,
+        "overlay": overlay,
+        "link": { "enabled": settings.link.enabled },
+    })
+    .to_string()
+}
+
 pub fn notify(msg: &str) {
     eprintln!("arcade-lens: {msg}");
+    // Settings › General › Notifications turns the desktop part off; the
+    // message still reaches the log.
+    if !crate::config::notifications_enabled() {
+        return;
+    }
     // Best effort desktop notification; never required.
     let _ = std::process::Command::new(if cfg!(target_os = "macos") { "osascript" } else { "notify-send" })
         .args(if cfg!(target_os = "macos") {
@@ -149,7 +179,13 @@ struct LensApp {
     tray: Option<lens_platform::tray::Tray>,
     one_shot: bool,
     focus_pending: bool,
-    focus_attempts: u32,
+    /// When the overlay was shown: it asks for focus for `FOCUS_TRY` after.
+    shown_at: Instant,
+    /// Some Lens window had focus during this capture; losing it closes the
+    /// overlay (STANDARD: overlays close when they lose focus).
+    overlay_had_focus: bool,
+    /// When every Lens window lost focus, while the overlay is up.
+    overlay_unfocused_since: Option<Instant>,
     hidden_once: bool,
     waking: bool,
     registered: std::collections::HashSet<ViewportId>,
@@ -202,9 +238,8 @@ impl LensApp {
         use arcade_link::trayhost::TrayState;
         match state {
             TrayState::Own if self.tray.is_none() => {
-                let shortcut = self.state.lock().unwrap_or_else(|e| e.into_inner()).env.rt.settings.activation_shortcut.clone();
                 let tx = self.trigger_sender.clone();
-                self.tray = background::tray(shortcut, move |event| {
+                self.tray = background::tray(move |event| {
                     use lens_platform::tray::TrayEvent;
                     let trigger = match event {
                         TrayEvent::Capture => Trigger::Capture,
@@ -240,10 +275,6 @@ impl LensApp {
     fn apply_hub_shortcut(&mut self, ctx: &egui::Context, accelerator: &str) -> Result<arcade_link::app::ShortcutSetResult, arcade_link::LinkError> {
         let paths = self.paths.clone();
         let result = crate::app::hub::set_shortcut(&paths, accelerator, |a| self.apply_live_shortcut(a))?;
-        if let Some(tray) = &self.tray {
-            let settings = config::load_settings(&self.paths).map_err(arcade_link::LinkError::unavailable)?;
-            tray.set_shortcut(settings.activation_shortcut);
-        }
         self.reload_runtime(ctx);
         Ok(result)
     }
@@ -253,10 +284,6 @@ impl LensApp {
         let result = crate::app::hub::import_settings(&paths, inputs, |a| self.apply_live_shortcut(a))?;
         if result.imported {
             self.reload_runtime(ctx);
-            if let Some(tray) = &self.tray {
-                let settings = config::load_settings(&self.paths).map_err(arcade_link::LinkError::unavailable)?;
-                tray.set_shortcut(settings.activation_shortcut);
-            }
         }
         Ok(result)
     }
@@ -275,8 +302,8 @@ impl LensApp {
         // Capture before anything of ours is visible.
         let captures = match lens_platform::capture_all() {
             Ok(c) if !c.is_empty() => c,
-            Ok(_) => return notify("no monitors to capture"),
-            Err(e) => return notify(&format!("screen capture failed: {e}")),
+            Ok(_) => return notify("Couldn't capture the screen. No monitor was found."),
+            Err(e) => return notify(&format!("Couldn't capture the screen. {e}")),
         };
         self.show_overlay(ctx, captures);
         if let Some(overlay) = self.state.lock().unwrap().overlay.as_mut() {
@@ -331,7 +358,7 @@ impl LensApp {
                     .or(monitors.first())
                     .cloned()
                 else {
-                    return notify("no monitor to show the image on");
+                    return notify("Couldn't show the image. No monitor was found.");
                 };
                 let (canvas, rect) = crate::link::analyze_canvas(&image, &monitor);
                 self.show_overlay(ctx, vec![lens_platform::Capture { monitor, image: Arc::new(canvas) }]);
@@ -362,7 +389,9 @@ impl LensApp {
         self.root_visible = true;
         self.waking = false;
         self.focus_pending = true;
-        self.focus_attempts = 0;
+        self.shown_at = Instant::now();
+        self.overlay_had_focus = false;
+        self.overlay_unfocused_since = None;
         self.activity = true;
         crate::lens_debug!("overlay shown on {} ({:?})", m.name, m.rect);
     }
@@ -392,9 +421,6 @@ impl LensApp {
                         },
                     };
                     if ok {
-                        if let Some(t) = &self.tray {
-                            t.set_shortcut(settings.activation_shortcut.clone());
-                        }
                         self.reload_runtime(ctx);
                         if self.solo {
                             // The background instance owns the shortcut binding.
@@ -423,7 +449,40 @@ impl LensApp {
                     st.env.usage.lock().unwrap().reset();
                     let _ = config::save_usage(&self.paths, &UsageStore::default());
                 }
-                settings_view::SettingsRequest::ClearHistory => history::clear(&self.paths.history()),
+                settings_view::SettingsRequest::ClearHistory => {
+                    history::clear(&self.paths.history());
+                    if let Some(h) = &mut self.state.lock().unwrap().history {
+                        h.reload();
+                    }
+                }
+                settings_view::SettingsRequest::ShowHistory => self.open_history(ctx),
+                settings_view::SettingsRequest::OpenUrl(url) => {
+                    let mut st = self.state.lock().unwrap();
+                    if let Err(e) = st.env.host.open_uri(&url, false) {
+                        if let Some(v) = &mut st.settings {
+                            v.status = Some((format!("Couldn't open the page. {e}"), false));
+                        }
+                    }
+                }
+                settings_view::SettingsRequest::OpenApp(app) => {
+                    let st = self.state.lock().unwrap();
+                    let arcade = st.env.rt.arcade.clone();
+                    let tx = st.ui_tx.clone();
+                    let repaint = ctx.clone();
+                    std::thread::spawn(move || {
+                        if let Err(e) = arcade.open(&app) {
+                            let message = format!("Couldn't open {}. {e}", arcade_link::manifest::app_name(&app));
+                            let _ = tx.send(UiCommand::SettingsStatus { message, ok: false });
+                        }
+                        repaint.request_repaint();
+                    });
+                }
+                settings_view::SettingsRequest::Quit => {
+                    if self.solo {
+                        let _ = lens_platform::ipc::send(&self.paths.endpoint(), "quit");
+                    }
+                    ctx.send_viewport_cmd(ViewportCommand::Close);
+                }
                 settings_view::SettingsRequest::Autostart(on) => {
                     let r = match lens_platform::autostart::launch_path() {
                         Ok(exe) if on => lens_platform::autostart::enable(&exe),
@@ -489,7 +548,7 @@ impl LensApp {
                     v.refresh_runtime(rt);
                 }
             }
-            Err(e) => notify(&format!("could not reload settings: {e}")),
+            Err(e) => notify(&format!("Couldn't reload settings. {e}")),
         }
     }
 
@@ -533,7 +592,7 @@ impl LensApp {
                 drop(st);
                 match r {
                     Ok(()) => self.reload_runtime(ctx),
-                    Err(e) => notify(&format!("Tesseract download failed: {e}")),
+                    Err(e) => notify(&format!("Couldn't download text recognition. {e}")),
                 }
                 let mut st = self.state.lock().unwrap();
                 if let Some(v) = &mut st.settings {
@@ -573,15 +632,107 @@ impl LensApp {
 
     fn anything_open(&self) -> bool {
         let st = self.state.lock().unwrap();
-        st.overlay.is_some() || !st.pins.is_empty() || !st.editors.is_empty() || st.settings.is_some() || st.recording.is_some()
+        st.overlay.is_some() || !st.pins.is_empty() || !st.editors.is_empty() || st.settings.is_some() || st.history.is_some() || st.recording.is_some()
+    }
+
+    /// Closes the capture once it has had focus and then no Lens window has
+    /// focus for `FOCUS_GRACE`, as Esc does. The grace absorbs the focus
+    /// hand-offs while the overlay is placed; clicks on another monitor's
+    /// overlay, a pin or Settings keep focus inside Lens, so they never close
+    /// it. No polling: focus changes wake egui, and the only extra repaint is
+    /// the one at the end of the grace.
+    fn close_overlay_on_focus_loss(&mut self, ctx: &egui::Context) {
+        const FOCUS_GRACE: Duration = Duration::from_millis(300);
+        let up = (self.solo || self.root_visible) && self.state.lock().unwrap().overlay.as_ref().is_some_and(|ov| !ov.close_requested);
+        if !up {
+            self.overlay_had_focus = false;
+            self.overlay_unfocused_since = None;
+            return;
+        }
+        let focused = ctx.input(|i| i.raw.viewports.values().any(|v| v.focused == Some(true)));
+        if focused {
+            self.overlay_had_focus = true;
+            self.overlay_unfocused_since = None;
+            return;
+        }
+        if !self.overlay_had_focus {
+            return;
+        }
+        let since = *self.overlay_unfocused_since.get_or_insert_with(Instant::now);
+        let left = FOCUS_GRACE.saturating_sub(since.elapsed());
+        if !left.is_zero() {
+            ctx.request_repaint_after(left);
+            return;
+        }
+        crate::lens_debug!("overlay lost focus; closing");
+        self.overlay_unfocused_since = None;
+        if let Some(ov) = &mut self.state.lock().unwrap().overlay {
+            ov.close_requested = true;
+        }
+    }
+
+    /// `--hide`: closes the overlay the normal way (as Esc does).
+    fn close_overlay(&mut self, ctx: &egui::Context) {
+        if let Some(ov) = &mut self.state.lock().unwrap().overlay {
+            ov.close_requested = true;
+        }
+        ctx.request_repaint();
     }
 
     fn open_settings(&mut self, ctx: &egui::Context) {
+        self.open_settings_at(ctx, None);
+    }
+
+    /// Opens Settings (or brings it to the front), optionally on `section`.
+    fn open_settings_at(&mut self, ctx: &egui::Context, section: Option<settings_view::Section>) {
         let mut st = self.state.lock().unwrap();
+        if self.solo && st.settings.is_none() {
+            // One window per process: the background instance opens Settings.
+            let cmd = section.map_or_else(|| "settings".to_string(), |s| format!("settings:{}", s.label()));
+            if let Err(e) = lens_platform::ipc::send(&self.paths.endpoint(), &cmd) {
+                notify(&format!("Couldn't open Settings. {e}"));
+            }
+            return;
+        }
         if st.settings.is_none() {
             st.settings = Some(settings_view::SettingsView::new(st.env.rt.clone()));
         } else {
             ctx.send_viewport_cmd_to(settings_view::SettingsView::viewport_id(), ViewportCommand::Focus);
+        }
+        if let (Some(view), Some(section)) = (&mut st.settings, section) {
+            view.show_section(section);
+        }
+        self.activity = true;
+    }
+
+    fn apply_history_requests(&mut self, ctx: &egui::Context) {
+        let requests = std::mem::take(&mut self.state.lock().unwrap().history_requests);
+        for r in requests {
+            match r {
+                history::HistoryRequest::OpenPrivacy => self.open_settings_at(ctx, Some(settings_view::Section::Privacy)),
+                history::HistoryRequest::OpenFolder(p) => {
+                    let _ = std::fs::create_dir_all(&p);
+                    let st = self.state.lock().unwrap();
+                    if let Err(e) = st.env.host.open_path(&p, lens_core::host::OpenPathMode::Default) {
+                        notify(&format!("Couldn't open the history folder. {e}"));
+                    }
+                }
+            }
+        }
+    }
+
+    fn open_history(&mut self, ctx: &egui::Context) {
+        let mut st = self.state.lock().unwrap();
+        if self.solo && st.history.is_none() {
+            if let Err(e) = lens_platform::ipc::send(&self.paths.endpoint(), "history") {
+                notify(&format!("Couldn't open History. {e}"));
+            }
+            return;
+        }
+        if st.history.is_none() {
+            st.history = Some(history::HistoryView::new(self.paths.history()));
+        } else {
+            ctx.send_viewport_cmd_to(history::HistoryView::viewport_id(), ViewportCommand::Focus);
         }
         self.activity = true;
     }
@@ -592,6 +743,7 @@ impl LensApp {
         if let Some(init) = self.init.take() {
             init(&mut self.state.lock().unwrap(), ctx);
         }
+        OVERLAY_OPEN.store(self.state.lock().unwrap().overlay.is_some(), std::sync::atomic::Ordering::Relaxed);
         // Some window systems map the root window at creation even when asked
         // not to (X11 override-redirect windows). Make sure it is hidden.
         if !self.solo && !self.root_visible && !self.hidden_once {
@@ -601,9 +753,19 @@ impl LensApp {
         while let Ok(t) = self.triggers.try_recv() {
             match t {
                 Trigger::Capture => self.begin_capture(ctx),
+                Trigger::Hide => self.close_overlay(ctx),
+                Trigger::Toggle => {
+                    if self.state.lock().unwrap().overlay.is_some() {
+                        self.close_overlay(ctx);
+                    } else {
+                        self.begin_capture(ctx);
+                    }
+                }
                 Trigger::CaptureText => self.begin_capture_mode(ctx, crate::link::CaptureMode::Text),
                 Trigger::PickColor => self.begin_capture_mode(ctx, crate::link::CaptureMode::Color),
                 Trigger::Settings => self.open_settings(ctx),
+                Trigger::SettingsAt(section) => self.open_settings_at(ctx, Some(section)),
+                Trigger::History => self.open_history(ctx),
                 Trigger::Restart => {
                     if background::restart() {
                         ctx.send_viewport_cmd(ViewportCommand::Close);
@@ -624,6 +786,7 @@ impl LensApp {
         }
         self.handle_ui_commands(ctx);
         self.apply_settings_requests(ctx);
+        self.apply_history_requests(ctx);
         // eframe only runs UI passes while some window is visible, and child
         // windows can only be created from a UI pass. If something must appear
         // while everything is hidden, map the root as a 1×1 window
@@ -653,9 +816,13 @@ impl LensApp {
             }
         }
         let focused = ctx.input(|i| i.viewport().focused).unwrap_or(false);
-        if self.root_visible && !focused && self.focus_attempts < 60 {
+        // Ask for focus until the overlay first has it; after that, losing it
+        // closes the capture instead of taking focus back.
+        // Timed rather than counted: on a busy machine the frames before the
+        // window is mapped could use up a frame count before focus is possible.
+        const FOCUS_TRY: Duration = Duration::from_secs(3);
+        if self.root_visible && !focused && !self.overlay_had_focus && self.shown_at.elapsed() < FOCUS_TRY {
             self.focus_pending = true;
-            self.focus_attempts += 1;
             ctx.request_repaint_after(Duration::from_millis(16));
         }
         let evs = ctx.input(|i| i.events.len());
@@ -678,8 +845,11 @@ impl LensApp {
             self.focus_pending = false;
         }
 
+        self.close_overlay_on_focus_loss(&ctx);
+
         // Root window: the overlay for the monitor under the pointer.
         let mut close_overlay = false;
+        let mut open_after: Option<settings_view::Section> = None;
         {
             let mut guard = self.state.lock().unwrap();
             let st = &mut *guard;
@@ -703,6 +873,9 @@ impl LensApp {
                     }
                 }
                 close_overlay = ov.close_requested;
+                if close_overlay {
+                    open_after = ov.open_settings.take();
+                }
             }
             // A closing solo window paints one more pass before it goes;
             // without the overlay that pass would flash black.
@@ -710,7 +883,20 @@ impl LensApp {
                 st.overlay = None;
             }
         }
-        if close_overlay && self.solo {
+        if let Some(section) = open_after {
+            // In a solo window process (about to exit) this asks the running Lens.
+            self.open_settings_at(&ctx, Some(section));
+        }
+        if close_overlay && self.solo && overlay::handed_off_pending() {
+            // A peer is still finishing an action this capture handed off;
+            // closing would end this process and lose its result. Get out of
+            // the way and let the last job end the process.
+            ctx.send_viewport_cmd(ViewportCommand::Visible(false));
+            // So the background instance starts the next capture instead of
+            // treating this hidden process as the open one.
+            let _ = lens_platform::ipc::send(&self.paths.endpoint(), &format!("detach:{}", std::process::id()));
+            overlay::exit_when_handed_off_done();
+        } else if close_overlay && self.solo {
             ctx.send_viewport_cmd(ViewportCommand::Close);
         } else if close_overlay {
             self.hide_overlay(&ctx);
@@ -724,6 +910,11 @@ impl LensApp {
             st.editors.retain(|e| !e.closed);
             if st.settings.as_ref().is_some_and(|s| s.closed) {
                 st.settings = None;
+                geometry::forget("settings");
+            }
+            if st.history.as_ref().is_some_and(|h| h.closed) {
+                st.history = None;
+                geometry::forget("history");
             }
             if let Some(ov) = &st.overlay {
                 for (i, v) in ov.views.iter().enumerate() {
@@ -750,13 +941,25 @@ impl LensApp {
                 ids.push((e.viewport_id(), e.builder(), Child::Editor(e.id)));
             }
             if st.settings.is_some() {
-                ids.push((settings_view::SettingsView::viewport_id(), settings_view::SettingsView::builder(), Child::Settings));
+                ids.push((
+                    settings_view::SettingsView::viewport_id(),
+                    geometry::builder("settings", settings_view::SettingsView::builder(), &st.env.rt.paths.data),
+                    Child::Settings,
+                ));
+            }
+            if st.history.is_some() {
+                ids.push((
+                    history::HistoryView::viewport_id(),
+                    geometry::builder("history", history::HistoryView::builder(), &st.env.rt.paths.data),
+                    Child::History,
+                ));
             }
             if let Some(r) = &st.recording {
                 let b = ViewportBuilder::default()
                     .with_title("Recording — Arcade Lens")
-                    .with_inner_size([220.0, 44.0])
+                    .with_inner_size([240.0, 52.0])
                     .with_decorations(false)
+                    .with_app_id(crate::link::OS_ID)
                     .with_always_on_top()
                     .with_taskbar(false);
                 let _ = r;
@@ -805,6 +1008,7 @@ enum Child {
     Pin(u64),
     Editor(u64),
     Settings,
+    History,
     Recording,
 }
 
@@ -827,7 +1031,7 @@ impl Child {
             Child::Pin(id) => {
                 crate::lens_debug!("pin {id} frame");
                 let Some(pin) = st.pins.iter_mut().find(|p| p.id == id) else { return };
-                let reqs = egui::CentralPanel::default().show(&ctx, |ui| pin.ui(ui)).inner;
+                let reqs = egui::CentralPanel::default().frame(egui::Frame::NONE).show(&ctx, |ui| pin.ui(ui)).inner;
                 for r in reqs {
                     match r {
                         pins::PinRequest::Copy(img) => {
@@ -865,6 +1069,7 @@ impl Child {
             }
             Child::Settings => {
                 if let Some(v) = &mut st.settings {
+                    geometry::track(&ctx, "settings", &st.env.rt.paths.data);
                     let reqs = v.ui(&ctx);
                     let closed = v.closed;
                     st.settings_requests.extend(reqs);
@@ -873,9 +1078,21 @@ impl Child {
                     }
                 }
             }
+            Child::History => {
+                let enabled = st.env.rt.settings.privacy.history_enabled;
+                if let Some(v) = &mut st.history {
+                    geometry::track(&ctx, "history", &st.env.rt.paths.data);
+                    let reqs = v.ui(&ctx, enabled);
+                    let closed = v.closed;
+                    st.history_requests.extend(reqs);
+                    if closed || !st.history_requests.is_empty() {
+                        ctx.request_repaint_of(ViewportId::ROOT);
+                    }
+                }
+            }
             Child::Recording => {
                 if let Some(r) = &st.recording {
-                    if egui::CentralPanel::default().show(&ctx, |ui| r.ui(ui)).inner {
+                    if egui::CentralPanel::default().frame(egui::Frame::NONE).show(&ctx, |ui| r.ui(ui)).inner {
                         let rec = st.recording.take().unwrap();
                         let path = rec.stop();
                         st.notices.push(format!("Recording saved to {}", path.display()));
@@ -918,11 +1135,25 @@ macro_rules! lens_debug {
 /// tray icon and IPC, then `initial` if given.
 pub fn run(initial: Option<Trigger>) -> Result<(), String> {
     let background = initial.is_none();
+    // Before anything opens a file: move the pre-0.4 folders.
+    let migration = Paths::migrate();
     let paths = Paths::discover();
     // The log folder the manifest advertises: without a terminal, warnings
     // and errors go there instead of nowhere.
     if let Err(e) = arcade_link::logs::capture_stderr(&paths.data.join("logs"), "arcade-lens") {
         eprintln!("arcade-lens: log file: {e}");
+    }
+    #[cfg(target_os = "linux")]
+    if let Err(e) = crate::app::installer::migrate_integration(&paths) {
+        eprintln!("arcade-lens: couldn't move the launcher to {}: {e}", crate::link::OS_ID);
+    }
+    match migration {
+        Ok(true) => eprintln!("arcade-lens: moved settings and data to {} and {}", paths.config.display(), paths.data.display()),
+        Ok(false) => {}
+        Err(e) => {
+            eprintln!("arcade-lens: {e}");
+            notify(&e);
+        }
     }
     // The resident instance holds no window, GL context or egui state: each
     // capture, settings, pin or editor window is its own short-lived process
@@ -936,6 +1167,7 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
     let (tx, rx) = mpsc::channel::<Trigger>();
     let t = tx.clone();
     let hub_tx = Mutex::new(tx.clone());
+    let status_paths = paths.clone();
     lens_platform::ipc::serve(&paths.endpoint(), move |cmd| {
         if let Some(reply) = hub_command(cmd, |trigger| {
             let tx = hub_tx.lock().unwrap_or_else(|e| e.into_inner()).clone();
@@ -944,8 +1176,22 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
         }) {
             return reply;
         }
+        if let Some(label) = cmd.strip_prefix("settings:") {
+            return match settings_view::Section::from_label(label) {
+                Some(section) => {
+                    send_trigger(&t, Trigger::SettingsAt(section));
+                    "ok".into()
+                }
+                None => "unknown section".into(),
+            };
+        }
         let trig = match cmd {
             "ping" => return "pong".into(),
+            "status" => return status_json(&status_paths, true, OVERLAY_OPEN.load(std::sync::atomic::Ordering::Relaxed)),
+            "show" => Trigger::Capture,
+            "hide" => Trigger::Hide,
+            "toggle" => Trigger::Toggle,
+            "history" => Trigger::History,
             "capture" => Trigger::Capture,
             "capture-text" => Trigger::CaptureText,
             "pick-color" => Trigger::PickColor,
@@ -972,7 +1218,7 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
     let x11 = lens_platform::display_server() == lens_platform::DisplayServer::X11;
     let root = ViewportBuilder::default()
         .with_title("Arcade Lens")
-        .with_app_id("arcade-lens")
+        .with_app_id(crate::link::OS_ID)
         .with_visible(false)
         .with_decorations(false)
         .with_taskbar(false)
@@ -1029,7 +1275,7 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
         Solo::Capture(_) | Solo::Pick(_) => match lens_platform::capture_all() {
             Ok(c) if !c.is_empty() => c,
             Ok(_) => return Err("no monitors to capture".into()),
-            Err(e) => return Err(format!("screen capture failed: {e}")),
+            Err(e) => return Err(format!("Couldn't capture the screen. {e}")),
         },
         Solo::Analyze(p) => {
             let image = wayland::load_image(p)?;
@@ -1046,20 +1292,40 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
         Solo::Pin(p) | Solo::Annotate(p) => Some(Arc::new(wayland::load_image(p)?)),
         _ => None,
     };
-    let rt = Arc::new(loading.join().map_err(|_| "loading settings failed".to_string())??);
+    let rt = Arc::new(loading.join().map_err(|_| "Couldn't load settings.".to_string())??);
     crate::lens_debug!("ready after {:?}", started.elapsed());
     let fullscreen = matches!(solo, Solo::Capture(_) | Solo::Pick(_) | Solo::Analyze(_));
     let root = match &solo {
         Solo::Capture(_) | Solo::Pick(_) | Solo::Analyze(_) => {
-            let b = ViewportBuilder::default().with_title("Arcade Lens").with_app_id("arcade-lens").with_decorations(false).with_fullscreen(true);
+            let b = ViewportBuilder::default().with_title("Arcade Lens").with_app_id(crate::link::OS_ID).with_decorations(false).with_fullscreen(true);
             // Hyprland shows the first frame before making the window full
             // screen; drawn at the default size, it flashes in a corner.
             match lens_platform::hyprland::active().then(lens_platform::hyprland::focused_monitor_size).flatten() {
                 Some((w, h)) => b.with_inner_size([w, h]),
+                // X11: also place it on the monitor the overlay treats as its
+                // root (under the pointer), so it covers that monitor even where
+                // the window manager ignores full-screen requests (or there is
+                // none), and the first frame is never drawn at a default size.
+                None if lens_platform::display_server() == lens_platform::DisplayServer::X11 => {
+                    let cursor = lens_platform::cursor_position();
+                    let monitor = cursor
+                        .and_then(|c| captures.iter().find(|cap| cap.monitor.rect.contains(c)))
+                        .or_else(|| captures.iter().find(|cap| cap.monitor.is_primary))
+                        .or(captures.first())
+                        .map(|cap| &cap.monitor);
+                    match monitor {
+                        Some(m) => {
+                            let s = m.scale_factor as f32;
+                            b.with_position([m.rect.x as f32 / s, m.rect.y as f32 / s]).with_inner_size([m.rect.width as f32 / s, m.rect.height as f32 / s])
+                        }
+                        None => b,
+                    }
+                }
                 None => b,
             }
         }
-        Solo::Settings => settings_view::SettingsView::builder(),
+        Solo::Settings(_) => geometry::builder("settings", settings_view::SettingsView::builder(), &rt.paths.data),
+        Solo::History => geometry::builder("history", history::HistoryView::builder(), &rt.paths.data),
         Solo::Pin(_) => pins::Pin::new(0, image.clone().unwrap(), None, 1.0).builder(),
         Solo::Annotate(_) => annotate::Editor::new(0, image.clone().unwrap()).builder(),
     };
@@ -1083,7 +1349,14 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
             }
             st.overlay = Some(ov);
         }
-        Solo::Settings => st.settings = Some(settings_view::SettingsView::new(st.env.rt.clone())),
+        Solo::Settings(section) => {
+            let mut view = settings_view::SettingsView::new(st.env.rt.clone());
+            if let Some(section) = section {
+                view.show_section(section);
+            }
+            st.settings = Some(view);
+        }
+        Solo::History => st.history = Some(history::HistoryView::new(st.env.rt.paths.history())),
         Solo::Pin(_) => {
             let id = st.id();
             st.pins.push(pins::Pin::new(id, image.unwrap(), None, 1.0));
@@ -1129,7 +1402,11 @@ fn start_app(
         Box::new(move |cc| {
             let ctx = cc.egui_ctx.clone();
             let _ = CONTEXT.set(ctx.clone());
-            theme::apply_style(&ctx);
+            theme::apply_style(&ctx, rt.settings.appearance.as_str());
+            // Screenshots and checks at 125 % text size (ARCADE_LENS_UI_SCALE=1.25).
+            if let Some(scale) = std::env::var("ARCADE_LENS_UI_SCALE").ok().and_then(|s| s.parse::<f32>().ok()).filter(|s| (1.0..=1.25).contains(s)) {
+                ctx.set_zoom_factor(scale);
+            }
             let mut shortcuts = None;
             let tray = None;
             if daemon {
@@ -1143,7 +1420,7 @@ fn start_app(
                 match lens_platform::shortcut::Shortcuts::new() {
                     Ok(mut s) => {
                         if let Err(e) = s.set(rt.settings.activation_shortcut.as_deref()) {
-                            notify(&format!("{e}. Change it in Settings → Shortcut."));
+                            notify(&format!("{e}. Change it in Settings › Shortcuts."));
                         }
                         let t = tx.clone();
                         let c = ctx.clone();
@@ -1153,7 +1430,7 @@ fn start_app(
                         });
                         shortcuts = Some(s);
                     }
-                    Err(e) => notify(&format!("global shortcut unavailable: {e}")),
+                    Err(e) => notify(&format!("Couldn't register the global shortcut. {e}")),
                 }
             }
             // Wake the event loop for queued initial triggers.
@@ -1167,10 +1444,12 @@ fn start_app(
                 pins: Vec::new(),
                 editors: Vec::new(),
                 settings: None,
+                history: None,
                 recording: None,
                 ui_tx,
                 ui_rx,
                 settings_requests: Vec::new(),
+                history_requests: Vec::new(),
                 notices: Vec::new(),
                 next_id: 0,
                 tesseract_rx: None,
@@ -1185,7 +1464,9 @@ fn start_app(
                 tray,
                 one_shot,
                 focus_pending: false,
-                focus_attempts: 0,
+                shown_at: Instant::now(),
+                overlay_had_focus: false,
+                overlay_unfocused_since: None,
                 hidden_once: false,
                 waking: false,
                 registered: Default::default(),

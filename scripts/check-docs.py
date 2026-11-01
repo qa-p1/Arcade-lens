@@ -22,7 +22,8 @@ def anchors(path):
 def main():
     errors = []
     checked = 0
-    files = [ROOT / "README.md", ROOT / "CHANGELOG.md", ROOT / "VENDORED", *sorted((ROOT / "docs").rglob("*.md"))]
+    user_docs = ROOT / "docs/user"
+    files =[ROOT / "README.md", ROOT / "CHANGELOG.md", ROOT / "VENDORED", *sorted((ROOT / "docs").rglob("*.md"))]
     for file in files:
         if not file.is_file():
             continue
@@ -33,7 +34,10 @@ def main():
                 continue  # External URLs are not fetched by this offline check.
             path = (file.parent / unquote(url.path)).resolve() if url.path else file
             checked += 1
-            if not path.exists():
+            if user_docs in file.parents and user_docs not in path.parents and path != user_docs:
+                # Tools shows the user guide offline: it may only link inside docs/user or to URLs.
+                errors.append(f"{file.relative_to(ROOT)}: {target} leaves docs/user; use an absolute URL")
+            elif not path.exists():
                 errors.append(f"{file.relative_to(ROOT)}: missing {target}")
             elif url.fragment and path.suffix == ".md" and unquote(url.fragment) not in anchors(path):
                 errors.append(f"{file.relative_to(ROOT)}: missing fragment {target}")

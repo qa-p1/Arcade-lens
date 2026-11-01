@@ -2,20 +2,24 @@
 Type=Application
 Name=Arcade Lens
 GenericName=Screen Lens
-Comment=Select anything on screen and act on it
+Comment=Select anything on screen and act on it.
 Exec=arcade-lens
-Icon=arcade-lens
+Icon=dev.arcade.Lens
 Terminal=false
 Categories=Utility;Graphics;
 Keywords=screenshot;capture;ocr;text;qr;color;pin;annotate;lens;
 StartupNotify=false
-StartupWMClass=arcade-lens-settings
-Actions=capture;quit;
+StartupWMClass=dev.arcade.Lens
+Actions=Capture;Settings;Quit;
 
-[Desktop Action capture]
-Name=Capture Screen
+[Desktop Action Capture]
+Name=Capture
 Exec=arcade-lens --capture
 
-[Desktop Action quit]
+[Desktop Action Settings]
+Name=Settings
+Exec=arcade-lens --settings
+
+[Desktop Action Quit]
 Name=Quit Arcade Lens
 Exec=arcade-lens --quit

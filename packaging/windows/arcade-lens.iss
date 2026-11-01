@@ -1,11 +1,11 @@
 ; Per-user Inno Setup 6 installer. Shared receipt, PATH shim and tasks live in
 ; arcade.iss and arcade-integration.ps1, vendored from Arcade Link.
 ;
-;   iscc /DAppVersion=0.3.4 /DSourceExe=C:\path\to\arcade-lens.exe \
+;   iscc /DAppVersion=0.4.0 /DSourceExe=C:\path\to\arcade-lens.exe \
 ;     /DOutputDir=C:\path\to\dist packaging\windows\arcade-lens.iss
 
 #ifndef AppVersion
-  #define AppVersion "0.3.4"
+  #define AppVersion "0.4.0"
 #endif
 #ifndef SourceExe
   #define SourceExe "..\..\target\release\arcade-lens.exe"
@@ -42,7 +42,7 @@ WizardStyle=modern
 Source: "{#SourceExe}"; DestDir: "{app}"; DestName: "arcade-lens.exe"; Flags: ignoreversion
 
 [Icons]
-Name: "{userprograms}\Arcade Lens\Arcade Lens Settings"; Filename: "{app}\arcade-lens.exe"; Parameters: "--settings"; Flags: uninsneveruninstall
+Name: "{userprograms}\Arcade Lens\Arcade Lens Settings"; Filename: "{app}\arcade-lens.exe"; Parameters: "--settings"; AppUserModelID: "dev.arcade.Lens"; Flags: uninsneveruninstall
 
 [Run]
 Filename: "{app}\arcade-lens.exe"; Description: "{cm:LaunchProgram,Arcade Lens}"; Flags: nowait postinstall skipifsilent

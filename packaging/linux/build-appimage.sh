@@ -17,11 +17,12 @@ trap 'rm -rf "$work"' EXIT
 
 app=$work/AppDir
 install -Dm755 "$bin" "$app/usr/bin/arcade-lens"
-install -Dm644 "$here/arcade-lens.desktop" "$app/usr/share/applications/arcade-lens.desktop"
-install -Dm644 "$icons/arcade-lens.png" "$app/usr/share/icons/hicolor/256x256/apps/arcade-lens.png"
-cp "$here/arcade-lens.desktop" "$app/arcade-lens.desktop"
-cp "$icons/arcade-lens.png" "$app/arcade-lens.png"
-ln -s arcade-lens.png "$app/.DirIcon"
+# The desktop id, icon name and window class are dev.arcade.Lens.
+install -Dm644 "$here/dev.arcade.Lens.desktop" "$app/usr/share/applications/dev.arcade.Lens.desktop"
+install -Dm644 "$icons/arcade-lens.png" "$app/usr/share/icons/hicolor/256x256/apps/dev.arcade.Lens.png"
+cp "$here/dev.arcade.Lens.desktop" "$app/dev.arcade.Lens.desktop"
+cp "$icons/arcade-lens.png" "$app/dev.arcade.Lens.png"
+ln -s dev.arcade.Lens.png "$app/.DirIcon"
 # A script, not a symlink, so the process is called arcade-lens.
 cat > "$app/AppRun" <<'RUN'
 #!/bin/sh

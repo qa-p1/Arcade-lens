@@ -4,7 +4,7 @@
     "title": "Install {app}?",
     "body": "This adds {app} to the app launcher and your apps folder.",
     "options": ["Start at login", "Remove the downloaded file"],
-    "buttons": ["Install", "Just run it once", "Don't ask again for this file"]
+    "buttons": ["Install", "Just run it", "Don't ask again for this file"]
   },
   "older": {
     "title": "Update {app} {from} → {to}?",
@@ -26,7 +26,7 @@
   "macos": {
     "title": "Move {app} to Applications?",
     "body": "This adds {app} to Applications. Your settings and data will be kept.",
-    "buttons": ["Move to Applications", "Just run it once"]
+    "buttons": ["Move to Applications", "Just run it"]
   },
   "pathHint": "To use {app} from the terminal, add your Arcade command folder to PATH: {to}",
   "errors": {

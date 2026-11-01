@@ -1,0 +1,143 @@
+# Build, verify and publish Arcade Lens. The installers are the ones CI builds
+# and verifies on each OS (ci.yml is called here), so the asset names,
+# arcade-release.json and SHA256SUMS.txt match earlier releases.
+#
+#   beta    on main: a private draft prerelease v<version>-beta.<run>, to check
+#           a release before tagging. Nothing public changes.
+#   nightly on main: refreshes the rolling "nightly" prerelease (Tools' nightly
+#           channel).
+#   stable  on the tag tag.yml made (v<version>): the latest release.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      channel:
+        description: Release channel (stable must run on its version tag)
+        type: choice
+        options: [beta, nightly, stable]
+        default: beta
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag: ${{ steps.plan.outputs.tag }}
+      label: ${{ steps.plan.outputs.label }}
+      version: ${{ steps.plan.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Validate version and channel
+        id: plan
+        env:
+          CHANNEL: ${{ inputs.channel }}
+        run: |
+          version=$(python3 scripts/check-version.py)
+          case "$CHANNEL" in
+            stable)
+              [ "$GITHUB_REF" = "refs/tags/v$version" ] || { echo "A stable release must run on its tag v$version, not $GITHUB_REF"; exit 1; }
+              tag="v$version" label="$version" ;;
+            beta)
+              [ "$GITHUB_REF" = refs/heads/main ] || { echo "Beta runs on main"; exit 1; }
+              tag="v$version-beta.$GITHUB_RUN_NUMBER" label="$version-beta.$GITHUB_RUN_NUMBER" ;;
+            nightly)
+              [ "$GITHUB_REF" = refs/heads/main ] || { echo "Nightly runs on main"; exit 1; }
+              tag=nightly label="$version-dev.${GITHUB_SHA::7}" ;;
+            *) echo "Unknown channel $CHANNEL"; exit 1 ;;
+          esac
+          echo "tag=$tag label=$label version=$version"
+          {
+            echo "tag=$tag"
+            echo "label=$label"
+            echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
+
+  ci:
+    needs: prepare
+    uses: ./.github/workflows/ci.yml
+    with:
+      label: ${{ needs.prepare.outputs.label }}
+
+  publish:
+    needs: [prepare, ci]
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+      TAG: ${{ needs.prepare.outputs.tag }}
+      LABEL: ${{ needs.prepare.outputs.label }}
+      VERSION: ${{ needs.prepare.outputs.version }}
+      CHANNEL: ${{ inputs.channel }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - name: Download the verified AppImage
+        uses: actions/download-artifact@v8
+        with:
+          name: linux-appimage
+          path: dist
+      - name: Download the verified Windows installer and portable exe
+        uses: actions/download-artifact@v8
+        with:
+          name: windows-installer
+          path: dist
+      - name: Download the verified dmg
+        uses: actions/download-artifact@v8
+        with:
+          name: macos-dmg
+          path: dist
+      - name: Manifest and checksums
+        run: |
+          # Tools has stable and nightly channels; a beta draft is checked as nightly.
+          manifest_channel=$([ "$CHANNEL" = stable ] && echo stable || echo nightly)
+          manifest_version=$([ "$CHANNEL" = stable ] && echo "$VERSION" || echo "$LABEL")
+          python3 scripts/arcade-release.py --id arcade.lens --version "$manifest_version" --channel "$manifest_channel" \
+            --notes "https://github.com/$GH_REPO/releases/tag/$TAG" --windows-installer inno dist
+          python3 - dist/arcade-release.json "$LABEL" <<'PY'
+          import json, sys
+          m, label = json.load(open(sys.argv[1])), sys.argv[2]
+          kinds = sorted((a['os'], a['kind']) for a in m['assets'])
+          assert kinds == [('linux', 'appimage'), ('macos', 'dmg'), ('windows', 'inno'), ('windows', 'portable')], kinds
+          assert all(f"ArcadeLens-{label}-" in a['file'] for a in m['assets'])
+          print(json.dumps(m, indent=2))
+          PY
+          (cd dist && sha256sum -c SHA256SUMS.txt)
+          ls -l dist
+      - name: Release notes
+        run: |
+          prev=$(git tag --list 'v*' --sort=-v:refname | grep -vx "$TAG" | grep -v -- '-beta\.' | head -1 || true)
+          packaging/release-notes.sh "$TAG" "$LABEL" "$prev" > "$RUNNER_TEMP/notes.md"
+      - name: Publish beta draft
+        if: env.CHANNEL == 'beta'
+        run: |
+          gh release create "$TAG" dist/* --draft --prerelease --target "$GITHUB_SHA" \
+            --title "Arcade Lens $LABEL (beta)" --notes-file "$RUNNER_TEMP/notes.md"
+      - name: Publish stable release
+        if: env.CHANNEL == 'stable'
+        run: |
+          gh release create "$TAG" dist/* --verify-tag --latest \
+            --title "Arcade Lens $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
+      - name: Refresh the nightly prerelease
+        if: env.CHANNEL == 'nightly'
+        run: |
+          if gh release view nightly > /dev/null 2>&1; then
+            gh api -X PATCH "repos/$GH_REPO/git/refs/tags/nightly" -f sha="$GITHUB_SHA" -F force=true > /dev/null
+            gh release view nightly --json assets --jq '.assets[].name' | while read -r name; do
+              gh release delete-asset nightly "$name" --yes
+            done
+            gh release upload nightly dist/*
+            gh release edit nightly --prerelease --latest=false --title "Nightly ($LABEL)" --notes-file "$RUNNER_TEMP/notes.md"
+          else
+            gh release create nightly dist/* --target "$GITHUB_SHA" --prerelease --latest=false \
+              --title "Nightly ($LABEL)" --notes-file "$RUNNER_TEMP/notes.md"
+          fi

@@ -209,8 +209,10 @@ def main():
         name, path, _ = next(iter(watcher.items.values()))
         properties = dbus.Interface(watcher.bus.get_object(name, path), PROPERTIES)
         identity = str(properties.Get(ITEM, "Id"))
-        # ksni uses the app's id; Tauri's libappindicator prefixes its tray id.
-        assert identity in ("arcade-" + app, f"tray-icon tray app arcade-{app}-tray"), identity
+        # Lens 0.4 uses its OS identifier (dev.arcade.Lens); older ksni apps used
+        # arcade-<app>, and Tauri's libappindicator prefixes its tray id.
+        expected_ids = ("dev.arcade.Lens",) if app == "lens" else ("arcade-" + app, f"tray-icon tray app arcade-{app}-tray")
+        assert identity in expected_ids, identity
         assert str(properties.Get(ITEM, "Status")) == "Active"
         assert str(properties.Get(ITEM, "Title")) == "Arcade " + app.title()
         try:
@@ -221,7 +223,11 @@ def main():
         exported = dbus.Interface(watcher.bus.get_object(name, str(properties.Get(ITEM, "Menu"))), MENU)
         _, layout = exported.GetLayout(dbus.Int32(0), dbus.Int32(-1), dbus.Array([], signature="s"))
         labels = {str(node[1]["label"]): int(node[0]) for node in layout[2] if "label" in node[1]}
-        assert {"Open Settings", "Restart Arcade " + app.title(), "Quit Arcade " + app.title()} <= labels.keys()
+        assert {"Settings", "Restart Arcade " + app.title(), "Quit Arcade " + app.title()} <= labels.keys()
+        # STANDARD's tray: Open, the app's actions, Settings, a separator, Restart, Quit.
+        order = [str(node[1].get("label", "separator")) for node in layout[2]]
+        assert order == ["Open Arcade Lens", "Capture text", "Pick color", "Settings", "separator",
+                         "Restart Arcade Lens", "Quit Arcade Lens"], order
         return exported, labels
 
     def click(label):
@@ -299,7 +305,7 @@ def main():
         assert watcher.registrations == registered_before, "icon flashed during Tools restart grace"
         recovery(tools)
 
-        click("Open Settings")
+        click("Settings")
         def settings_visible():
             result = subprocess.run(["xdotool", "search", "--onlyvisible", "--name", "Arcade " + app.title()],
                                     env=env, capture_output=True, timeout=3)

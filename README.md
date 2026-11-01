@@ -17,7 +17,23 @@ Arcade Lens lets you select something visible on your screen and choose a useful
 
 It runs on **Linux** (x86_64; X11 and Wayland), **Windows** (x64) and **macOS** (universal: Apple Silicon and Intel). Linux Hyprland is used daily; Windows and macOS are built and tested in CI but have not been run interactively.
 
-<p align="center"><img src="docs/user/images/settings.png" width="720" alt="Arcade Lens General settings for saving selections, OCR and desktop integration"></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/user/images/palette-dark.png">
+    <img src="docs/user/images/palette-light.png" width="760" alt="A paragraph selected with Arcade Lens, and the action palette beside it offering Copy Clean Text, Open, Copy Text, Compose Email and Create PDF">
+  </picture>
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/user/images/annotate-dark.png">
+    <img src="docs/user/images/annotate-light.png" width="500" alt="The annotate editor with a rectangle and an arrow on a capture">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/user/images/settings-dark.png">
+    <img src="docs/user/images/settings-light.png" width="370" alt="Settings, General page">
+  </picture>
+</p>
 
 ## Download and install
 
@@ -31,7 +47,7 @@ Download the file for your system from [Releases](https://github.com/qa-p1/Arcad
 | macOS (universal) | `ArcadeLens-<version>-macos-universal.dmg` | Open the dmg and drag Arcade Lens to Applications. Run from the dmg or Downloads, it offers to move itself to Applications. |
 
 - Scripted Linux install: `arcade-lens --install --silent` from the AppImage (add `--no-launch`, or `--channel C`). `--repair` rewrites the launcher, command and login entries; `--integration-status` prints the integration as JSON. A silent install removes the AppImage it was started from only when that file is in your Downloads folder; add `--keep-download` to keep it there too. Files elsewhere are never removed.
-- Linux OCR needs Tesseract with English language data. Install it with your package manager, or use **Settings → General → Download Tesseract** for a private copy shared by Arcade apps. Windows and macOS use the system OCR.
+- Linux OCR needs Tesseract with English language data. Install it with your package manager, or use **Download** in **Settings › Text recognition** for a private copy shared by Arcade apps. Windows and macOS use the system OCR.
 - Builds are unsigned. On Windows, SmartScreen may warn: choose **More info → Run anyway**. On macOS the app is not notarized: right-click it and choose **Open** the first time.
 - If FUSE is missing on Linux, run the AppImage with `--appimage-extract-and-run`.
 
@@ -46,9 +62,9 @@ Pushes to `main` that change the version publish a new latest release; other `ma
 - **Safe by default:** outbound actions are hidden when content looks like a password, key or token. Commands read from the screen never run without confirmation; dangerous ones need Ctrl+Enter or a click.
 - **Customizable:** shortcut, OCR languages, screenshot format and folder, preferred or disabled actions, recognizers, action keys, saved chains, providers, plugins, connected apps, privacy and history (off by default).
 - **Chains** combine compatible actions into a repeatable workflow.
-- **Plugins:** third-party recognizers and actions run out of process with declared permissions and stay disabled until you enable them. See [plugins](docs/PLUGINS.md) and the [ISBN example](examples/plugins/isbn).
+- **Plugins:** third-party recognizers and actions run out of process with declared permissions and stay disabled until you enable them. See [plugins](docs/dev/plugins.md) and the [ISBN example](examples/plugins/isbn).
 
-More in [Features](docs/user/features.md) and [architecture](docs/ARCHITECTURE.md).
+More in [Features](docs/user/features.md) and [architecture](docs/dev/architecture.md).
 
 ## Works with other Arcade apps
 
@@ -68,11 +84,11 @@ The expanded palette marks outbound actions with **↗** and shows exactly what 
 
 When Arcade Tools is running, its tray icon hosts Lens's menu, including **Capture**, **Capture text** and **Pick color**. When Tools quits, crashes or turns hosting off, Lens's own icon returns at once. With **Connect with other Arcade apps** off, Lens always shows its own icon.
 
-See [how Lens works with other Arcade apps](docs/user/with-other-apps.md) and the [Arcade Link reference](docs/ARCADE_LINK.md).
+See [how Lens works with other Arcade apps](docs/user/with-other-apps.md) and the [Arcade Link reference](docs/dev/link.md).
 
 ## Usage
 
-Press **Ctrl+Alt+Shift+L** (⌃⌥⇧L on macOS) and drag a rectangle. Press **Enter** to run the highlighted action, or **Space** / **Tab** to browse all actions. Arrow keys move the selection, Shift+arrows resize it, Ctrl+C copies it as an image, **M** enters measure mode and Escape closes. Change the shortcut in **Settings → Shortcut**; the single-letter action keys in **Settings → Actions**.
+Press **Ctrl+Alt+Shift+L** (⌃⌥⇧L on macOS) and drag a rectangle. Press **Enter** to run the highlighted action, or **Space** / **Tab** to browse all actions. Arrow keys move the selection, Shift+arrows resize it, Ctrl+C copies it as an image, **M** enters measure mode and Escape closes. Change the shortcut in **Settings › Shortcuts**; the single-letter action keys in **Settings › Actions**.
 
 On Hyprland, Lens binds the shortcut while it runs. On other Wayland desktops, bind `arcade-lens --capture` in the desktop settings. The full list is in the [shortcut reference](docs/user/shortcuts.md).
 
@@ -82,11 +98,16 @@ The launcher commands reach the running instance:
 
 ```
 arcade-lens               Open Settings; Lens keeps running in the tray
+arcade-lens --settings    Open Settings
 arcade-lens --background  Start in the background (used at login)
-arcade-lens --capture     Select something on screen now
+arcade-lens --capture     Select something on screen now (also --show)
+arcade-lens --hide        Close the selection overlay
+arcade-lens --toggle      Select something, or close the overlay if it is open
+arcade-lens --status      Print one line of JSON: running, version, overlay, Link
 arcade-lens --restart     Restart the background instance
 arcade-lens --quit        Quit the background instance
 arcade-lens --version     Print the version
+arcade-lens --help        Print this help
 arcade-lens --install [--silent] [--no-launch] [--keep-download] [--channel C]
                           Install this AppImage / macOS bundle
 arcade-lens --uninstall [--silent] [--remove-data]
@@ -100,7 +121,7 @@ arcade-lens --arcade-manifest
 
 ## Settings and data
 
-Configuration lives in `settings.toml` at the path shown in **Settings → About**. `ARCADE_LENS_HOME` overrides the location. Isolated profiles and builds run from `target` do not register a login item or application-menu entry.
+Configuration lives in `settings.toml` in `~/.config/arcade/lens` (Linux), `%APPDATA%\Arcade\Lens` (Windows) or `~/Library/Application Support/Arcade/Lens` (macOS); older versions' folders move there on first start. `ARCADE_LENS_HOME` overrides the location. Isolated profiles and builds run from `target` do not register a login item or application-menu entry.
 
 Selections are temporary unless you enable history; usage learning stores only local counts of which action you chose.
 
@@ -144,28 +165,29 @@ Your settings stay unless you choose to remove them (`--remove-data`).
 Requires Rust 1.88 or newer. On Linux, install the Wayland and XKB development packages (`libxkbcommon-dev libwayland-dev` on Debian/Ubuntu).
 
 ```sh
-cargo build --release
-cargo test --workspace
-cargo clippy --workspace --all-targets -- -D warnings
+scripts/check      # what CI runs on every OS: docs, vendored files, fmt, clippy, tests
+scripts/dev        # run Lens from source with its own profile in target/dev-profile
+scripts/package    # build this OS's installer into dist/
 ```
 
 For a Linux source install, run `./scripts/install.sh`. It builds Lens, installs it in `~/.local/bin`, starts it, and registers the tray and application-menu entries. Run it again after pulling changes to rebuild and restart.
 
-Arcade Link is pinned to a release tag in `Cargo.toml`. A local dependency override can point to a checkout for development. CI checks every push on Linux, Windows and macOS and builds the packages from [packaging/](packaging/).
+Arcade Link is pinned to a release tag in `Cargo.toml`. A local dependency override can point to a checkout for development. CI checks every pull request and push on Linux, Windows and macOS and builds the packages from [packaging/](packaging/). Releases are made by hand with `tag.yml` and `release.yml`; see [packaging](docs/dev/packaging.md) and [testing](docs/dev/testing.md).
 
 ## Documentation
 
 - [User guide](docs/user/): [getting started](docs/user/getting-started.md), [features](docs/user/features.md), [shortcuts](docs/user/shortcuts.md), [FAQ](docs/user/faq.md), [troubleshooting](docs/user/troubleshooting.md)
-- [Architecture](docs/ARCHITECTURE.md): dataflow and safety model
-- [Arcade Link](docs/ARCADE_LINK.md): actions, capture modes and peer integration
-- [Plugins](docs/PLUGINS.md): plugin API and permissions
+- [Architecture](docs/dev/architecture.md): dataflow and safety model
+- [Arcade Link](docs/dev/link.md): actions, capture modes and peer integration
+- [Plugins](docs/dev/plugins.md): plugin API and permissions
+- [Packaging and releases](docs/dev/packaging.md), [testing](docs/dev/testing.md) and [decisions](docs/dev/decisions.md)
 - [Status](docs/STATUS.md): verification record and remaining limits
 - [Changelog](CHANGELOG.md)
 - [Vendored files](VENDORED): source and license details for copied files
 
 ## License
 
-MIT OR Apache-2.0.
+MIT OR Apache-2.0, see [LICENSE](LICENSE). Third-party licences are in [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ---
 

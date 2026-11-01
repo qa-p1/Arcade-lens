@@ -8,7 +8,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 
 use arcade_link::{Content, Handoff, LinkError, Locations};
-use lens_core::settings::{DateOrder, ImageFormat, Privacy};
+use lens_core::settings::{Appearance, DateOrder, ImageFormat, Privacy};
 use lens_core::Settings;
 use serde::{Deserialize, Serialize};
 
@@ -21,6 +21,9 @@ pub struct PortableSettings {
     pub schema: u32,
     pub app: String,
     pub version: String,
+    /// Added in 0.4.0; older documents follow the system.
+    #[serde(default)]
+    pub appearance: Appearance,
     pub activation_shortcut: Option<String>,
     pub image_format: ImageFormat,
     pub ocr_languages: Vec<String>,
@@ -44,6 +47,7 @@ impl PortableSettings {
             schema: 1,
             app: crate::link::ME.into(),
             version: crate::link::VERSION.into(),
+            appearance: settings.appearance,
             activation_shortcut: settings.activation_shortcut.as_deref().and_then(|s| arcade_link::accelerator::normalize(s).ok()),
             image_format: settings.image_format,
             ocr_languages: settings.ocr_languages.clone(),
@@ -89,6 +93,7 @@ impl PortableSettings {
     /// plugins, Link preferences, and other machine-local settings.
     pub fn apply_to(&self, current: &Settings) -> Settings {
         let mut next = current.clone();
+        next.appearance = self.appearance;
         next.activation_shortcut = self.activation_shortcut.clone();
         next.image_format = self.image_format;
         next.ocr_languages = self.ocr_languages.clone();

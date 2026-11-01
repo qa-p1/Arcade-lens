@@ -6,6 +6,23 @@ use std::path::{Path, PathBuf};
 #[cfg(any(windows, test))]
 mod windows_login;
 
+/// Lens's OS identifier (STANDARD §10): desktop file, icon name, window
+/// class, login entry and LaunchAgent label. Same as `link::OS_ID`.
+pub const OS_ID: &str = "dev.arcade.Lens";
+/// Sets the Windows AppUserModelID, so the taskbar groups Lens's windows
+/// under its Start menu shortcut. Call before any window or tray icon.
+pub fn init_app_identity() {
+    #[cfg(windows)]
+    {
+        let id: Vec<u16> = OS_ID.encode_utf16().chain(Some(0)).collect();
+        // SAFETY: a live, NUL-terminated UTF-16 string for the Win32 call.
+        unsafe { windows_sys::Win32::UI::Shell::SetCurrentProcessExplicitAppUserModelID(id.as_ptr()) };
+    }
+}
+
+/// The launcher comment: Lens's tagline. Same as `settings_view::TAGLINE`.
+pub const TAGLINE: &str = "Select anything on screen and act on it.";
+
 fn home() -> Option<PathBuf> {
     std::env::var_os("HOME").or_else(|| std::env::var_os("USERPROFILE")).map(PathBuf::from)
 }
@@ -78,11 +95,58 @@ fn data_home() -> Option<PathBuf> {
 fn autostart_path() -> Option<PathBuf> {
     let environment = arcade_link::install::Environment::discover().ok()?;
     if cfg!(target_os = "linux") {
+        Some(environment.config.join(format!("autostart/{OS_ID}.desktop")))
+    } else if cfg!(target_os = "macos") {
+        Some(environment.home.join(format!("Library/LaunchAgents/{OS_ID}.plist")))
+    } else {
+        None
+    }
+}
+
+/// The login entry Lens wrote before 0.4.
+fn legacy_autostart_path() -> Option<PathBuf> {
+    let environment = arcade_link::install::Environment::discover().ok()?;
+    if cfg!(target_os = "linux") {
         Some(environment.config.join("autostart/arcade-lens.desktop"))
     } else if cfg!(target_os = "macos") {
         Some(environment.home.join("Library/LaunchAgents/dev.arcade.lens.plist"))
     } else {
         None
+    }
+}
+
+/// Whether `old` is a different file from `new`. On a case-insensitive
+/// volume (macOS by default) `dev.arcade.lens.plist` *is*
+/// `dev.arcade.Lens.plist`, and removing the "old" one would remove the new.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn distinct_file(old: &Path, new: &Path) -> bool {
+    use std::os::unix::fs::MetadataExt;
+    match (fs::metadata(old), fs::metadata(new)) {
+        (Ok(a), Ok(b)) => (a.dev(), a.ino()) != (b.dev(), b.ino()),
+        _ => true,
+    }
+}
+
+/// Removes a pre-0.4 file Lens wrote, when it is Lens's (`marker`) and not
+/// the same file as its replacement.
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn remove_legacy(old: &Path, new: &Path, marker: &str) -> std::io::Result<()> {
+    let ours = fs::read_to_string(old).is_ok_and(|c| c.contains(marker));
+    if ours && distinct_file(old, new) {
+        match fs::remove_file(old) {
+            Err(e) if e.kind() != std::io::ErrorKind::NotFound => return Err(e),
+            _ => {}
+        }
+    }
+    Ok(())
+}
+
+#[cfg(any(target_os = "linux", target_os = "macos"))]
+fn legacy_login_marker() -> &'static str {
+    if cfg!(target_os = "macos") {
+        "<string>dev.arcade.lens</string>"
+    } else {
+        "X-Arcade-Id=arcade.lens"
     }
 }
 
@@ -115,7 +179,7 @@ fn set_entry(store: &arcade_link::receipt::Store, path: &Path, contents: Option<
 #[cfg(target_os = "linux")]
 fn login_entry(exe: &Path) -> String {
     format!(
-        "[Desktop Entry]\nType=Application\nName=Arcade Lens\nComment=Start Arcade Lens in the background\nExec={}\nIcon=arcade-lens\nTerminal=false\nNoDisplay=true\nX-Arcade-Id=arcade.lens\nX-GNOME-Autostart-enabled=true\n",
+        "[Desktop Entry]\nType=Application\nName=Arcade Lens\nComment=Start Arcade Lens in the background\nExec={}\nIcon={OS_ID}\nTerminal=false\nNoDisplay=true\nX-Arcade-Id=arcade.lens\nX-GNOME-Autostart-enabled=true\n",
         exec(exe, "--background")
     )
 }
@@ -126,10 +190,11 @@ pub fn is_enabled() -> bool {
         return arcade_link::install::Environment::discover().is_ok_and(|e| windows_login::enabled(&e.receipts(), windows_login::run_enabled));
     }
     // An entry switched off in the desktop's startup settings won't run.
+    // The pre-0.4 entry still starts Lens until it is replaced.
     #[cfg(target_os = "linux")]
-    return autostart_path().is_some_and(|p| arcade_link::install::autostart_enabled(&p));
+    return [autostart_path(), legacy_autostart_path()].into_iter().flatten().any(|p| arcade_link::install::autostart_enabled(&p));
     #[allow(unreachable_code)]
-    autostart_path().is_some_and(|p| p.exists())
+    [autostart_path(), legacy_autostart_path()].into_iter().flatten().any(|p| p.exists())
 }
 
 /// Starts `exe` in the background at login. Rewrites an existing entry, so
@@ -149,11 +214,15 @@ pub fn enable(exe: &Path) -> std::io::Result<()> {
             &arcade_link::receipt::Store::discover(),
             &path,
             Some(format!(
-                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\"><dict>\n<key>Label</key><string>dev.arcade.lens</string>\n<key>ProgramArguments</key><array><string>{}</string><string>--background</string></array>\n<key>RunAtLoad</key><true/>\n</dict></plist>\n",
+                "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!DOCTYPE plist PUBLIC \"-//Apple//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n<plist version=\"1.0\"><dict>\n<key>Label</key><string>{OS_ID}</string>\n<key>ProgramArguments</key><array><string>{}</string><string>--background</string></array>\n<key>RunAtLoad</key><true/>\n</dict></plist>\n",
                 exe.display()
             )
             .as_bytes()),
         )?;
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if let Some(old) = legacy_autostart_path() {
+            remove_legacy(&old, &path, legacy_login_marker())?;
+        }
         let _ = (path, exe);
         Ok(())
     }
@@ -167,15 +236,33 @@ pub fn disable() -> std::io::Result<()> {
     }
     #[cfg(any(target_os = "linux", target_os = "macos"))]
     match autostart_path() {
-        Some(p) => set_entry(&arcade_link::receipt::Store::discover(), &p, None),
+        Some(p) => {
+            if let Some(old) = legacy_autostart_path() {
+                remove_legacy(&old, &p, legacy_login_marker())?;
+            }
+            set_entry(&arcade_link::receipt::Store::discover(), &p, None)
+        }
         _ => Ok(()),
     }
+}
+
+/// Lens's launcher: the tagline, keywords, window class and the actions in
+/// the tray's order and words.
+#[cfg(target_os = "linux")]
+fn launcher_entry(exe: &Path) -> String {
+    format!(
+        "[Desktop Entry]\nType=Application\nName=Arcade Lens\nGenericName=Screen Lens\nComment={TAGLINE}\nExec={}\nIcon={OS_ID}\nTerminal=false\nCategories=Utility;Graphics;\nKeywords=screenshot;capture;ocr;text;qr;color;pin;annotate;lens;\nStartupNotify=false\nStartupWMClass={OS_ID}\nX-Arcade-Id=arcade.lens\nActions=Capture;Settings;Quit;\n\n[Desktop Action Capture]\nName=Capture\nExec={}\n\n[Desktop Action Settings]\nName=Settings\nExec={}\n\n[Desktop Action Quit]\nName=Quit Arcade Lens\nExec={}\n",
+        exec(exe, ""),
+        exec(exe, "--capture"),
+        exec(exe, "--settings"),
+        exec(exe, "--quit"),
+    )
 }
 
 /// The launcher entry, when Lens is in the Linux applications menu.
 pub fn launcher_path() -> Option<PathBuf> {
     if cfg!(target_os = "linux") {
-        data_home().map(|d| d.join("applications/arcade-lens.desktop"))
+        data_home().map(|d| d.join(format!("applications/{OS_ID}.desktop")))
     } else {
         None
     }
@@ -193,17 +280,18 @@ pub fn install_launcher(exe: &Path, icons: &[(u32, Vec<u8>)]) -> std::io::Result
     {
         let data = data_home().ok_or_else(|| std::io::Error::other("no home directory"))?;
         for (size, png) in icons {
-            write_if_changed(&data.join(format!("icons/hicolor/{size}x{size}/apps/arcade-lens.png")), png)?;
+            write_if_changed(&data.join(format!("icons/hicolor/{size}x{size}/apps/{OS_ID}.png")), png)?;
         }
-        let entry = format!(
-            "[Desktop Entry]\nType=Application\nName=Arcade Lens\nGenericName=Screen Lens\nComment=Select anything on screen and act on it\nExec={}\nIcon=arcade-lens\nTerminal=false\nCategories=Utility;Graphics;\nKeywords=screenshot;capture;ocr;text;qr;color;pin;annotate;lens;\nStartupNotify=false\nStartupWMClass=arcade-lens-settings\nActions=capture;quit;\n\n[Desktop Action capture]\nName=Capture Screen\nExec={}\n\n[Desktop Action quit]\nName=Quit Arcade Lens\nExec={}\n",
-            exec(exe, ""),
-            exec(exe, "--capture"),
-            exec(exe, "--quit"),
-        );
-        write_if_changed(&data.join("applications/arcade-lens.desktop"), entry.as_bytes())?;
-        // Earlier versions added a second, Settings-only entry.
-        let _ = fs::remove_file(data.join("applications/arcade-lens-settings.desktop"));
+        let path = data.join(format!("applications/{OS_ID}.desktop"));
+        write_if_changed(&path, launcher_entry(exe).as_bytes())?;
+        // Before 0.4: arcade-lens.desktop with an arcade-lens icon, and
+        // earlier still a second, Settings-only entry.
+        for old in ["arcade-lens", "arcade-lens-settings"] {
+            remove_legacy(&data.join(format!("applications/{old}.desktop")), &path, "Name=Arcade Lens")?;
+        }
+        for (size, _) in icons {
+            let _ = fs::remove_file(data.join(format!("icons/hicolor/{size}x{size}/apps/arcade-lens.png")));
+        }
         return Ok(());
     }
     #[allow(unreachable_code)]
@@ -238,6 +326,48 @@ mod tests {
         assert_eq!(appimage_for_exe(&mounted, Some(&alias), Some(&image)), Some(image.clone()));
         fs::remove_file(&image).unwrap();
         assert_eq!(appimage_for_exe(&mounted, Some(&appdir), Some(&image)), None);
+        fs::remove_dir_all(dir).unwrap();
+    }
+
+    #[test]
+    fn launcher_uses_the_os_id_and_tray_words() {
+        let entry = launcher_entry(Path::new("/opt/lens/arcade-lens"));
+        for line in [
+            "Icon=dev.arcade.Lens",
+            "StartupWMClass=dev.arcade.Lens",
+            "Comment=Select anything on screen and act on it.",
+            "Actions=Capture;Settings;Quit;",
+            "Name=Capture",
+            "Name=Settings",
+            "Name=Quit Arcade Lens",
+            "Exec=\"/opt/lens/arcade-lens\" --settings",
+        ] {
+            assert!(entry.lines().any(|l| l == line), "{line} missing from\n{entry}");
+        }
+    }
+
+    #[test]
+    fn legacy_files_go_only_when_ours_and_not_the_replacement() {
+        let dir = std::env::temp_dir().join(format!("lens-legacy-{}", std::process::id()));
+        let _ = fs::remove_dir_all(&dir);
+        fs::create_dir_all(&dir).unwrap();
+        let (old, new) = (dir.join("arcade-lens.desktop"), dir.join("dev.arcade.Lens.desktop"));
+        fs::write(&new, "Name=Arcade Lens").unwrap();
+        // Someone else's file with the old name stays.
+        fs::write(&old, "Name=Other").unwrap();
+        remove_legacy(&old, &new, "Name=Arcade Lens").unwrap();
+        assert!(old.exists());
+        // The same file under another name (a case-insensitive volume, here a
+        // hard link) is the replacement and stays.
+        fs::remove_file(&old).unwrap();
+        fs::hard_link(&new, &old).unwrap();
+        remove_legacy(&old, &new, "Name=Arcade Lens").unwrap();
+        assert!(old.exists() && new.exists());
+        // Lens's own old file goes.
+        fs::remove_file(&old).unwrap();
+        fs::write(&old, "Name=Arcade Lens").unwrap();
+        remove_legacy(&old, &new, "Name=Arcade Lens").unwrap();
+        assert!(!old.exists() && new.exists());
         fs::remove_dir_all(dir).unwrap();
     }
 

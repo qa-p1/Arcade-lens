@@ -8,13 +8,13 @@ since: 0.2.0
 
 ## The activation shortcut does not start a capture
 
-Open **Settings → Shortcut** and check that the global shortcut is enabled and registered. Choose another combination if another app owns it.
+Open **Settings › Shortcuts** and check that the global shortcut is enabled and registered. Choose another combination if another app owns it.
 
-Hyprland adds the configured binding while Lens is running. Other Wayland desktops may not let an app register global shortcuts; add **arcade-lens --capture** in the desktop’s keyboard settings. On Hyprland with permission enforcement, allow the screenshot portal tools described in [the platform notes](../STATUS.md).
+Hyprland adds the configured binding while Lens is running. Other Wayland desktops may not let an app register global shortcuts; add **arcade-lens --capture** in the desktop’s keyboard settings. On Hyprland with permission enforcement, allow the screenshot portal tools described in [the platform notes](https://github.com/qa-p1/Arcade-lens/blob/main/docs/STATUS.md).
 
 ## OCR returns no text
 
-On Linux, install Tesseract with English language data or download it from **Settings → General**. On Windows and macOS Lens uses system OCR, but those app builds have not been run interactively on a real desktop.
+On Linux, install Tesseract with English language data or download it from **Settings › Text recognition**. On Windows and macOS Lens uses system OCR, but those app builds have not been run interactively on a real desktop.
 
 Small interface text can be difficult to read. Select a larger area or move closer to the screen text before capturing. Lens upscales small selections, but OCR cannot recover characters the engine did not detect.
 

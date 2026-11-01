@@ -33,6 +33,11 @@ What 0.4.0 changes is in CHANGELOG.md. How it was checked:
     ignores `xrandr --setmonitor`.
   - In the resident UI (`ARCADE_LENS_RESIDENT_UI=1`, not the default), a child window can show
     one blank frame when it opens. The default windowless mode is not affected.
+  - A capture asks for focus for 3 s after it opens. Under heavy CPU contention without a
+    window manager (three busy loops sharing one core with software GL), a resident-UI capture
+    could take longer than that to map, and then didn't get focus. It works with a window
+    manager, which focuses windows as they map. A 60-frame budget, used before, ran out on
+    CI's runner.
   - Windows and macOS were exercised on CI runners only.
 - The tray has no History item, because STANDARD's tray lists the app's own actions and History
   lives in Settings. The reasons are in docs/dev/decisions.md.

@@ -26,6 +26,23 @@ def wait_for(check, timeout, what):
     raise SystemExit(f"FAIL: {what}")
 
 
+def focused_name():
+    return subprocess.run(["xdotool", "getwindowfocus", "getwindowname"], capture_output=True, text=True).stdout.strip()
+
+
+def took_focus(label, what):
+    """Waits for the capture to have focus (a slow runner maps it later)."""
+    end = time.monotonic() + 10
+    while time.monotonic() < end:
+        if focused_name() == "Arcade Lens":
+            return
+        time.sleep(0.1)
+    wid = subprocess.run(["xdotool", "getwindowfocus"], capture_output=True, text=True).stdout.strip()
+    props = subprocess.run(["xprop", "-id", wid, "WM_CLASS", "WM_NAME", "_NET_WM_NAME"], capture_output=True, text=True).stdout.strip() if wid else ""
+    geometry = subprocess.run(["xdotool", "getwindowgeometry", wid], capture_output=True, text=True).stdout.strip() if wid else ""
+    raise SystemExit(f"FAIL: {label}: {what} never took focus (focused: {wid} {props!r} {geometry!r})")
+
+
 def run(binary, resident):
     with tempfile.TemporaryDirectory(prefix="lens-overlay-focus-") as tmp:
         root = Path(tmp)
@@ -50,7 +67,8 @@ def run(binary, resident):
             label = "resident" if resident else "windowless"
             lens("--capture")
             wait_for(overlay_open, 15, f"{label}: the capture did not open")
-            time.sleep(1.5)
+            took_focus(label, "the capture")
+            time.sleep(1.0)
             if not overlay_open():
                 raise SystemExit(f"FAIL: {label}: the capture closed while it had focus")
             wid = subprocess.run(["xdotool", "search", "--name", "^lens-focus-other$"], capture_output=True, text=True).stdout.split()
@@ -61,7 +79,8 @@ def run(binary, resident):
             print(f"ok: {label}: losing focus closes the capture")
             lens("--capture")
             wait_for(overlay_open, 15, f"{label}: the second capture did not open")
-            time.sleep(1.0)
+            # Esc goes to the focused window: the capture takes focus back from the other app.
+            took_focus(label, "the second capture")
             subprocess.run(["xdotool", "key", "Escape"], check=True)
             wait_for(lambda: not overlay_open(), 3, f"{label}: Esc did not close the capture")
             print(f"ok: {label}: Esc closes the capture")

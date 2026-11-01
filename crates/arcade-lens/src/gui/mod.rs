@@ -179,7 +179,8 @@ struct LensApp {
     tray: Option<lens_platform::tray::Tray>,
     one_shot: bool,
     focus_pending: bool,
-    focus_attempts: u32,
+    /// When the overlay was shown: it asks for focus for `FOCUS_TRY` after.
+    shown_at: Instant,
     /// Some Lens window had focus during this capture; losing it closes the
     /// overlay (STANDARD: overlays close when they lose focus).
     overlay_had_focus: bool,
@@ -388,7 +389,7 @@ impl LensApp {
         self.root_visible = true;
         self.waking = false;
         self.focus_pending = true;
-        self.focus_attempts = 0;
+        self.shown_at = Instant::now();
         self.overlay_had_focus = false;
         self.overlay_unfocused_since = None;
         self.activity = true;
@@ -817,9 +818,11 @@ impl LensApp {
         let focused = ctx.input(|i| i.viewport().focused).unwrap_or(false);
         // Ask for focus until the overlay first has it; after that, losing it
         // closes the capture instead of taking focus back.
-        if self.root_visible && !focused && !self.overlay_had_focus && self.focus_attempts < 60 {
+        // Timed rather than counted: on a busy machine the frames before the
+        // window is mapped could use up a frame count before focus is possible.
+        const FOCUS_TRY: Duration = Duration::from_secs(3);
+        if self.root_visible && !focused && !self.overlay_had_focus && self.shown_at.elapsed() < FOCUS_TRY {
             self.focus_pending = true;
-            self.focus_attempts += 1;
             ctx.request_repaint_after(Duration::from_millis(16));
         }
         let evs = ctx.input(|i| i.events.len());
@@ -1461,7 +1464,7 @@ fn start_app(
                 tray,
                 one_shot,
                 focus_pending: false,
-                focus_attempts: 0,
+                shown_at: Instant::now(),
                 overlay_had_focus: false,
                 overlay_unfocused_since: None,
                 hidden_once: false,

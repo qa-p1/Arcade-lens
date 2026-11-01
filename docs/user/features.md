@@ -22,6 +22,8 @@ These image actions are available as soon as Lens has a selection:
 - **Annotate** opens an editor with pen, highlighter, line, arrow, rectangle, ellipse, text, and pixelation tools. Pixelation can obscure private details. Undo and redo edits, then copy, save, or pin the result.
 - **Measure** lets you draw a second rectangle to measure distance. Press M to enter or leave the mode, use arrow keys to place the cursor, and press C to copy the measured size.
 
+![The annotate editor: a toolbar with drawing tools, pen colours, stroke width, undo and redo, and Copy, Save, Pin and Done above a capture marked with a rectangle and an arrow](images/annotate-light.png)
+
 ## Read text and recognize content
 
 Lens uses OCR to read text. Its built-in recognizers can identify:
@@ -43,6 +45,8 @@ Lens hides outbound actions when selected content appears to contain a password,
 ## Customize Lens
 
 Settings let you change the activation shortcut, OCR languages, screenshot format and folder, preferred or disabled actions, recognizers, action keys, saved chains, providers, plugins, connected apps, privacy, and history. You can disable selection history; it is off by default. The default online search providers are opened in your browser, and reverse image search is not configured by default because it uploads image pixels.
+
+![Settings, General page: Appearance, Start at login, Notifications, the save folder and the image format](images/settings-light.png)
 
 ## Use chains and plugins
 

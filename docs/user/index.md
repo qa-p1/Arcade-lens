@@ -8,7 +8,7 @@ since: 0.2.0
 
 Arcade Lens freezes a view of your screen so you can select a region and act on what is there. It recognizes common visual and text patterns locally and shows useful actions beside the selection.
 
-![Arcade Lens General settings for saving selections, OCR and desktop integration](images/settings.png)
+![A paragraph selected with Arcade Lens, and the action palette beside it offering Copy Clean Text, Open, Copy Text, Compose Email and Create PDF](images/palette-light.png)
 
 ## Three useful things to start with
 

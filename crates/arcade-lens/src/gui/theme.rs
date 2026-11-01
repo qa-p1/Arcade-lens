@@ -68,7 +68,7 @@ pub fn colours(theme: Theme) -> Colours {
     let p = design::palette(theme, APP_ID);
     let ink = design::ink(theme, APP_ID);
     let c = design::egui::colour;
-    let [r, g, b, a] = design::rgba(p.scrim);
+    let [r, g, b, a] = design::rgba_with_alpha(p.scrim);
     Colours {
         bg: c(p.bg),
         panel: c(p.panel),
@@ -448,6 +448,13 @@ mod tests {
     fn lens_uses_its_teal_accent_in_both_themes() {
         assert_eq!(colours(Theme::Light).accent, Color32::from_rgb(0x1e, 0x7e, 0x72));
         assert_eq!(colours(Theme::Dark).accent, Color32::from_rgb(0x2b, 0xb3, 0xa3));
+    }
+
+    #[test]
+    fn the_capture_scrim_is_the_kits_translucent_dim() {
+        // 0xRRGGBBAA: read as 0xRRGGBB it became an opaque navy wall over the screen.
+        assert_eq!(colours(Theme::Light).scrim, Color32::from_rgba_unmultiplied(0x0a, 0x0d, 0x12, 0x66));
+        assert_eq!(colours(Theme::Dark).scrim, Color32::from_rgba_unmultiplied(0x0a, 0x0d, 0x12, 0x99));
     }
 
     #[test]

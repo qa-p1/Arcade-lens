@@ -25,6 +25,9 @@
 - Box presets and Look previews started from a capture now finish, and their
   errors are reported. Before, they could stop when the capture closed.
 - Quit and Restart also close an open Settings or History window.
+- Annotate: a mark starts exactly where you press, not a few pixels further
+  along. The stroke width control shows its track, undo and redo have clearer
+  icons, and the toolbar fits on one row.
 - Built against Arcade Link 0.4.13. Licences are listed in
   THIRD_PARTY_NOTICES.md.
 

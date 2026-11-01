@@ -278,7 +278,7 @@ impl Editor {
 
     pub fn builder(&self) -> ViewportBuilder {
         let (w, h) = (self.original.width() as f32, self.original.height() as f32);
-        let size = Vec2::new(w.clamp(900.0, 1400.0), (h + 90.0).clamp(360.0, 900.0));
+        let size = Vec2::new(w.clamp(1040.0, 1400.0), (h + 90.0).clamp(360.0, 900.0));
         ViewportBuilder::default()
             .with_title("Annotate — Arcade Lens")
             .with_inner_size(size)
@@ -406,8 +406,7 @@ impl Editor {
                                 }
                             }
                             separator(ui);
-                            ui.add_sized([96.0, size::CONTROL_SM], egui::Slider::new(&mut self.width, 1.0..=16.0).show_value(false))
-                                .on_hover_text("Stroke width");
+                            width_control(ui, &mut self.width);
                             separator(ui);
                             ui.spacing_mut().item_spacing.x = 2.0;
                             let cmd = theme::cmd_key();
@@ -479,15 +478,18 @@ impl Editor {
             if let Some(pos) = resp.interact_pointer_pos() {
                 let ip = to_img(pos);
                 if resp.drag_started() {
+                    // A drag is reported once the pointer has moved past egui's
+                    // threshold; the mark starts where the button went down.
+                    let start = ctx.input(|i| i.pointer.press_origin()).map_or(ip, to_img);
                     self.current = Some(match self.tool {
                         Tool::Pen | Tool::Highlighter => {
-                            Mark::Stroke { points: vec![ip], color: self.color, width: self.width, highlight: self.tool == Tool::Highlighter }
+                            Mark::Stroke { points: vec![start, ip], color: self.color, width: self.width, highlight: self.tool == Tool::Highlighter }
                         }
-                        Tool::Line | Tool::Arrow => Mark::Line { a: ip, b: ip, color: self.color, width: self.width, arrow: self.tool == Tool::Arrow },
-                        Tool::Rect => Mark::Rect { min: ip, max: ip, color: self.color, width: self.width },
-                        Tool::Ellipse => Mark::Ellipse { min: ip, max: ip, color: self.color, width: self.width },
-                        Tool::Pixelate => Mark::Pixelate { min: ip, max: ip },
-                        Tool::Text => Mark::Text { pos: ip, text: String::new(), color: self.color, size: 18.0 },
+                        Tool::Line | Tool::Arrow => Mark::Line { a: start, b: ip, color: self.color, width: self.width, arrow: self.tool == Tool::Arrow },
+                        Tool::Rect => Mark::Rect { min: start, max: ip, color: self.color, width: self.width },
+                        Tool::Ellipse => Mark::Ellipse { min: start, max: ip, color: self.color, width: self.width },
+                        Tool::Pixelate => Mark::Pixelate { min: start, max: ip },
+                        Tool::Text => Mark::Text { pos: start, text: String::new(), color: self.color, size: 18.0 },
                     });
                 } else if resp.dragged() {
                     match &mut self.current {
@@ -591,19 +593,46 @@ fn tool_icon(p: &egui::Painter, tool: Tool, at: Pos2, col: Color32) {
 
 /// Undo (a counter-clockwise hook) or redo (mirrored).
 fn history_icon(p: &egui::Painter, at: Pos2, col: Color32, redo: bool) {
+    // A hooked arrow on the 16 px grid: back to the left for undo, mirrored for redo.
     let flip = if redo { -1.0 } else { 1.0 };
     let v = |x: f32, y: f32| at + Vec2::new(x * flip, y);
     let s = Stroke::new(size::ICON_STROKE, col);
-    let arc: Vec<Pos2> = (0..=12)
-        .map(|i| {
-            let t = std::f32::consts::PI * (1.5 - i as f32 / 12.0);
-            v(1.0 + 5.0 * t.cos(), 1.5 - 4.5 * t.sin())
-        })
-        .collect();
-    p.add(Shape::line(vec![v(-6.0, 6.0), v(1.0, 6.0)], s));
-    p.add(Shape::line(arc, s));
-    p.add(Shape::line(vec![v(-3.0, -6.0), v(-6.0, -3.0), v(-3.0, 0.0)], s));
-    p.line_segment([v(-6.0, -3.0), v(1.0, -3.0)], s);
+    let (cx, cy, r) = (1.75, 1.5, 3.75);
+    let mut path = vec![v(-5.5, -2.25)];
+    path.extend((0..=12).map(|i| {
+        let t = std::f32::consts::PI * (-0.5 + i as f32 / 12.0);
+        v(cx + r * t.cos(), cy + r * t.sin())
+    }));
+    path.push(v(-1.0, cy + r));
+    p.add(Shape::line(path, s));
+    p.add(Shape::line(vec![v(-2.25, -5.5), v(-5.5, -2.25), v(-2.25, 1.0)], s));
+}
+
+/// Stroke width, 1-16 px: a kit-coloured track with the chosen part filled
+/// in the accent and a round knob (egui's slider drew no visible track here).
+fn width_control(ui: &mut egui::Ui, width: &mut f32) {
+    const MIN: f32 = 1.0;
+    const MAX: f32 = 16.0;
+    let c = theme::c();
+    let (r, resp) = ui.allocate_exact_size(Vec2::new(96.0, size::CONTROL_SM), Sense::click_and_drag());
+    let rail = r.shrink2(Vec2::new(8.0, 0.0));
+    if let Some(p) = resp.interact_pointer_pos() {
+        *width = (MIN + (p.x - rail.left()) / rail.width() * (MAX - MIN)).clamp(MIN, MAX).round();
+    }
+    if resp.has_focus() {
+        let step = ui.input(|i| i.num_presses(egui::Key::ArrowRight) as f32 - i.num_presses(egui::Key::ArrowLeft) as f32);
+        *width = (*width + step).clamp(MIN, MAX);
+    }
+    let x = rail.left() + (*width - MIN) / (MAX - MIN) * rail.width();
+    let y = rail.center().y;
+    let p = ui.painter();
+    p.line_segment([egui::pos2(rail.left(), y), egui::pos2(rail.right(), y)], Stroke::new(3.0_f32, c.line_strong));
+    p.line_segment([egui::pos2(rail.left(), y), egui::pos2(x, y)], Stroke::new(3.0_f32, c.accent));
+    let knob = if resp.hovered() || resp.dragged() { 7.0 } else { 6.0 };
+    p.circle(egui::pos2(x, y), knob, c.panel, Stroke::new(1.5_f32, c.accent));
+    let value = *width;
+    resp.widget_info(|| egui::WidgetInfo::slider(true, f64::from(value), "Stroke width"));
+    resp.on_hover_text(format!("Stroke width: {value:.0} px"));
 }
 
 fn draw_mark(p: &egui::Painter, m: &Mark, to_scr: &dyn Fn([f32; 2]) -> Pos2, scale: f32) {

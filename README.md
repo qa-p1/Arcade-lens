@@ -17,7 +17,23 @@ Arcade Lens lets you select something visible on your screen and choose a useful
 
 It runs on **Linux** (x86_64; X11 and Wayland), **Windows** (x64) and **macOS** (universal: Apple Silicon and Intel). Linux Hyprland is used daily; Windows and macOS are built and tested in CI but have not been run interactively.
 
-<p align="center"><img src="docs/user/images/settings.png" width="720" alt="Arcade Lens General settings for saving selections, OCR and desktop integration"></p>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/user/images/palette-dark.png">
+    <img src="docs/user/images/palette-light.png" width="760" alt="A paragraph selected with Arcade Lens, and the action palette beside it offering Copy Clean Text, Open, Copy Text, Compose Email and Create PDF">
+  </picture>
+</p>
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/user/images/annotate-dark.png">
+    <img src="docs/user/images/annotate-light.png" width="500" alt="The annotate editor with a rectangle and an arrow on a capture">
+  </picture>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/user/images/settings-dark.png">
+    <img src="docs/user/images/settings-light.png" width="370" alt="Settings, General page">
+  </picture>
+</p>
 
 ## Download and install
 

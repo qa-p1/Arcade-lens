@@ -21,6 +21,13 @@ What 0.4.0 changes is in CHANGELOG.md. How it was checked:
 - Not covered locally: the Clipboard send, because Clipboard's test driver was not built here, and
   the Wheel command, with no Wheel binary here. Both run in Link's real-fleet CI group.
 - `scripts/verify-desktop.py` passes under Xvfb with real Tesseract text recognition.
+- Screenshots (`scripts/docs-screenshots.py`, light and dark) found three defects:
+  - the capture dim read the kit's `0xRRGGBBAA` scrim as opaque `0xRRGGBB`, a navy wall
+    over the screen (introduced on this branch; now unit-tested);
+  - annotate marks started where egui detected the drag, not where the button went down;
+  - the stroke width slider had no visible track.
+  All three are fixed, and the images in README and `docs/user/images` come from the fixed
+  build.
 - Limits:
   - Window placement on several monitors is only unit-tested. Xvfb has one monitor and
     ignores `xrandr --setmonitor`.

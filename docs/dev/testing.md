@@ -38,6 +38,13 @@ Each OS then packages Lens (`scripts/package`) and verifies the installer for re
 tests that start the released Find, Box, Shelf, Clipboard or Look binaries in a private
 `ARCADE_HOME` (ignored unless their binaries are provided).
 
+## Screenshots
+
+`scripts/docs-screenshots.py` retakes the README and `docs/user/images` screenshots (palette
+over a capture, annotate, Settings; light and dark) from a release build, in a throwaway
+profile on a private Xvfb with a compositor. Look at every image before committing: the first
+run caught an opaque capture dim and annotate marks starting off the press point.
+
 ## Manual checks
 
 Interactive desktop behaviour that CI cannot reach (real Hyprland and GNOME shortcuts,

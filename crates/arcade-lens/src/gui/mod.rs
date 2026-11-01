@@ -23,7 +23,7 @@ pub mod wayland;
 
 use std::sync::mpsc::{self, Receiver, Sender};
 use std::sync::{Arc, Mutex, OnceLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use eframe::egui::{self, ViewportBuilder, ViewportCommand, ViewportId};
 use image::RgbaImage;
@@ -180,6 +180,11 @@ struct LensApp {
     one_shot: bool,
     focus_pending: bool,
     focus_attempts: u32,
+    /// Some Lens window had focus during this capture; losing it closes the
+    /// overlay (STANDARD: overlays close when they lose focus).
+    overlay_had_focus: bool,
+    /// When every Lens window lost focus, while the overlay is up.
+    overlay_unfocused_since: Option<Instant>,
     hidden_once: bool,
     waking: bool,
     registered: std::collections::HashSet<ViewportId>,
@@ -384,6 +389,8 @@ impl LensApp {
         self.waking = false;
         self.focus_pending = true;
         self.focus_attempts = 0;
+        self.overlay_had_focus = false;
+        self.overlay_unfocused_since = None;
         self.activity = true;
         crate::lens_debug!("overlay shown on {} ({:?})", m.name, m.rect);
     }
@@ -628,6 +635,42 @@ impl LensApp {
     }
 
     /// `--hide`: closes the overlay the normal way (as Esc does).
+    /// Closes the capture once it has had focus and then no Lens window has
+    /// focus for `FOCUS_GRACE`, as Esc does. The grace absorbs the focus
+    /// hand-offs while the overlay is placed; clicks on another monitor's
+    /// overlay, a pin or Settings keep focus inside Lens, so they never close
+    /// it. No polling: focus changes wake egui, and the only extra repaint is
+    /// the one at the end of the grace.
+    fn close_overlay_on_focus_loss(&mut self, ctx: &egui::Context) {
+        const FOCUS_GRACE: Duration = Duration::from_millis(300);
+        let up = (self.solo || self.root_visible) && self.state.lock().unwrap().overlay.as_ref().is_some_and(|ov| !ov.close_requested);
+        if !up {
+            self.overlay_had_focus = false;
+            self.overlay_unfocused_since = None;
+            return;
+        }
+        let focused = ctx.input(|i| i.raw.viewports.values().any(|v| v.focused == Some(true)));
+        if focused {
+            self.overlay_had_focus = true;
+            self.overlay_unfocused_since = None;
+            return;
+        }
+        if !self.overlay_had_focus {
+            return;
+        }
+        let since = *self.overlay_unfocused_since.get_or_insert_with(Instant::now);
+        let left = FOCUS_GRACE.saturating_sub(since.elapsed());
+        if !left.is_zero() {
+            ctx.request_repaint_after(left);
+            return;
+        }
+        crate::lens_debug!("overlay lost focus; closing");
+        self.overlay_unfocused_since = None;
+        if let Some(ov) = &mut self.state.lock().unwrap().overlay {
+            ov.close_requested = true;
+        }
+    }
+
     fn close_overlay(&mut self, ctx: &egui::Context) {
         if let Some(ov) = &mut self.state.lock().unwrap().overlay {
             ov.close_requested = true;
@@ -772,7 +815,9 @@ impl LensApp {
             }
         }
         let focused = ctx.input(|i| i.viewport().focused).unwrap_or(false);
-        if self.root_visible && !focused && self.focus_attempts < 60 {
+        // Ask for focus until the overlay first has it; after that, losing it
+        // closes the capture instead of taking focus back.
+        if self.root_visible && !focused && !self.overlay_had_focus && self.focus_attempts < 60 {
             self.focus_pending = true;
             self.focus_attempts += 1;
             ctx.request_repaint_after(Duration::from_millis(16));
@@ -796,6 +841,8 @@ impl LensApp {
             }
             self.focus_pending = false;
         }
+
+        self.close_overlay_on_focus_loss(&ctx);
 
         // Root window: the overlay for the monitor under the pointer.
         let mut close_overlay = false;
@@ -1387,6 +1434,8 @@ fn start_app(
                 one_shot,
                 focus_pending: false,
                 focus_attempts: 0,
+                overlay_had_focus: false,
+                overlay_unfocused_since: None,
                 hidden_once: false,
                 waking: false,
                 registered: Default::default(),

@@ -22,7 +22,8 @@ Each OS then packages Lens (`scripts/package`) and verifies the installer for re
 - **Linux:** `scripts/verify-appimage.py` installs, repairs and uninstalls the AppImage in a
   disposable profile under Xvfb and D-Bus. `tests/tray-registration.py` registers the tray
   icon with a real StatusNotifierWatcher (through Link's `tools/e2e.py` runner, at the
-  Link tag `Cargo.toml` pins).
+  Link tag `Cargo.toml` pins). `tests/overlay-focus.py` checks, in both window modes, that a
+  capture stays open while it has focus, closes when another app takes focus, and closes on Esc.
 - **Windows:** `packaging/windows/verify.ps1` installs silently, checks the receipt,
   shortcuts and login entry, and uninstalls, on the ephemeral runner account.
 - **macOS:** every slice of the universal binary must support macOS 12.3, and

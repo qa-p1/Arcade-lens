@@ -1,5 +1,35 @@
 # Arcade Lens: status
 
+## 0.4.0 overhaul (2026-11-01, PR #12)
+
+What 0.4.0 changes is in CHANGELOG.md. How it was checked:
+
+- `scripts/check` passes on Linux, Windows and macOS in CI: version, docs and shortcut sheet,
+  vendored Link files (v0.4.13), script tests, fmt, clippy `-D warnings` and the tests in a
+  temporary profile. CI also packages each OS and verifies the installers: AppImage install,
+  repair and uninstall; Windows silent install; dmg copy, with every macOS slice at minimum 12.3.
+- Tray: `tests/tray-registration.py` checks registration against the real StatusNotifierWatcher
+  at the pinned Link tag, the menu order and words, and the menu handlers (9 checks).
+- Focus: `tests/overlay-focus.py` checks, on the release binary under Xvfb in both window modes,
+  that the capture closes when another app takes focus and on Esc. It fails on 0.3.4.
+- Real peers: Link's Lens e2e group ran locally against real Box 0.4.0 and Look 0.4.0, with
+  Shelf 0.3.3 extracted. Working: sending to Box (a WebP preset, the image and text pipelines),
+  previewing in Look, Settings › Connected apps switches applied at once, the Link master switch
+  stopping and republishing the listener, and the shortcut clash notice. This run found and fixed
+  two defects: handed-off peer actions stopped when the windowless capture exited, and Quit left
+  Settings and History running.
+- Not covered locally: the Clipboard send, because Clipboard's test driver was not built here, and
+  the Wheel command, with no Wheel binary here. Both run in Link's real-fleet CI group.
+- `scripts/verify-desktop.py` passes under Xvfb with real Tesseract text recognition.
+- Limits:
+  - Window placement on several monitors is only unit-tested. Xvfb has one monitor and
+    ignores `xrandr --setmonitor`.
+  - In the resident UI (`ARCADE_LENS_RESIDENT_UI=1`, not the default), a child window can show
+    one blank frame when it opens. The default windowless mode is not affected.
+  - Windows and macOS were exercised on CI runners only.
+- The tray has no History item, because STANDARD's tray lists the app's own actions and History
+  lives in Settings. The reasons are in docs/dev/decisions.md.
+
 ## Release status (2026-10-18)
 
 - Latest release: [v0.3.3](https://github.com/qa-p1/Arcade-lens/releases/tag/v0.3.3), published 2026-10-19 (only programs from another image drop the AppImage's descriptors; see CHANGELOG.md). The CI and e2e notes below were recorded for v0.2.0.

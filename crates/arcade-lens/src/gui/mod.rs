@@ -8,6 +8,7 @@
 
 pub mod annotate;
 pub mod background;
+pub mod geometry;
 pub mod ghost;
 pub mod glyphs;
 pub mod history;
@@ -850,9 +851,11 @@ impl LensApp {
             st.editors.retain(|e| !e.closed);
             if st.settings.as_ref().is_some_and(|s| s.closed) {
                 st.settings = None;
+                geometry::forget("settings");
             }
             if st.history.as_ref().is_some_and(|h| h.closed) {
                 st.history = None;
+                geometry::forget("history");
             }
             if let Some(ov) = &st.overlay {
                 for (i, v) in ov.views.iter().enumerate() {
@@ -879,10 +882,18 @@ impl LensApp {
                 ids.push((e.viewport_id(), e.builder(), Child::Editor(e.id)));
             }
             if st.settings.is_some() {
-                ids.push((settings_view::SettingsView::viewport_id(), settings_view::SettingsView::builder(), Child::Settings));
+                ids.push((
+                    settings_view::SettingsView::viewport_id(),
+                    geometry::builder("settings", settings_view::SettingsView::builder(), &st.env.rt.paths.data),
+                    Child::Settings,
+                ));
             }
             if st.history.is_some() {
-                ids.push((history::HistoryView::viewport_id(), history::HistoryView::builder(), Child::History));
+                ids.push((
+                    history::HistoryView::viewport_id(),
+                    geometry::builder("history", history::HistoryView::builder(), &st.env.rt.paths.data),
+                    Child::History,
+                ));
             }
             if let Some(r) = &st.recording {
                 let b = ViewportBuilder::default()
@@ -999,6 +1010,7 @@ impl Child {
             }
             Child::Settings => {
                 if let Some(v) = &mut st.settings {
+                    geometry::track(&ctx, "settings", &st.env.rt.paths.data);
                     let reqs = v.ui(&ctx);
                     let closed = v.closed;
                     st.settings_requests.extend(reqs);
@@ -1010,6 +1022,7 @@ impl Child {
             Child::History => {
                 let enabled = st.env.rt.settings.privacy.history_enabled;
                 if let Some(v) = &mut st.history {
+                    geometry::track(&ctx, "history", &st.env.rt.paths.data);
                     let reqs = v.ui(&ctx, enabled);
                     let closed = v.closed;
                     st.history_requests.extend(reqs);
@@ -1233,8 +1246,8 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
                 None => b,
             }
         }
-        Solo::Settings(_) => settings_view::SettingsView::builder(),
-        Solo::History => history::HistoryView::builder(),
+        Solo::Settings(_) => geometry::builder("settings", settings_view::SettingsView::builder(), &rt.paths.data),
+        Solo::History => geometry::builder("history", history::HistoryView::builder(), &rt.paths.data),
         Solo::Pin(_) => pins::Pin::new(0, image.clone().unwrap(), None, 1.0).builder(),
         Solo::Annotate(_) => annotate::Editor::new(0, image.clone().unwrap()).builder(),
     };

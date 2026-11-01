@@ -634,7 +634,6 @@ impl LensApp {
         st.overlay.is_some() || !st.pins.is_empty() || !st.editors.is_empty() || st.settings.is_some() || st.history.is_some() || st.recording.is_some()
     }
 
-    /// `--hide`: closes the overlay the normal way (as Esc does).
     /// Closes the capture once it has had focus and then no Lens window has
     /// focus for `FOCUS_GRACE`, as Esc does. The grace absorbs the focus
     /// hand-offs while the overlay is placed; clicks on another monitor's
@@ -671,6 +670,7 @@ impl LensApp {
         }
     }
 
+    /// `--hide`: closes the overlay the normal way (as Esc does).
     fn close_overlay(&mut self, ctx: &egui::Context) {
         if let Some(ov) = &mut self.state.lock().unwrap().overlay {
             ov.close_requested = true;
@@ -884,7 +884,16 @@ impl LensApp {
             // In a solo window process (about to exit) this asks the running Lens.
             self.open_settings_at(&ctx, Some(section));
         }
-        if close_overlay && self.solo {
+        if close_overlay && self.solo && overlay::handed_off_pending() {
+            // A peer is still finishing an action this capture handed off;
+            // closing would end this process and lose its result. Get out of
+            // the way and let the last job end the process.
+            ctx.send_viewport_cmd(ViewportCommand::Visible(false));
+            // So the background instance starts the next capture instead of
+            // treating this hidden process as the open one.
+            let _ = lens_platform::ipc::send(&self.paths.endpoint(), &format!("detach:{}", std::process::id()));
+            overlay::exit_when_handed_off_done();
+        } else if close_overlay && self.solo {
             ctx.send_viewport_cmd(ViewportCommand::Close);
         } else if close_overlay {
             self.hide_overlay(&ctx);
@@ -1290,6 +1299,25 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
             // screen; drawn at the default size, it flashes in a corner.
             match lens_platform::hyprland::active().then(lens_platform::hyprland::focused_monitor_size).flatten() {
                 Some((w, h)) => b.with_inner_size([w, h]),
+                // X11: also place it on the monitor the overlay treats as its
+                // root (under the pointer), so it covers that monitor even where
+                // the window manager ignores full-screen requests (or there is
+                // none), and the first frame is never drawn at a default size.
+                None if lens_platform::display_server() == lens_platform::DisplayServer::X11 => {
+                    let cursor = lens_platform::cursor_position();
+                    let monitor = cursor
+                        .and_then(|c| captures.iter().find(|cap| cap.monitor.rect.contains(c)))
+                        .or_else(|| captures.iter().find(|cap| cap.monitor.is_primary))
+                        .or(captures.first())
+                        .map(|cap| &cap.monitor);
+                    match monitor {
+                        Some(m) => {
+                            let s = m.scale_factor as f32;
+                            b.with_position([m.rect.x as f32 / s, m.rect.y as f32 / s]).with_inner_size([m.rect.width as f32 / s, m.rect.height as f32 / s])
+                        }
+                        None => b,
+                    }
+                }
                 None => b,
             }
         }

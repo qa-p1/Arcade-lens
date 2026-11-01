@@ -1,5 +1,6 @@
 //! The selection overlay: frozen frame → draw → spatial, progressive palette.
 
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::mpsc::{self, Receiver};
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -1240,9 +1241,31 @@ pub fn describe(f: &Finding) -> (String, String) {
 
 /// Waits for a peer-UI job the overlay no longer shows. Success is silent (the
 /// owner app shows its own result); a failure becomes a desktop notification.
+/// Jobs handed off to finish in the background (`hand_off`), still running.
+static HANDED_OFF: AtomicUsize = AtomicUsize::new(0);
+/// Set when this is a one-shot capture process whose window has gone: the
+/// last handed-off job to finish ends the process.
+static EXIT_WHEN_HANDED_OFF: AtomicBool = AtomicBool::new(false);
+
+/// Whether a handed-off job is still waiting for its peer.
+pub fn handed_off_pending() -> bool {
+    HANDED_OFF.load(Ordering::SeqCst) > 0
+}
+
+/// A one-shot capture process has hidden its window: exit once every
+/// handed-off job has finished (now, if none is left). Exiting from the job
+/// thread is needed because eframe runs no frames for a hidden window.
+pub fn exit_when_handed_off_done() {
+    EXIT_WHEN_HANDED_OFF.store(true, Ordering::SeqCst);
+    if HANDED_OFF.load(Ordering::SeqCst) == 0 {
+        std::process::exit(0);
+    }
+}
+
 fn hand_off(env: &Env, job: Job) {
     let usage = env.usage.clone();
     let rt = env.rt.clone();
+    HANDED_OFF.fetch_add(1, Ordering::SeqCst);
     std::thread::spawn(move || {
         let key = job.entry.target.usage_key();
         match job.rx.recv() {
@@ -1261,6 +1284,9 @@ fn hand_off(env: &Env, job: Job) {
             }
             Ok(_) => super::notify(&format!("Open Arcade Lens again to finish {}.", job.entry.label)),
             Err(_) => {}
+        }
+        if HANDED_OFF.fetch_sub(1, Ordering::SeqCst) == 1 && EXIT_WHEN_HANDED_OFF.load(Ordering::SeqCst) {
+            std::process::exit(0);
         }
     });
 }

@@ -283,6 +283,9 @@ enum Cmd {
     SettingsAt(super::settings_view::Section),
     /// `--status`: answered from the loop, which knows whether a capture is open.
     Status(mpsc::SyncSender<String>),
+    /// `detach:<pid>`: that capture closed its window but still waits for a
+    /// peer to finish a handed-off action; it no longer counts as the capture.
+    Detach(u32),
     Hub(Trigger),
 }
 
@@ -303,6 +306,9 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
                 Some(_) => "busy".into(),
                 None => "unknown section".into(),
             };
+        }
+        if let Some(pid) = cmd.strip_prefix("detach:").and_then(|p| p.parse().ok()) {
+            return if send(Cmd::Detach(pid)) { "ok".into() } else { "busy".into() };
         }
         if cmd == "status" {
             let (reply, answer) = mpsc::sync_channel(1);
@@ -371,8 +377,16 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
     let mut capture: Option<Child> = None;
     let mut settings_window: Option<Child> = None;
     let mut history_window: Option<Child> = None;
+    // Captures that handed an action to a peer and wait, windowless, for it.
+    let mut finishing: Vec<Child> = Vec::new();
     for cmd in rx {
+        finishing.retain_mut(|c| matches!(c.try_wait(), Ok(None)));
         match cmd {
+            Cmd::Detach(pid) => {
+                if capture.as_ref().is_some_and(|c| c.id() == pid) {
+                    finishing.extend(capture.take());
+                }
+            }
             Cmd::Status(reply) => {
                 let open = capture.as_mut().is_some_and(|c: &mut Child| matches!(c.try_wait(), Ok(None)));
                 let _ = reply.send(super::status_json(paths, true, open));
@@ -461,6 +475,11 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
             }
             Cmd::Hub(_) => {}
         }
+    }
+    // Quit (or Restart) closes Lens's windows too; they are separate
+    // processes and would otherwise outlive the app.
+    for slot in [&mut capture, &mut settings_window, &mut history_window] {
+        close_child(slot);
     }
     shortcut.clear();
     crate::app::trayhost::stop();

@@ -5,7 +5,7 @@
 What 0.4.0 changes is in CHANGELOG.md. How it was checked:
 
 - `scripts/check` passes on Linux, Windows and macOS in CI: version, docs and shortcut sheet,
-  vendored Link files (v0.4.13), script tests, fmt, clippy `-D warnings` and the tests in a
+  vendored Link files (v0.4.14), script tests, fmt, clippy `-D warnings` and the tests in a
   temporary profile. CI also packages each OS and verifies the installers: AppImage install,
   repair and uninstall; Windows silent install; dmg copy, with every macOS slice at minimum 12.3.
 - Tray: `tests/tray-registration.py` checks registration against the real StatusNotifierWatcher

@@ -1,8 +1,8 @@
 # Vendored Arcade Link assets
 
 Shared installer, release, shortcut and protocol assets are copied unchanged
-from [Arcade Link](https://github.com/qa-p1/Arcade-Link/tree/v0.4.13) tag `v0.4.13` (commit
-`e38f5d849656b3f1690d617bb43c2ee07853feb7`), the tag Cargo.toml pins. License: MIT OR Apache-2.0.
+from [Arcade Link](https://github.com/qa-p1/Arcade-Link/tree/v0.4.14) tag `v0.4.14` (commit
+`b08c391de1bfc9a15c7f01b3c17911dd42a1f6e5`), the tag Cargo.toml pins. License: MIT OR Apache-2.0.
 Run `python3 scripts/check-vendored.py` to verify the SHA-256 inventory.
 Refresh the source pin and hashes together.
 
@@ -69,8 +69,8 @@ aebde82ca97adebe6c4fdd5d0dea338d1134db5ccddf0678ec4cb6d836f94198  spec/vectors/r
 
 ## Arcade design kit
 
-Copied unchanged from [Arcade Link](https://github.com/qa-p1/Arcade-Link/tree/v0.4.13) tag `v0.4.13` (commit
-`e38f5d849656b3f1690d617bb43c2ee07853feb7`) by `scripts/sync-design`; never edit these files here.
+Copied unchanged from [Arcade Link](https://github.com/qa-p1/Arcade-Link/tree/v0.4.14) tag `v0.4.14` (commit
+`b08c391de1bfc9a15c7f01b3c17911dd42a1f6e5`) by `scripts/sync-design`; never edit these files here.
 License: MIT OR Apache-2.0.
 
 ```text

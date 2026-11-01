@@ -21,7 +21,7 @@ pub struct PortableSettings {
     pub schema: u32,
     pub app: String,
     pub version: String,
-    /// Added in 0.4.0; older documents follow the system.
+    /// Added in 0.4.1 (the first 0.4 release); older documents follow the system.
     #[serde(default)]
     pub appearance: Appearance,
     pub activation_shortcut: Option<String>,

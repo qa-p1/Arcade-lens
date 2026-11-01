@@ -1,8 +1,16 @@
 # Changelog
 
-## 0.4.0 — 2026-11-01
+## 0.4.1 — 2026-11-01
 
-- A new look shared with the other Arcade apps: the lime accent, the Inter
+The first release of the new look. The `v0.4.0` tag was made but never
+released: its release build failed the capture focus check, fixed here.
+
+- A capture keeps asking for focus until the window is actually mapped (for
+  at most 15 s), then for a moment more while a window manager settles
+  focus. On a heavily loaded machine without a window manager, a second
+  capture in the resident UI could open without keyboard focus, so Esc went
+  to another app.
+- A new look shared with the other Arcade apps: Lens's teal accent, the Inter
   typeface, and light and dark themes that follow Settings › Appearance at
   once. This covers the capture overlay, the action palette, the annotate
   toolbar, pins, the recording chip, History, Settings and the install prompt.

@@ -206,14 +206,19 @@ pub fn prepare_overlay(title: &str) {
     let _ = title;
 }
 
-pub fn focus_native(raw: raw_window_handle_shim::Raw) {
+/// False when the request could not take effect yet (an X11 window that is
+/// not mapped yet); the caller asks again on a later frame.
+pub fn focus_native(raw: raw_window_handle_shim::Raw) -> bool {
     match raw {
         #[cfg(target_os = "linux")]
         raw_window_handle_shim::Raw::X11(w) => linux_x11::focus(w),
         #[cfg(windows)]
-        raw_window_handle_shim::Raw::Win32(h) => windows_native::focus(h),
+        raw_window_handle_shim::Raw::Win32(h) => {
+            windows_native::focus(h);
+            true
+        }
         #[allow(unreachable_patterns)]
-        _ => {}
+        _ => true,
     }
 }
 

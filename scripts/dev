@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+# Run Lens from source with its own profile in target/dev-profile, so it never
+# touches your installed Lens's settings or history (a cargo build also leaves
+# the desktop and login entries alone, and folder migration is skipped). Arguments go to Lens, e.g.
+# `scripts/dev --settings`. Set ARCADE_HOME too to keep it off your real Link
+# registry.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+export ARCADE_LENS_HOME="${ARCADE_LENS_HOME:-$PWD/target/dev-profile}"
+mkdir -p "$ARCADE_LENS_HOME"
+exec cargo run --locked -p arcade-lens -- "$@"

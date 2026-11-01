@@ -12,11 +12,11 @@ No. Built-in recognition runs on your computer. Actions that send data to a webs
 
 ## Why did Lens hide an online action?
 
-With **Hide online actions for selections that contain passwords, keys or tokens** enabled, Lens removes outbound actions when its recognizers find something that looks like a secret. The guard also checks again when an action runs.
+With **Protect secrets** on (Settings › Privacy), Lens removes outbound actions when its recognizers find something that looks like a secret. The guard also checks again when an action runs.
 
 ## Do I need Tesseract?
 
-Linux OCR uses Tesseract. Install it with English language data, or choose **Settings → General → Download Tesseract**. The downloaded copy is private to your user and shared by Arcade apps. Windows and macOS use system OCR, but those builds have not been run interactively on a real desktop.
+Linux OCR uses Tesseract. Install it with English language data, or choose **Download** in **Settings › Text recognition**. The downloaded copy is private to your user and shared by Arcade apps. Windows and macOS use system OCR, but those builds have not been run interactively on a real desktop.
 
 ## Can I select a window on Wayland?
 

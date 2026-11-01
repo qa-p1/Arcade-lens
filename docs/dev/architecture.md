@@ -39,10 +39,12 @@ Lens runs as one long-lived background instance, started at login
 (`arcade-lens --background`) or from the applications menu:
 
 * A **tray icon** (StatusNotifierItem on Linux) shows that it is running. A
-  click opens Settings; its menu is the one every Arcade app has: Open Lens
-  (a capture), Open Settings, Restart Arcade Lens and Quit Arcade Lens.
-  Restart starts a successor (`--restarting`) that waits for the old
-  instance to exit. Start at login is a Settings switch.
+  left click starts a capture on Linux and Windows (a middle click on Linux
+  opens Settings); on macOS a click opens the menu, as menu bar items do. The
+  menu, in the standard order (`lens_platform::tray::MENU`): Open Arcade Lens
+  (a capture), Capture text, Pick color, Settings, then Restart Arcade Lens
+  and Quit Arcade Lens. Restart starts a successor (`--restarting`) that
+  waits for the old instance to exit. Start at login is a Settings switch.
 * With **Connected apps** on, an Arcade Link server thread publishes Lens's
   manifest and serves its `lens.*` actions; `--arcade-invoke` answers a
   single request one-shot when Lens isn't running. See

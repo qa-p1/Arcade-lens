@@ -1266,7 +1266,7 @@ impl SettingsView {
                     copy = Some(diagnostics(&self.rt, &channel));
                 }
             });
-            kit.row(ui, "Licences", "MIT OR Apache-2.0. Third-party licences ship with the app.", |ui| {
+            kit.row(ui, "Licences", "MIT OR Apache-2.0. Open shows the third-party licences.", |ui| {
                 if kit.button_state(ui, "Open", ButtonKind::Default, true, false, true).clicked() {
                     out.push(SettingsRequest::OpenUrl(LICENCES_URL.into()));
                 }

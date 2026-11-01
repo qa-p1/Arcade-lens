@@ -32,7 +32,7 @@ Lens uses OCR to read text. Its built-in recognizers can identify:
 - Tables in CSV, TSV, or Markdown form; document text for clean copy, PDF, or print; subtitles; and Git commits on forge pages.
 - Colors, palettes, foreground and background colors, contrast, UI element measurements, QR codes, barcodes, images, icons, and media-player frames.
 
-Actions depend on what Lens recognizes and which platform services are available. The action key is shown on each chip; those single-letter keys can be changed in **Settings → Actions**. Press **Enter** for the default action or **Space**/**Tab** for the full list and a filter.
+Actions depend on what Lens recognizes and which platform services are available. The action key is shown on each chip; those single-letter keys can be changed in **Settings › Actions**. Press **Enter** for the default action or **Space**/**Tab** for the full list and a filter.
 
 ## Use results safely
 
@@ -48,7 +48,7 @@ Settings let you change the activation shortcut, OCR languages, screenshot forma
 
 A chain combines compatible actions into a repeatable workflow. Lens checks the actions and their effects before running the chain.
 
-Third-party recognizers and actions run out of process with declared permissions. Copy a plugin folder into the location opened from **Settings → Plugins → Open plugins folder**, then enable it. Review its permissions before using it.
+Third-party recognizers and actions run out of process with declared permissions. Copy a plugin folder into the location opened from **Settings › Plugins › Open plugins folder**, then enable it. Review its permissions before using it.
 
 ## Platform behavior
 

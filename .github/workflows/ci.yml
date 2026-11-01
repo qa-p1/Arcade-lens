@@ -1,25 +1,31 @@
 name: CI
 
-# Every pull request and push to main is checked on Linux, Windows and macOS.
-# Pushes to main (and manual runs) also build the installers, uploaded as
-# workflow artifacts. When main passes:
-#   - a version in Cargo.toml that has no release yet is tagged v<version>
-#     and published as the latest release (bump the version to release);
-#   - otherwise the build replaces the "nightly" prerelease.
-# Pushing a v* tag yourself also publishes that release.
+# Every pull request and push to main is checked on Linux, Windows and macOS
+# (scripts/check), then packaged on each OS and the installers verified. The
+# installers, arcade-release.json and SHA256SUMS.txt are workflow artifacts.
+# Nothing is published here: releases come from release.yml (which calls this
+# workflow), started by hand as tag.yml describes.
 on:
   push:
     branches: [main]
-    tags: ["v*"]
   pull_request:
   workflow_dispatch:
+  workflow_call:
+    inputs:
+      label:
+        description: Version part of the package file names (default the version, plus -dev.<sha> off a tag)
+        type: string
+        default: ""
+
+permissions:
+  contents: read
 
 env:
   PYTHONUTF8: "1"
   CARGO_TERM_COLOR: always
 
 concurrency:
-  group: ci-${{ github.event_name }}-${{ github.ref }}
+  group: ci-${{ github.event_name }}-${{ github.ref }}-${{ inputs.label }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
@@ -27,7 +33,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        os: [ubuntu-24.04, macos-15, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v7
@@ -38,48 +44,37 @@ jobs:
       - name: Linux build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libwayland-dev
-      - run: cargo fmt --all --check
-      - run: cargo clippy --workspace --all-targets --locked -- -D warnings
-      - name: Documentation, shortcuts and vendored sources
-        run: python3 scripts/check-docs.py && python3 scripts/check-vendored.py
-      - name: Tests in a temporary profile
-        run: python3 scripts/isolate.py cargo test --workspace --locked
+      - name: scripts/check
+        run: python3 scripts/check.py
 
-  # Decides what this build is: a new release (packages named after the
-  # version), or a development build (version plus commit).
+  # The version (from Cargo.toml) and the label the packages are named with.
   version:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       version: ${{ steps.v.outputs.version }}
       label: ${{ steps.v.outputs.label }}
-      publish: ${{ steps.v.outputs.publish }}
     steps:
       - uses: actions/checkout@v7
       - id: v
         env:
-          GH_TOKEN: ${{ github.token }}
+          LABEL: ${{ inputs.label }}
         run: |
-          version=$(sed -n 's/^version = "\(.*\)"/\1/p' Cargo.toml | head -1)
-          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            version=${GITHUB_REF_NAME#v} label=$version publish=release
-          elif [[ "$GITHUB_REF" == refs/heads/main ]] && ! gh release view "v$version" > /dev/null 2>&1; then
-            label=$version publish=release
-          elif [[ "$GITHUB_REF" == refs/heads/main ]]; then
-            label=$version-dev.${GITHUB_SHA::7} publish=nightly
+          version=$(python3 scripts/check-version.py)
+          if [ -n "$LABEL" ]; then
+            label=$LABEL
+          elif [ "$GITHUB_REF" = "refs/tags/v$version" ]; then
+            label=$version
           else
-            label=$version-dev.${GITHUB_SHA::7} publish=none
+            label=$version-dev.${GITHUB_SHA::7}
           fi
-          echo "version=$version label=$label publish=$publish"
+          echo "version=$version label=$label"
           {
             echo "version=$version"
             echo "label=$label"
-            echo "publish=$publish"
           } >> "$GITHUB_OUTPUT"
 
   linux:
     needs: [test, version]
-    env:
-      ARCADE_RELEASE_VERSION: ${{ needs.version.outputs.label }}
     # The oldest supported runner, so the AppImage runs on older glibc too.
     runs-on: ubuntu-22.04
     steps:
@@ -88,8 +83,7 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: release
-      - run: cargo build --release --locked -p arcade-lens
-      - run: packaging/linux/build-appimage.sh target/release/arcade-lens "dist/ArcadeLens-${{ needs.version.outputs.label }}-linux-x86_64.AppImage"
+      - run: python3 scripts/package.py --label "${{ needs.version.outputs.label }}"
       - name: Verify AppImage install, repair and uninstall in a temporary profile
         run: |
           sudo apt-get update
@@ -98,7 +92,8 @@ jobs:
       - name: Tray icon registration (real StatusNotifierWatcher, isolated)
         run: |
           sudo apt-get install -y xdotool python3-dbus python3-gi libxkbcommon-x11-0
-          git -c advice.detachedHead=false clone -q --depth 1 --branch v0.3.0 https://github.com/qa-p1/Arcade-Link "$RUNNER_TEMP/link"
+          link_tag=$(sed -n 's/^arcade-link = .*tag = "\([^"]*\)".*/\1/p' Cargo.toml)
+          git -c advice.detachedHead=false clone -q --depth 1 --branch "$link_tag" https://github.com/qa-p1/Arcade-Link "$RUNNER_TEMP/link"
           cargo build --release --manifest-path "$RUNNER_TEMP/link/Cargo.toml" -p arcade-link-cli
           /usr/bin/python3 "$RUNNER_TEMP/link/tools/e2e.py" run -- /usr/bin/python3 tests/tray-registration.py target/release/arcade-lens "$RUNNER_TEMP/link/target/release/arcade-link" lens
       - uses: actions/upload-artifact@v7
@@ -109,8 +104,6 @@ jobs:
 
   windows:
     needs: [test, version]
-    env:
-      ARCADE_RELEASE_VERSION: ${{ needs.version.outputs.label }}
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v7
@@ -118,22 +111,16 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: release
-      - run: cargo build --release --locked -p arcade-lens
-      - name: Build installer
+      - name: Inno Setup
         shell: pwsh
         run: |
-          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
-          if (-not (Test-Path $iscc)) {
+          if (-not (Test-Path "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe")) {
             choco install innosetup --no-progress -y
           }
-          & $iscc "/DAppVersion=${{ needs.version.outputs.label }}" "/DSourceExe=$PWD\target\release\arcade-lens.exe" "/DOutputDir=$PWD\dist" packaging\windows\arcade-lens.iss
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+      - run: python3 scripts/package.py --label "${{ needs.version.outputs.label }}"
       - name: Verify silent install and uninstall on the ephemeral runner account
         shell: pwsh
         run: packaging\windows\verify.ps1
-      - name: Add the portable executable download
-        shell: pwsh
-        run: Copy-Item target\release\arcade-lens.exe "dist\ArcadeLens-${{ needs.version.outputs.label }}-windows-x64-portable.exe"
       - uses: actions/upload-artifact@v7
         with:
           name: windows-installer
@@ -142,9 +129,10 @@ jobs:
 
   macos:
     needs: [test, version]
+    runs-on: macos-15
     env:
-      ARCADE_RELEASE_VERSION: ${{ needs.version.outputs.label }}
-    runs-on: macos-latest
+      # The oldest macOS the dmg supports (Info.plist LSMinimumSystemVersion).
+      MACOSX_DEPLOYMENT_TARGET: "12.3"
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@1.88.0
@@ -153,15 +141,12 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: release
-      - name: Build a universal binary (Apple silicon and Intel)
+      - run: python3 scripts/package.py --label "${{ needs.version.outputs.label }}"
+      - name: Minimum macOS of each slice
         run: |
-          cargo build --release --locked -p arcade-lens --target aarch64-apple-darwin
-          cargo build --release --locked -p arcade-lens --target x86_64-apple-darwin
-          mkdir -p target/universal
-          lipo -create -output target/universal/arcade-lens \
-            target/aarch64-apple-darwin/release/arcade-lens \
-            target/x86_64-apple-darwin/release/arcade-lens
-      - run: packaging/macos/build-dmg.sh target/universal/arcade-lens "${{ needs.version.outputs.version }}" "dist/ArcadeLens-${{ needs.version.outputs.label }}-macos-universal.dmg"
+          minos=$(otool -arch all -l target/universal/arcade-lens | awk '/LC_BUILD_VERSION/{f=1} f&&$1=="minos"{print $2; f=0}' | sort -u | tr '\n' ' ')
+          echo "minimum macOS per slice: $minos"
+          for v in $minos; do [ "$(printf '%s\n' "$v" 12.3 | sort -V | tail -1)" = 12.3 ] || { echo "a slice needs macOS $v"; exit 1; }; done
       - name: Verify DMG copy in a temporary home
         run: packaging/macos/verify-dmg-copy.sh "dist/ArcadeLens-${{ needs.version.outputs.label }}-macos-universal.dmg" "${{ needs.version.outputs.version }}" "${{ needs.version.outputs.label }}"
       - uses: actions/upload-artifact@v7
@@ -170,62 +155,37 @@ jobs:
           path: dist/*.dmg
           if-no-files-found: error
 
-  release:
-    if: needs.version.outputs.publish == 'release'
+  # The release metadata Tools reads, built from exactly these installers (the
+  # portable exe is listed as portable, which Tools never installs).
+  release-manifest:
     needs: [version, linux, windows, macos]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    concurrency: release
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v7
-        with:
-          fetch-depth: 0
       - uses: actions/download-artifact@v8
         with:
           path: dist
           merge-multiple: true
-      - name: Publish v${{ needs.version.outputs.version }}
+      - name: arcade-release.json and SHA256SUMS.txt
         env:
-          GH_TOKEN: ${{ github.token }}
-          TAG: v${{ needs.version.outputs.version }}
+          VERSION: ${{ needs.version.outputs.version }}
           LABEL: ${{ needs.version.outputs.label }}
         run: |
-          python3 scripts/arcade-release.py --id arcade.lens --version "${TAG#v}" --channel stable \
-            --notes "https://github.com/qa-p1/Arcade-lens/releases/tag/$TAG" --windows-installer inno dist
-          prev=$(git tag --list 'v*' --sort=-v:refname | grep -vx "$TAG" | head -1 || true)
-          if gh release view "$TAG" > /dev/null 2>&1; then
-            # Published by hand (e.g. on the website): attach the packages.
-            gh release upload "$TAG" dist/* --clobber
-          else
-            packaging/release-notes.sh "$TAG" "$LABEL" "$prev" > notes.md
-            gh release create "$TAG" dist/* --target "$GITHUB_SHA" --title "Arcade Lens ${TAG#v}" --notes-file notes.md --latest
-          fi
-
-  nightly:
-    if: needs.version.outputs.publish == 'nightly'
-    needs: [version, linux, windows, macos]
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    concurrency: release
-    steps:
-      - uses: actions/checkout@v7
+          python3 scripts/arcade-release.py --id arcade.lens --version "$LABEL" --channel stable \
+            --notes "https://github.com/qa-p1/Arcade-lens/blob/$GITHUB_SHA/CHANGELOG.md" --windows-installer inno dist
+          python3 - dist/arcade-release.json <<'PY'
+          import json, sys
+          m = json.load(open(sys.argv[1]))
+          kinds = sorted((a['os'], a['kind']) for a in m['assets'])
+          assert kinds == [('linux', 'appimage'), ('macos', 'dmg'), ('windows', 'inno'), ('windows', 'portable')], kinds
+          assert next(a for a in m['assets'] if a['os'] == 'macos')['arch'] == 'universal'
+          print(json.dumps(m, indent=2))
+          PY
+          (cd dist && sha256sum -c SHA256SUMS.txt)
+      - uses: actions/upload-artifact@v7
         with:
-          fetch-depth: 0
-      - uses: actions/download-artifact@v8
-        with:
-          path: dist
-          merge-multiple: true
-      - name: Replace the nightly prerelease
-        env:
-          GH_TOKEN: ${{ github.token }}
-          LABEL: ${{ needs.version.outputs.label }}
-        run: |
-          python3 scripts/arcade-release.py --id arcade.lens --version "$LABEL" --channel nightly \
-            --notes "https://github.com/qa-p1/Arcade-lens/releases/tag/nightly" --windows-installer inno dist
-          prev=$(git tag --list 'v*' --sort=-v:refname | head -1 || true)
-          packaging/release-notes.sh nightly "$LABEL" "$prev" > notes.md
-          gh release delete nightly --cleanup-tag --yes || true
-          gh release create nightly dist/* --target "$GITHUB_SHA" --prerelease --latest=false \
-            --title "Nightly ($LABEL)" --notes-file notes.md
+          name: release-manifest
+          path: |
+            dist/arcade-release.json
+            dist/SHA256SUMS.txt
+          if-no-files-found: error

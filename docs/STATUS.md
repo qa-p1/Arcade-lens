@@ -1,3 +1,17 @@
+## 0.4.1 (2026-11-01): the 0.4 release, with the capture focus fix
+
+- PR #12 merged as `04f96d0` and tag.yml made `v0.4.0`, but the beta Release run (41282446300)
+  failed in `tests/overlay-focus.py`: in the resident UI, the second capture never took focus on
+  the runner, so Esc went to the other window. The tag stays unreleased; 0.4.1 ships instead.
+- Cause: the capture asked for focus for a fixed 3 s after it opened. X refuses focus for a
+  window that isn't mapped yet, and on a loaded machine without a window manager the resident
+  window could take longer than that to map, so every request failed. `focus_native` now
+  reports whether the window was viewable and the request went through. Lens asks until one
+  does (at most 15 s), then for 1 s more while a window manager settles focus. Requests and
+  their 16 ms repaints happen only while a just-opened capture hasn't had focus yet.
+- Reproduced locally with the test pinned to one core shared with three busy loops: the 0.4.0
+  binary failed 2 of 3 runs with CI's exact error; the fixed binary passed 5 of 5.
+
 # Arcade Lens: status
 
 ## 0.4.0 overhaul (2026-11-01, PR #12)
@@ -33,11 +47,6 @@ What 0.4.0 changes is in CHANGELOG.md. How it was checked:
     ignores `xrandr --setmonitor`.
   - In the resident UI (`ARCADE_LENS_RESIDENT_UI=1`, not the default), a child window can show
     one blank frame when it opens. The default windowless mode is not affected.
-  - A capture asks for focus for 3 s after it opens. Under heavy CPU contention without a
-    window manager (three busy loops sharing one core with software GL), a resident-UI capture
-    could take longer than that to map, and then didn't get focus. It works with a window
-    manager, which focuses windows as they map. A 60-frame budget, used before, ran out on
-    CI's runner.
   - Windows and macOS were exercised on CI runners only.
 - The tray has no History item, because STANDARD's tray lists the app's own actions and History
   lives in Settings. The reasons are in docs/dev/decisions.md.

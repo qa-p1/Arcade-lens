@@ -289,10 +289,16 @@ pub fn prepare_overlay(title: &str) {
 }
 
 /// Focus one of our own native windows, including unmanaged capture overlays.
-pub fn focus(window: u32) {
-    if let Ok(x) = X::connect() {
-        let _ = x.conn.configure_window(window, &ConfigureWindowAux::new().stack_mode(StackMode::ABOVE));
-        let _ = x.conn.set_input_focus(InputFocus::PARENT, window, x11rb::CURRENT_TIME);
-        let _ = x.conn.flush();
+/// False while the window isn't viewable yet: X refuses focus for an
+/// unmapped window, and a loaded machine can take a while to map it.
+pub fn focus(window: u32) -> bool {
+    let Ok(x) = X::connect() else { return false };
+    let viewable = x.conn.get_window_attributes(window).ok().and_then(|c| c.reply().ok()).is_some_and(|a| a.map_state == MapState::VIEWABLE);
+    if !viewable {
+        return false;
     }
+    let _ = x.conn.configure_window(window, &ConfigureWindowAux::new().stack_mode(StackMode::ABOVE));
+    let focused = x.conn.set_input_focus(InputFocus::PARENT, window, x11rb::CURRENT_TIME).is_ok_and(|c| c.check().is_ok());
+    let _ = x.conn.flush();
+    focused
 }

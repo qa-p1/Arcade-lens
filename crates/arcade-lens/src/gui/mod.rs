@@ -179,8 +179,13 @@ struct LensApp {
     tray: Option<lens_platform::tray::Tray>,
     one_shot: bool,
     focus_pending: bool,
-    /// When the overlay was shown: it asks for focus for `FOCUS_TRY` after.
+    /// When the overlay was shown: it asks for focus until a request takes
+    /// effect, for at most `FOCUS_GIVE_UP` after.
     shown_at: Instant,
+    /// When a focus request for this capture first took effect (the window
+    /// was mapped); requests continue only briefly after it, for window
+    /// managers that settle focus a moment later.
+    focus_granted: Option<Instant>,
     /// Some Lens window had focus during this capture; losing it closes the
     /// overlay (STANDARD: overlays close when they lose focus).
     overlay_had_focus: bool,
@@ -390,6 +395,7 @@ impl LensApp {
         self.waking = false;
         self.focus_pending = true;
         self.shown_at = Instant::now();
+        self.focus_granted = None;
         self.overlay_had_focus = false;
         self.overlay_unfocused_since = None;
         self.activity = true;
@@ -816,12 +822,14 @@ impl LensApp {
             }
         }
         let focused = ctx.input(|i| i.viewport().focused).unwrap_or(false);
-        // Ask for focus until the overlay first has it; after that, losing it
-        // closes the capture instead of taking focus back.
-        // Timed rather than counted: on a busy machine the frames before the
-        // window is mapped could use up a frame count before focus is possible.
-        const FOCUS_TRY: Duration = Duration::from_secs(3);
-        if self.root_visible && !focused && !self.overlay_had_focus && self.shown_at.elapsed() < FOCUS_TRY {
+        // Ask for focus until a request takes effect (X refuses focus until the
+        // window is mapped, which a loaded machine can delay by seconds), then
+        // for a moment more while a window manager settles focus. After that,
+        // losing focus closes the capture instead of taking focus back.
+        const FOCUS_GIVE_UP: Duration = Duration::from_secs(15);
+        const FOCUS_SETTLE: Duration = Duration::from_secs(1);
+        let asking = self.focus_granted.map_or(self.shown_at.elapsed() < FOCUS_GIVE_UP, |t| t.elapsed() < FOCUS_SETTLE);
+        if self.root_visible && !focused && !self.overlay_had_focus && asking {
             self.focus_pending = true;
             ctx.request_repaint_after(Duration::from_millis(16));
         }
@@ -840,7 +848,9 @@ impl LensApp {
                     RawWindowHandle::Win32(w) => lens_platform::raw_window_handle_shim::Raw::Win32(w.hwnd.get()),
                     _ => lens_platform::raw_window_handle_shim::Raw::Other,
                 };
-                lens_platform::focus_native(raw);
+                if lens_platform::focus_native(raw) && self.focus_granted.is_none() {
+                    self.focus_granted = Some(Instant::now());
+                }
             }
             self.focus_pending = false;
         }
@@ -1465,6 +1475,7 @@ fn start_app(
                 one_shot,
                 focus_pending: false,
                 shown_at: Instant::now(),
+                focus_granted: None,
                 overlay_had_focus: false,
                 overlay_unfocused_since: None,
                 hidden_once: false,

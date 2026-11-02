@@ -351,6 +351,10 @@ mod tests {
     use super::*;
     use lens_core::value::{SecretValue, Sensitive};
 
+    // Separate folders still share the process-wide Clear generation. Keep
+    // each save/clear scenario intact under the parallel test runner.
+    static HISTORY_TEST: Mutex<()> = Mutex::new(());
+
     fn finding(capability: lens_core::Capability, value: Value) -> Finding {
         Finding { id: lens_core::FindingId(0), capability, value, confidence: 1.0, recognizer: "test".into(), derived_from: None, span: None, details: vec![] }
     }
@@ -363,6 +367,7 @@ mod tests {
 
     #[test]
     fn saves_counts_and_clears() {
+        let _guard = HISTORY_TEST.lock().unwrap();
         let dir = temp("basic");
         let img = RgbaImage::new(10, 10);
         save(&dir, &img, &[]).unwrap();
@@ -374,6 +379,7 @@ mod tests {
 
     #[test]
     fn a_save_queued_before_clear_writes_nothing() {
+        let _guard = HISTORY_TEST.lock().unwrap();
         let dir = temp("race");
         let queued = *WRITES.lock().unwrap();
         clear(&dir);

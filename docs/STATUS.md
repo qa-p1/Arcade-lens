@@ -1,3 +1,14 @@
+## 2026-11-02: history test isolation
+
+- Main CI run 41293860373 failed on macOS in `saves_counts_and_clears`:
+  the parallel queued-save test incremented the shared Clear generation between
+  that test's save steps. Separate temporary folders do not isolate that counter.
+- Both save/clear test scenarios now take a test-only mutex. The queued-save
+  cancellation assertion stays intact; production history behavior is unchanged.
+- The published release is [v0.4.1](https://github.com/qa-p1/Arcade-lens/releases/tag/v0.4.1).
+  Its Release run [41296077131](https://github.com/qa-p1/Arcade-lens/actions/runs/41296077131)
+  succeeded. The test-isolation change requires a new three-OS CI run before merge.
+
 ## 0.4.1 (2026-11-01): the 0.4 release, with the capture focus fix
 
 - PR #12 merged as `04f96d0` and tag.yml made `v0.4.0`, but the beta Release run (41282446300)
@@ -51,7 +62,7 @@ What 0.4.0 changes is in CHANGELOG.md. How it was checked:
 - The tray has no History item, because STANDARD's tray lists the app's own actions and History
   lives in Settings. The reasons are in docs/dev/decisions.md.
 
-## Release status (2026-10-18)
+## Historical release status (2026-10-18)
 
 - Latest release: [v0.3.3](https://github.com/qa-p1/Arcade-lens/releases/tag/v0.3.3), published 2026-10-19 (only programs from another image drop the AppImage's descriptors; see CHANGELOG.md). The CI and e2e notes below were recorded for v0.2.0.
 - Previously released: [v0.3.2](https://github.com/qa-p1/Arcade-lens/releases/tag/v0.3.2), published 2026-10-19 (released every inherited descriptor at start, which also cut off helpers from the app's own image).

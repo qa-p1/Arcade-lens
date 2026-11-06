@@ -382,13 +382,16 @@ impl SettingsView {
     /// Esc and Ctrl+W close; F1 opens the guide; Ctrl+K filters actions;
     /// Ctrl+Q quits Lens.
     fn keys(&mut self, ctx: &egui::Context, out: &mut Vec<SettingsRequest>) {
-        let recording = self.recorder.recording;
+        // The recorder runs later in the frame and must see the original
+        // events, including chords that normally navigate or close Settings.
+        if self.recorder.recording {
+            return;
+        }
         let editing = ctx.memory(|m| m.focused().is_some());
         let (close, help, filter, quit) = ctx.input_mut(|i| {
             let cmd = egui::Modifiers::COMMAND;
             (
-                (!recording && self.confirm.is_none() && !editing && i.consume_key(egui::Modifiers::NONE, egui::Key::Escape))
-                    || i.consume_key(cmd, egui::Key::W),
+                (self.confirm.is_none() && !editing && i.consume_key(egui::Modifiers::NONE, egui::Key::Escape)) || i.consume_key(cmd, egui::Key::W),
                 i.consume_key(egui::Modifiers::NONE, egui::Key::F1),
                 i.consume_key(cmd, egui::Key::K),
                 i.consume_key(cmd, egui::Key::Q),
@@ -1430,6 +1433,78 @@ mod tests {
     }
 
     use super::*;
+
+    fn keyboard_view(test: impl FnOnce(&mut SettingsView)) {
+        struct Profile(std::path::PathBuf);
+        impl Drop for Profile {
+            fn drop(&mut self) {
+                let _ = std::fs::remove_dir_all(&self.0);
+            }
+        }
+        let profile = Profile(std::env::temp_dir().join(format!(
+            "lens-settings-keyboard-{}-{}",
+            std::process::id(),
+            std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_nanos()
+        )));
+        let rt = Runtime::headless(crate::config::Paths { config: profile.0.join("config"), data: profile.0.join("data") }).unwrap();
+        test(&mut SettingsView::new(Arc::new(rt)));
+    }
+
+    fn key_input(key: egui::Key, modifiers: egui::Modifiers) -> egui::RawInput {
+        egui::RawInput { events: vec![egui::Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers }], modifiers, ..Default::default() }
+    }
+
+    #[test]
+    fn recorder_gets_keys_before_settings_shortcuts() {
+        keyboard_view(|view| {
+            let control = egui::Modifiers { ctrl: true, command: true, ..Default::default() };
+            let command = egui::Modifiers { mac_cmd: true, command: true, ..Default::default() };
+            for (key, modifiers, expected) in [
+                (egui::Key::K, control, "Ctrl+K"),
+                (egui::Key::K, command, "Super+K"),
+                (egui::Key::W, control, "Ctrl+W"),
+                (egui::Key::Q, control, "Ctrl+Q"),
+                (egui::Key::F1, egui::Modifiers::NONE, "F1"),
+            ] {
+                // Each chord is a new physical press, not a held K repeated
+                // across the Ctrl and Cmd cases in the same input context.
+                let ctx = egui::Context::default();
+                theme::apply_style(&ctx, "dark");
+                view.show_section(Section::Shortcuts);
+                view.recorder.recording = true;
+                let mut out = Vec::new();
+                let mut value = String::new();
+                ctx.begin_pass(key_input(key, modifiers));
+                theme::sync(&ctx);
+                view.keys(&ctx, &mut out);
+                assert_eq!(Section::ALL[view.page], Section::Shortcuts);
+                assert!(!view.closed && !view.focus_filter && out.is_empty());
+                egui::CentralPanel::default().show(&ctx, |ui| {
+                    let spec = ShortcutSpec { title: "Capture", description: "Record", default: "Ctrl+Alt+Shift+L", allow_clear: true };
+                    assert!(view.recorder.row(ui, &theme::kit(), &spec, &mut value, |_| None), "recorder did not capture {key:?} with {modifiers:?}");
+                });
+                let _ = ctx.end_pass();
+                assert_eq!(value, expected);
+                assert!(!view.recorder.recording);
+            }
+        });
+    }
+
+    #[test]
+    fn command_k_filters_actions_when_not_recording() {
+        keyboard_view(|view| {
+            let ctx = egui::Context::default();
+            for modifiers in
+                [egui::Modifiers { ctrl: true, command: true, ..Default::default() }, egui::Modifiers { mac_cmd: true, command: true, ..Default::default() }]
+            {
+                view.show_section(Section::Shortcuts);
+                view.focus_filter = false;
+                let _ = ctx.run(key_input(egui::Key::K, modifiers), |ctx| view.keys(ctx, &mut Vec::new()));
+                assert_eq!(Section::ALL[view.page], Section::Actions);
+                assert!(view.focus_filter);
+            }
+        });
+    }
 
     #[test]
     fn sections_follow_the_standard_order() {

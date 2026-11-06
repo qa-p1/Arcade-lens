@@ -71,7 +71,7 @@ fn permanent(exe: &std::path::Path) -> bool {
 /// `false` (and this instance should keep running) if it couldn't start.
 pub fn restart() -> bool {
     // The successor runs from a new mount; it mustn't keep this one alive.
-    let start = |exe| arcade_link::childenv::detach_from_image(&mut Command::new(exe)).arg("--restarting").spawn();
+    let start = |exe| arcade_link::childenv::sanitize(&mut Command::new(exe)).arg("--restarting").spawn();
     match autostart::launch_path().and_then(start) {
         Ok(_) => true,
         Err(e) => {

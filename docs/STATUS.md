@@ -1,3 +1,11 @@
+## 2026-11-06: shortcut recorder follow-up for 0.4.2
+
+Settings handled global shortcuts before rendering the recorder, consuming
+Ctrl/Cmd+K even during capture and switching to Actions. Global key handling
+now yields all events while recording. Headless egui tests feed the same events
+through Settings and the real shared recorder, checking Ctrl/Cmd+K, Ctrl+W/Q
+and F1 capture, plus normal Ctrl/Cmd+K navigation after capture.
+
 ## 2026-11-02: history test isolation
 
 - Main CI run 41293860373 failed on macOS in `saves_counts_and_clears`:

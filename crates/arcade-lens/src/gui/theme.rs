@@ -6,7 +6,7 @@
 //! this frame (the Appearance setting, or the system theme), so every surface
 //! follows a theme change live.
 
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::cell::Cell;
 
 use arcade_link::design::egui::components::{Kit, Tone};
 use arcade_link::design::{self, radius, size, text, PathOp, Theme, TypeStyle};
@@ -15,16 +15,19 @@ use lens_core::SafetyClass;
 
 pub const APP_ID: &str = "arcade.lens";
 
-static DARK: AtomicBool = AtomicBool::new(true);
+thread_local! {
+    // A frame on another GUI thread must not change this thread's palette.
+    static DARK: Cell<bool> = const { Cell::new(true) };
+}
 
 /// Records the theme egui resolved for this frame. Call once per frame before
 /// painting; the settings window and every overlay share the same context.
 pub fn sync(ctx: &egui::Context) {
-    DARK.store(ctx.style().visuals.dark_mode, Ordering::Relaxed);
+    DARK.set(ctx.style().visuals.dark_mode);
 }
 
 pub fn current() -> Theme {
-    if DARK.load(Ordering::Relaxed) {
+    if DARK.get() {
         Theme::Dark
     } else {
         Theme::Light
@@ -489,5 +492,26 @@ mod tests {
         apply_style(&ctx, "dark");
         let _ = ctx.run(egui::RawInput::default(), sync);
         assert_eq!(current(), Theme::Dark);
+    }
+
+    #[test]
+    fn gui_threads_keep_their_resolved_theme() {
+        let ctx = egui::Context::default();
+        apply_style(&ctx, "light");
+        let (ready, wait_ready) = std::sync::mpsc::channel();
+        let (resume, wait_resume) = std::sync::mpsc::channel();
+        let worker = std::thread::spawn(move || {
+            let ctx = egui::Context::default();
+            apply_style(&ctx, "dark");
+            ready.send(()).unwrap();
+            wait_resume.recv().unwrap();
+            current()
+        });
+        wait_ready.recv().unwrap();
+        let own_theme = current();
+        resume.send(()).unwrap();
+        let other_theme = worker.join().unwrap();
+        assert_eq!(own_theme, Theme::Light);
+        assert_eq!(other_theme, Theme::Dark);
     }
 }

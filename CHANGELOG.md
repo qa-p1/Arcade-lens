@@ -2,6 +2,7 @@
 
 ## 0.4.2 — 2026-11-06
 
+- Keep the resolved palette local to each GUI thread, so another context cannot change a frame's light/dark colours. A concurrent-context regression covers the Linux CI failure.
 - Clear inherited AppImage library and launcher paths when starting an explicit restart successor, so the fresh launcher uses its own environment.
 - Keep Settings keyboard shortcuts from consuming keys while the shortcut recorder is active. Ctrl/Cmd+K can be recorded instead of switching to Actions; Ctrl+W/Q and F1 also remain available to the recorder. Normal Settings shortcuts resume when recording ends.
 - Test real egui input through Settings key handling and the shared recorder, including Ctrl/Cmd+K capture and ordinary Actions-filter navigation.

@@ -1,0 +1,4 @@
+    PID    PPID S COMMAND
+ 126511  126495 Z [notify-send] <defunct>
+ 134417  126495 Z [arcade-lens] <defunct>
+ 135361  126495 S /tmp/.mount_ArcadefHBogJ/usr/bin/arcade-lens --window capture palette

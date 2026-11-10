@@ -1,0 +1,172 @@
+{
+  "actions": [
+    {
+      "accepts": [],
+      "available": true,
+      "effects": [
+        "opens-ui"
+      ],
+      "id": "lens.capture",
+      "interactive": true,
+      "platforms": [
+        "linux",
+        "windows",
+        "macos"
+      ],
+      "privacy": "local",
+      "produces": [
+        "file/image",
+        "screen/region"
+      ],
+      "title": "Select a region on screen",
+      "verb": "capture",
+      "version": 1
+    },
+    {
+      "accepts": [],
+      "available": true,
+      "effects": [
+        "opens-ui"
+      ],
+      "id": "lens.capture_and_act",
+      "interactive": true,
+      "platforms": [
+        "linux",
+        "windows",
+        "macos"
+      ],
+      "privacy": "local",
+      "produces": [],
+      "title": "Arcade Lens",
+      "verb": "capture",
+      "version": 1
+    },
+    {
+      "accepts": [
+        "file/image"
+      ],
+      "available": true,
+      "effects": [
+        "opens-ui"
+      ],
+      "id": "lens.analyze",
+      "interactive": true,
+      "platforms": [
+        "linux",
+        "windows",
+        "macos"
+      ],
+      "privacy": "local",
+      "produces": [],
+      "title": "Analyze with Lens",
+      "verb": "analyze",
+      "version": 1
+    },
+    {
+      "accepts": [
+        "file/image",
+        "text/plain"
+      ],
+      "available": true,
+      "effects": [],
+      "id": "lens.recognize",
+      "interactive": false,
+      "platforms": [
+        "linux",
+        "windows",
+        "macos"
+      ],
+      "privacy": "local",
+      "produces": [
+        "structured/findings",
+        "text/plain"
+      ],
+      "title": "Recognize text and codes",
+      "verb": "recognize",
+      "version": 1
+    },
+    {
+      "accepts": [
+        "file/image"
+      ],
+      "available": true,
+      "effects": [
+        "opens-ui"
+      ],
+      "id": "lens.pin",
+      "interactive": true,
+      "platforms": [
+        "linux",
+        "windows",
+        "macos"
+      ],
+      "privacy": "local",
+      "produces": [],
+      "title": "Pin",
+      "verb": "pin",
+      "version": 1
+    }
+  ],
+  "docs": {
+    "version": "0.4.2"
+  },
+  "executable": "/home/harneet/Applications/Arcade/Arcade-Lens.AppImage",
+  "id": "arcade.lens",
+  "install": "appimage",
+  "launch": {
+    "background": [
+      "--background"
+    ],
+    "invoke": [
+      "--arcade-invoke"
+    ]
+  },
+  "link": {
+    "protocol": [
+      1
+    ]
+  },
+  "logs": "/tmp/claude-1000/-home-harneet-Work-Coding/c7347b9d-c34f-4fc8-b57d-de9a2d5591f6/scratchpad/audit-lfl/home/.local/share/arcade/lens/logs",
+  "menu": [
+    {
+      "effects": [
+        "opens-ui"
+      ],
+      "enabled": true,
+      "id": "capture",
+      "kind": "action",
+      "title": "Capture"
+    },
+    {
+      "effects": [
+        "opens-ui"
+      ],
+      "enabled": true,
+      "id": "capture_text",
+      "kind": "action",
+      "title": "Capture text"
+    },
+    {
+      "effects": [
+        "opens-ui"
+      ],
+      "enabled": true,
+      "id": "pick_color",
+      "kind": "action",
+      "title": "Pick color"
+    }
+  ],
+  "name": "Arcade Lens",
+  "schema": 1,
+  "settings": {
+    "linkEnabled": true
+  },
+  "shortcuts": [
+    {
+      "accelerator": "Ctrl+Alt+Shift+L",
+      "id": "capture"
+    }
+  ],
+  "version": "0.4.2",
+  "writtenAt": ""
+}

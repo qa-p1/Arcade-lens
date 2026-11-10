@@ -1,0 +1,107 @@
+[
+  {
+    "v": 1,
+    "id": 3,
+    "result": {
+      "job": "j-1"
+    }
+  },
+  {
+    "v": 1,
+    "method": "job.done",
+    "params": {
+      "job": "j-1",
+      "message": "880 \u00d7 325 px",
+      "outputs": [
+        {
+          "name": "region.png",
+          "owner": "arcade.lens",
+          "path": "/tmp/claude-1000/-home-harneet-Work-Coding/c7347b9d-c34f-4fc8-b57d-de9a2d5591f6/scratchpad/audit-lfl/home/.cache/arcade/handoff/c68cee03140c97813d557cbd0d1f9fef/region.png",
+          "size": 40907,
+          "type": "file/image"
+        },
+        {
+          "data": {
+            "monitor": "screen",
+            "rect": {
+              "height": 325,
+              "width": 880,
+              "x": 150,
+              "y": 125
+            }
+          },
+          "type": "screen/region"
+        }
+      ],
+      "status": "success"
+    }
+  },
+  {
+    "children": "    PID    PPID S COMMAND\n 126511  126495 Z [notify-send] <defunct>\n 134417  126495 Z [arcade-lens] <defunct>\n 135572  126495 Z [arcade-lens] <defunct>\n"
+  },
+  {
+    "v": 1,
+    "id": 4,
+    "result": {
+      "job": "j-2"
+    }
+  },
+  {
+    "v": 1,
+    "method": "job.done",
+    "params": {
+      "error": {
+        "code": "denied",
+        "message": "user_cancelled",
+        "reason": "user_cancelled"
+      },
+      "job": "j-2",
+      "message": "user_cancelled",
+      "outputs": [],
+      "status": "error"
+    }
+  },
+  {
+    "children": "    PID    PPID S COMMAND\n 126511  126495 Z [notify-send] <defunct>\n 134417  126495 Z [arcade-lens] <defunct>\n 135572  126495 Z [arcade-lens] <defunct>\n"
+  },
+  {
+    "v": 1,
+    "id": 5,
+    "result": {
+      "job": "j-3"
+    }
+  },
+  {
+    "v": 1,
+    "method": "job.done",
+    "params": {
+      "job": "j-3",
+      "message": "880 \u00d7 325 px",
+      "outputs": [
+        {
+          "name": "region.png",
+          "owner": "arcade.lens",
+          "path": "/tmp/claude-1000/-home-harneet-Work-Coding/c7347b9d-c34f-4fc8-b57d-de9a2d5591f6/scratchpad/audit-lfl/home/.cache/arcade/handoff/dbfd75a48f24474b902b77d6bac13a4d/region.png",
+          "size": 40907,
+          "type": "file/image"
+        },
+        {
+          "data": {
+            "monitor": "screen",
+            "rect": {
+              "height": 325,
+              "width": 880,
+              "x": 150,
+              "y": 125
+            }
+          },
+          "type": "screen/region"
+        }
+      ],
+      "status": "success"
+    }
+  },
+  {
+    "children": "    PID    PPID S COMMAND\n 126511  126495 Z [notify-send] <defunct>\n 134417  126495 Z [arcade-lens] <defunct>\n 135572  126495 Z [arcade-lens] <defunct>\n"
+  }
+]

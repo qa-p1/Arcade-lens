@@ -1,0 +1,634 @@
+{
+ "accents.png": {
+  "status": "success",
+  "msg": "3 findings",
+  "text": "caf\u00e9 r\u00e9sum\u00e9 naive ZUrich",
+  "findings": [
+   [
+    "text",
+    "caf\u00e9 r\u00e9sum\u00e9 naive ZUrich"
+   ],
+   [
+    "palette",
+    "#FEFEFE\u2026"
+   ],
+   [
+    "ui-element",
+    "310 \u00d7 30"
+   ]
+  ],
+  "sec": 0.13,
+  "err": null
+ },
+ "big.png": {
+  "status": "success",
+  "msg": "2 findings",
+  "text": "",
+  "findings": [
+   [
+    "color",
+    "#FFFFFF"
+   ],
+   [
+    "ui-element",
+    "2000 \u00d7 2000"
+   ]
+  ],
+  "sec": 0.1,
+  "err": null
+ },
+ "colour.png": {
+  "status": "success",
+  "msg": "3 findings",
+  "text": "Yellow on blue Heading",
+  "findings": [
+   [
+    "text",
+    "Yellow on blue Heading"
+   ],
+   [
+    "palette",
+    "#336698\u2026"
+   ],
+   [
+    "ui-element",
+    "293 \u00d7 28"
+   ]
+  ],
+  "sec": 0.14,
+  "err": null
+ },
+ "dark.png": {
+  "status": "success",
+  "msg": "3 findings",
+  "text": "White text on black background",
+  "findings": [
+   [
+    "text",
+    "White text on black background"
+   ],
+   [
+    "palette",
+    "#000000\u2026"
+   ],
+   [
+    "ui-element",
+    "353 \u00d7 28"
+   ]
+  ],
+  "sec": 0.15,
+  "err": null
+ },
+ "date.png": {
+  "status": "success",
+  "msg": "5 findings",
+  "text": "Meeting on 2026-12-25 at 14:30",
+  "findings": [
+   [
+    "date-time",
+    "2026-12-25"
+   ],
+   [
+    "text",
+    "Meeting on 2026-12-25 at 14:30"
+   ],
+   [
+    "date-time",
+    "14:30"
+   ],
+   [
+    "palette",
+    "#FEFEFE\u2026"
+   ],
+   [
+    "ui-element",
+    "359 \u00d7 28"
+   ]
+  ],
+  "sec": 0.13,
+  "err": null
+ },
+ "dejavu12.png": {
+  "status": "success",
+  "msg": "3 findings",
+  "text": "The quick brown fox jumps over the lazy dog 0123456789",
+  "findings": [
+   [
+    "text",
+    "The quick brown fox jumps over the lazy dog 0123456789"
+   ],
+   [
+    "palette",
+    "#FEFEFE\u2026"
+   ],
+   [
+    "ui-element",
+    "354 \u00d7 16"
+   ]
+  ],
+  "sec": 0.14,
+  "err": null
+ },
+ "dejavu24.png": {
+  "status": "success",
+  "msg": "3 findings",
+  "text": "The quick brown fox jumps over the lazy dog 0123456789",
+  "findings": [
+   [
+    "text",
+    "The quick brown fox jumps over the lazy dog 0123456789"
+   ],
+   [
+    "palette",
+    "#FEFEFE\u2026"
+   ],
+   [
+    "ui-element",
+    "704 \u00d7 30"
+   ]
+  ],
+  "sec": 0.16,
+  "err": null
+ },
+ "dejavu9.png": {
+  "status": "success",
+  "msg": "3 findings",
+  "text": "The quick brown fox jumps over the lazy dog 0123456789",
+  "findings": [
+   [
+    "text",
+    "The quick brown fox jumps over the lazy dog 0123456789"
+   ],
+   [
+    "palette",
+    "#FEFEFE\u2026"
+   ],
+   [
+    "ui-element",
+    "266 \u00d7 13"
+   ]
+  ],
+  "sec": 0.14,
+  "err": null
+ },
+ "email.png": {
+  "status": "success",
+  "msg": "4 findings",
+  "text": "Contact: jane.doe@example.org today",
+  "findings": [
+   [
+    "email",
+    "jane.doe@example.org"
+   ],
+   [
+    "text",
+    "Contact: jane.doe@example.org today"
+   ],
+   [
+    "palette",
+    "#FEFEFE\u2026"
+   ],
+   [
+    "ui-element",
+    "428 \u00d7 28"
+   ]
+  ],
+  "sec": 0.14,
+  "err": null
+ },
+ "flat_color.png": {
+  "status": "success",
+  "msg": "2 findings",
+  "text": "",
+  "findings": [
+   [
+    "color",
+    "#E91E63"
+   ],
+   [
+    "ui-element",
+    "300 \u00d7 120"
+   ]
+  ],
+  "sec": 0.0,
+  "err": null
+ },
+ "grad.png": {
+  "status": "success",
+  "msg": "2 findings",
+  "text": "",
+  "findings": [
+   [
+    "palette",
+    "#3F00BF\u2026"
+   ],
+   [
+    "ui-element",
+    "600 \u00d7 400"
+   ]
+  ],
+  "sec": 0.0,
+  "err": null
+ },
+ "hex.png": {
+  "status": "success",
+  "msg": "3 findings",
+  "text": "Brand colour #FF8800 and rgb(12, 34, 56)",
+  "findings": [
+   [
+    "text",
+    "Brand colour #FF8800 and rgb(12, 34, 56)"
+   ],
+   [
+    "palette",
+    "#FEFEFE\u2026"
+   ],
+   [
+    "ui-element",
+    "513 \u00d7 30"
+   ]
+  ],
+  "sec": 0.15,
+  "err": null
+ },
+ "iban.png": {
+  "status": "success",
+  "msg": "4 findings",
+  "text": "IBAN GB82 WEST 1234 5698 7654 32",
+  "findings": [
+   [
+    "text",
+    "IBAN GB82 WEST 1234 5698 7654 32"
+   ],
+   [
+    "phone",
+    "1234 5698 7654 32"
+   ],
+   [
+    "palette",
+    "#FEFEFE\u2026"
+   ],
+   [
+    "ui-element",
+    "418 \u00d7 28"
+   ]
+  ],
+  "sec": 0.14,
+  "err": null
+ },
+ "math.png": {
+  "status": "success",
+  "msg": "3 findings",
+  "text": "12*7 + 3",
+  "findings": [
+   [
+    "text",
+    "12*7 + 3"
+   ],
+   [
+    "palette",
+    "#FEFEFE\u2026"
+   ],
+   [
+    "ui-element",
+    "125 \u00d7 30"
+   ]
+  ],
+  "sec": 0.11,
+  "err": null
+ },
+ "mono16.png": {
+  "status": "success",
+  "msg": "5 findings",
+  "text": "fn main() { println!(\"hello\"); }\nlet x = vec![1, 2, 3]1;",
+  "findings": [
+   [
+    "table",
+    "fn main() { println!(\"hello\");\t}\u2026"
+   ],
+   [
+    "text",
+    "fn main() { println!(\"hello\"); }\u2026"
+   ],
+   [
+    "code",
+    "fn main() { println!(\"hello\"); }\u2026"
+   ],
+   [
+    "palette",
+    "#FDFDFD\u2026"
+   ],
+   [
+    "ui-element",
+    "310 \u00d7 39"
+   ]
+  ],
+  "sec": 0.14,
+  "err": null
+ },
+ "multi.png": {
+  "status": "success",
+  "msg": "3 findings",
+  "text": "Line one is here\nSecond line follows\nThird line with numbers 42 and 99\nFourth",
+  "findings": [
+   [
+    "text",
+    "Line one is here\u2026"
+   ],
+   [
+    "palette",
+    "#FEFEFE\u2026"
+   ],
+   [
+    "ui-element",
+    "314 \u00d7 89"
+   ]
+  ],
+  "sec": 0.14,
+  "err": null
+ },
+ "phone.png": {
+  "status": "success",
+  "msg": "5 findings",
+  "text": "Call +1 415 555 0132 or 020 7946 0958",
+  "findings": [
+   [
+    "phone",
+    "+1 415 555 0132"
+   ],
+   [
+    "text",
+    "Call +1 415 555 0132 or 020 7946 0958"
+   ],
+   [
+    "phone",
+    "020 7946 0958"
+   ],
+   [
+    "palette",
+    "#FDFDFD\u2026"
+   ],
+   [
+    "ui-element",
+    "447 \u00d7 28"
+   ]
+  ],
+  "sec": 0.14,
+  "err": null
+ },
+ "pw.png": {
+  "status": "success",
+  "msg": "4 findings",
+  "text": "password: TrOub4dor&3xyz!",
+  "findings": [
+   [
+    "text",
+    "password: TrOub4dor&3xyz!"
+   ],
+   [
+    "secret",
+    "\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+   ],
+   [
+    "palette",
+    "#FEFEFE\u2026"
+   ],
+   [
+    "ui-element",
+    "303 \u00d7 25"
+   ]
+  ],
+  "sec": 0.12,
+  "err": null
+ },
+ "qr_text.png": {
+  "status": "success",
+  "msg": "4 findings",
+  "text": "=]k,\ni",
+  "findings": [
+   [
+    "qr-code",
+    "Hello QR 12345"
+   ],
+   [
+    "palette",
+    "#FFFFFF\u2026"
+   ],
+   [
+    "ui-element",
+    "232 \u00d7 232"
+   ],
+   [
+    "text",
+    "=]k,\u2026"
+   ]
+  ],
+  "sec": 0.12,
+  "err": null
+ },
+ "qr_url.png": {
+  "status": "success",
+  "msg": "4 findings",
+  "text": "",
+  "findings": [
+   [
+    "qr-code",
+    "https://example.com/qr-test"
+   ],
+   [
+    "url",
+    "https://example.com/qr-test"
+   ],
+   [
+    "palette",
+    "#FFFFFF\u2026"
+   ],
+   [
+    "ui-element",
+    "264 \u00d7 264"
+   ]
+  ],
+  "sec": 0.1,
+  "err": null
+ },
+ "qr_wifi.png": {
+  "status": "success",
+  "msg": "4 findings",
+  "text": "Ofzs0",
+  "findings": [
+   [
+    "qr-code",
+    "WIFI:T:WPA;S:AuditNet;P:secretpass;;"
+   ],
+   [
+    "palette",
+    "#FFFFFF\u2026"
+   ],
+   [
+    "ui-element",
+    "296 \u00d7 296"
+   ],
+   [
+    "text",
+    "Ofzs0"
+   ]
+  ],
+  "sec": 0.11,
+  "err": null
+ },
+ "rot.png": {
+  "status": "success",
+  "msg": "3 findings",
+  "text": "Rotated text sample",
+  "findings": [
+   [
+    "text",
+    "Rotated text sample"
+   ],
+   [
+    "palette",
+    "#FEFEFE\u2026"
+   ],
+   [
+    "ui-element",
+    "245 \u00d7 30"
+   ]
+  ],
+  "sec": 0.12,
+  "err": null
+ },
+ "rot8.png": {
+  "status": "success",
+  "msg": "3 findings",
+  "text": "Rotateq text Sample",
+  "findings": [
+   [
+    "text",
+    "Rotateq text Sample"
+   ],
+   [
+    "palette",
+    "#FEFEFE\u2026"
+   ],
+   [
+    "ui-element",
+    "249 \u00d7 66"
+   ]
+  ],
+  "sec": 0.11,
+  "err": null
+ },
+ "serif20.png": {
+  "status": "success",
+  "msg": "4 findings",
+  "text": "Serif text: Invoice #4821 total $1,234.56",
+  "findings": [
+   [
+    "text",
+    "Serif text: Invoice #4821 total $1,234.56"
+   ],
+   [
+    "currency",
+    "$1,234.56"
+   ],
+   [
+    "palette",
+    "#FDFDFD\u2026"
+   ],
+   [
+    "ui-element",
+    "419 \u00d7 25"
+   ]
+  ],
+  "sec": 0.14,
+  "err": null
+ },
+ "skinny.png": {
+  "status": "success",
+  "msg": "3 findings",
+  "text": "tiny 8pt: Lorem ipsum dolor sit amet",
+  "findings": [
+   [
+    "text",
+    "tiny 8pt: Lorem ipsum dolor sit amet"
+   ],
+   [
+    "palette",
+    "#FDFDFD\u2026"
+   ],
+   [
+    "ui-element",
+    "148 \u00d7 11"
+   ]
+  ],
+  "sec": 0.12,
+  "err": null
+ },
+ "tiny1.png": {
+  "status": "success",
+  "msg": "1 finding",
+  "text": "",
+  "findings": [
+   [
+    "color",
+    "#FFFFFF"
+   ]
+  ],
+  "sec": 0.0,
+  "err": null
+ },
+ "token.png": {
+  "status": "success",
+  "msg": "5 findings",
+  "text": "AKIAIOSFODNN7EXAMPLE and sk-test0123456789abcdef0123456789abcdef",
+  "findings": [
+   [
+    "secret",
+    "AKIA\u2026MPLE"
+   ],
+   [
+    "secret",
+    "sk-t\u2026cdef"
+   ],
+   [
+    "text",
+    "AKIAIOSFODNN7EXAMPLE and sk-test0123456789abcdef0123456789ab"
+   ],
+   [
+    "palette",
+    "#FEFEFE\u2026"
+   ],
+   [
+    "ui-element",
+    "772 \u00d7 25"
+   ]
+  ],
+  "sec": 0.17,
+  "err": null
+ },
+ "url.png": {
+  "status": "success",
+  "msg": "4 findings",
+  "text": "Visit https://example.com/path?g=1&r=2 for details",
+  "findings": [
+   [
+    "url",
+    "https://example.com/path?g=1&r=2"
+   ],
+   [
+    "text",
+    "Visit https://example.com/path?g=1&r=2 for details"
+   ],
+   [
+    "palette",
+    "#FEFEFE\u2026"
+   ],
+   [
+    "ui-element",
+    "575 \u00d7 28"
+   ]
+  ],
+  "sec": 0.15,
+  "err": null
+ }
+}

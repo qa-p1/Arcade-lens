@@ -1,0 +1,301 @@
+[
+  {
+    "input": "https://example.com/a?b=1",
+    "response": {
+      "v": 1,
+      "method": "job.done",
+      "params": {
+        "data": {
+          "ocrEngine": "Tesseract"
+        },
+        "job": "j-4",
+        "message": "1 finding",
+        "outputs": [
+          {
+            "data": [
+              {
+                "capability": "url",
+                "confidence": 0.949999988079071,
+                "details": [
+                  {
+                    "label": "Domain",
+                    "value": "example.com"
+                  }
+                ],
+                "recognizer": "core.text.url",
+                "summary": "https://example.com/a?b=1",
+                "text": "https://example.com/a?b=1"
+              }
+            ],
+            "type": "structured/findings"
+          }
+        ],
+        "status": "success"
+      }
+    }
+  },
+  {
+    "input": "hello@example.com",
+    "response": {
+      "v": 1,
+      "method": "job.done",
+      "params": {
+        "data": {
+          "ocrEngine": "Tesseract"
+        },
+        "job": "j-5",
+        "message": "1 finding",
+        "outputs": [
+          {
+            "data": [
+              {
+                "capability": "email",
+                "confidence": 0.949999988079071,
+                "details": [
+                  {
+                    "label": "Domain",
+                    "value": "example.com"
+                  }
+                ],
+                "recognizer": "core.text.contact",
+                "summary": "hello@example.com",
+                "text": "hello@example.com"
+              }
+            ],
+            "type": "structured/findings"
+          }
+        ],
+        "status": "success"
+      }
+    }
+  },
+  {
+    "input": "192.168.10.1",
+    "response": {
+      "v": 1,
+      "method": "job.done",
+      "params": {
+        "data": {
+          "ocrEngine": "Tesseract"
+        },
+        "job": "j-6",
+        "message": "1 finding",
+        "outputs": [
+          {
+            "data": [
+              {
+                "capability": "ip-address",
+                "confidence": 0.949999988079071,
+                "details": [
+                  {
+                    "label": "Type",
+                    "value": "IPv4 \u00b7 Private network"
+                  }
+                ],
+                "recognizer": "core.text.network",
+                "summary": "192.168.10.1",
+                "text": "192.168.10.1"
+              }
+            ],
+            "type": "structured/findings"
+          }
+        ],
+        "status": "success"
+      }
+    }
+  },
+  {
+    "input": "2026-11-06",
+    "response": {
+      "v": 1,
+      "method": "job.done",
+      "params": {
+        "data": {
+          "ocrEngine": "Tesseract"
+        },
+        "job": "j-7",
+        "message": "1 finding",
+        "outputs": [
+          {
+            "data": [
+              {
+                "capability": "date-time",
+                "confidence": 0.9700000286102295,
+                "details": [
+                  {
+                    "label": "Means",
+                    "value": "Friday, 6 November 2026"
+                  }
+                ],
+                "recognizer": "core.text.datetime",
+                "summary": "2026-11-06",
+                "text": "2026-11-06"
+              }
+            ],
+            "type": "structured/findings"
+          }
+        ],
+        "status": "success"
+      }
+    }
+  },
+  {
+    "input": "10 km",
+    "response": {
+      "v": 1,
+      "method": "job.done",
+      "params": {
+        "data": {
+          "ocrEngine": "Tesseract"
+        },
+        "job": "j-8",
+        "message": "1 finding",
+        "outputs": [
+          {
+            "data": [
+              {
+                "capability": "quantity",
+                "confidence": 0.8999999761581421,
+                "details": [
+                  {
+                    "label": "=",
+                    "value": "6.214 mi"
+                  },
+                  {
+                    "label": "=",
+                    "value": "10000 m"
+                  },
+                  {
+                    "label": "=",
+                    "value": "32808 ft"
+                  }
+                ],
+                "recognizer": "core.text.units",
+                "summary": "10 km",
+                "text": "10 km"
+              }
+            ],
+            "type": "structured/findings"
+          }
+        ],
+        "status": "success"
+      }
+    }
+  },
+  {
+    "input": "40.7128, -74.0060",
+    "response": {
+      "v": 1,
+      "method": "job.done",
+      "params": {
+        "data": {
+          "ocrEngine": "Tesseract"
+        },
+        "job": "j-9",
+        "message": "1 finding",
+        "outputs": [
+          {
+            "data": [
+              {
+                "capability": "coordinates",
+                "confidence": 0.6499999761581421,
+                "details": [
+                  {
+                    "label": "Position",
+                    "value": "40.7128\u00b0 N, 74.0060\u00b0 W"
+                  }
+                ],
+                "recognizer": "core.text.geo",
+                "summary": "40.712800, -74.006000",
+                "text": "40.712800, -74.006000"
+              }
+            ],
+            "type": "structured/findings"
+          }
+        ],
+        "status": "success"
+      }
+    }
+  },
+  {
+    "input": "a,b\n1,2\n3,4",
+    "response": {
+      "v": 1,
+      "method": "job.done",
+      "params": {
+        "data": {
+          "ocrEngine": "Tesseract"
+        },
+        "job": "j-10",
+        "message": "Nothing recognized",
+        "outputs": [
+          {
+            "data": [],
+            "type": "structured/findings"
+          }
+        ],
+        "status": "success"
+      }
+    }
+  },
+  {
+    "input": "ghp_FAKE-TEST-TOKEN-REDACTED",
+    "response": {
+      "v": 1,
+      "method": "job.done",
+      "params": {
+        "data": {
+          "ocrEngine": "Tesseract"
+        },
+        "job": "j-11",
+        "message": "1 finding",
+        "outputs": [
+          {
+            "data": [
+              {
+                "capability": "secret",
+                "confidence": 0.9900000095367432,
+                "details": [
+                  {
+                    "label": "Looks like",
+                    "value": "GitHub token"
+                  },
+                  {
+                    "label": "Value",
+                    "value": "ghp_\u2026abcd"
+                  }
+                ],
+                "recognizer": "core.text.secret",
+                "summary": "ghp_\u2026abcd",
+                "text": "ghp_FAKE-TEST-TOKEN-REDACTED"
+              }
+            ],
+            "type": "structured/findings"
+          }
+        ],
+        "status": "success"
+      }
+    }
+  },
+  {
+    "input": "echo AUDIT_SAFE_COMMAND",
+    "response": {
+      "v": 1,
+      "method": "job.done",
+      "params": {
+        "data": {
+          "ocrEngine": "Tesseract"
+        },
+        "job": "j-12",
+        "message": "Nothing recognized",
+        "outputs": [
+          {
+            "data": [],
+            "type": "structured/findings"
+          }
+        ],
+        "status": "success"
+      }
+    }
+  }
+]

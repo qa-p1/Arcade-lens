@@ -1,0 +1,25 @@
+Arcade Lens: select anything on screen and act on it.
+
+  arcade-lens               Open Settings; Lens keeps running in the tray
+  arcade-lens --settings    Open Settings
+  arcade-lens --background  Start in the background (used at login)
+  arcade-lens --capture     Select something on screen now (also --show)
+  arcade-lens --hide        Close the selection overlay
+  arcade-lens --toggle      Select something, or close the overlay if it is open
+  arcade-lens --status      Print one line of JSON: running, version, overlay, Link
+  arcade-lens --restart     Restart the background instance
+  arcade-lens --quit        Quit the background instance
+  arcade-lens --version     Print the version
+  arcade-lens --help        Print this help
+  arcade-lens --install [--silent] [--no-launch] [--keep-download] [--channel C]
+                            Install this AppImage / macOS bundle
+  arcade-lens --uninstall [--silent] [--remove-data]
+                            Remove this installation via its receipt
+  arcade-lens --repair      Rewrite the launcher, command and login entries
+  arcade-lens --integration-status
+                            Print the integration as JSON (no side effects)
+  arcade-lens --arcade-manifest
+                            Print Lens's Arcade Link manifest (no side effects)
+
+Once running, press the activation shortcut (Ctrl+Alt+Shift+L by default)
+or use the tray icon.

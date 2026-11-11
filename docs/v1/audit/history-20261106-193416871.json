@@ -1,0 +1,25 @@
+{
+  "findings": [
+    {
+      "capability": "palette",
+      "confidence": 0.6000000238418579,
+      "summary": "#FEFEFE…"
+    },
+    {
+      "capability": "ui-element",
+      "confidence": 0.6000000238418579,
+      "summary": "1100 × 180"
+    },
+    {
+      "capability": "text",
+      "confidence": 0.8268876671791077,
+      "summary": "ghp_…abcd…"
+    },
+    {
+      "capability": "secret",
+      "confidence": 0.9900000095367432,
+      "summary": "ghp_…abcd"
+    }
+  ],
+  "time": "20261106-193416871"
+}

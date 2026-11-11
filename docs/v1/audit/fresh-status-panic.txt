@@ -1,0 +1,8 @@
+command: installed AppImage --status in isolated HOME
+exit=1
+stdout=
+stderr=
+thread 'main' panicked at /home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/epaint-0.33.3/src/text/fonts.rs:808:41:
+FontFamily::Name("Arcade Semibold") is not bound to any fonts
+note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+arcade-lens: The install dialog could not open

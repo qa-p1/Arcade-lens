@@ -13,7 +13,7 @@ on:
   workflow_call:
     inputs:
       label:
-        description: Version part of the package file names (default the version, plus -dev.<sha> off a tag)
+        description: Version part of the package file names (default the Cargo version)
         type: string
         default: ""
 
@@ -60,12 +60,13 @@ jobs:
           LABEL: ${{ inputs.label }}
         run: |
           version=$(python3 scripts/check-version.py)
+          # Builds from main and pull requests carry the Cargo version, as every fleet app's do; only the release
+          # workflow passes a label (rc, nightly). A `-dev.<sha>` suffix made main builds prereleases, which the
+          # stable channel never offers (docs/v1/DECISIONS.md D6).
           if [ -n "$LABEL" ]; then
             label=$LABEL
-          elif [ "$GITHUB_REF" = "refs/tags/v$version" ]; then
-            label=$version
           else
-            label=$version-dev.${GITHUB_SHA::7}
+            label=$version
           fi
           echo "version=$version label=$label"
           {

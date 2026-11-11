@@ -9,3 +9,8 @@
 - D4. LN-3: Link v1.0.6 `runtime::reap`/`spawn_reaped` reap fire-and-forget children (notify-send, pin/annotate
   windows); tracked window slots are reaped by a watcher thread that also reports the exit.
 - D5. LN-4: the overlay no longer closes on focus change (fleet popup rule); only Escape, an action or `--hide`.
+- D6. Builds from main and pull requests are labelled with the Cargo version (`0.4.2`), not `0.4.2-dev.<sha>`, like
+  every other fleet app's. The binary reports its label (link.rs VERSION), so a `-dev` build is a prerelease: Link's
+  ecosystem e2e published the main AppImage as a stable release for Tools' catalog-bundle and update checks, and
+  Tools rightly refused a prerelease tag on the stable channel ("No stable release is published", Link e2e run
+  42988304697, three checks). Release builds still get their label from the release workflow (rc, nightly).

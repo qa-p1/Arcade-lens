@@ -7,6 +7,7 @@
 
 pub mod address;
 pub mod code;
+pub mod color;
 pub mod command;
 pub mod contact;
 pub mod context;
@@ -79,6 +80,7 @@ pub fn recognizers() -> Vec<TextRecognizer> {
         TextRecognizer::new("core.text.network", vec![IP_ADDRESS, DOMAIN], Trivial, network::detect),
         TextRecognizer::new("core.text.path", vec![PATH], Trivial, path::detect),
         TextRecognizer::new("core.text.ids", vec![HASH, UUID], Trivial, ids::detect),
+        TextRecognizer::new("core.text.color", vec![COLOR], Trivial, color::detect),
         TextRecognizer::new("core.text.datetime", vec![DATE_TIME, TIMECODE], Trivial, datetime::detect),
         TextRecognizer::new("core.text.geo", vec![COORDINATES], Trivial, geo::detect),
         TextRecognizer::new("core.text.money", vec![CURRENCY], Trivial, money::detect),

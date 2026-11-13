@@ -2628,7 +2628,6 @@ dependencies = [
  "objc2-core-graphics",
  "objc2-foundation 0.3.2",
  "objc2-vision",
- "serde",
  "serde_json",
  "tokio",
  "tray-icon",

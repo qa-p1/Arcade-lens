@@ -21,8 +21,10 @@
 - `ci.yml`: builds from main and pull requests are labelled with the Cargo version, not `-dev.<sha>`, so Link's
   ecosystem e2e can publish them as the stable release Tools installs (three Lens checks failed on this). Checked by
   reading the workflow; CI on the PR runs it.
-- Open: `release.yml` labels nightlies `<version>-dev.<sha>` while the fleet's nightly tags are
-  `<version>-nightly.<date>.<n>` (Tools `source.rs`, Link D4); to check against Tools' nightly channel in step 4.
+- Resolved 2026-11-13: nightlies were a rolling release tagged `nightly`, which Tools' nightly channel never lists
+  (it reads `vX.Y.Z-nightly.YYYYMMDD.N`, Tools `source.rs`). `release.yml` now publishes
+  `v<version>-nightly.<YYYYMMDD>.<run>` prereleases; the binary keeps the plain version, which Tools matches to a
+  `-nightly` manifest (`release.rs` `versions_match`).
 
 ## Step 0 - brief
 - docs/v1/SPEC.md, docs/v1/audit/ (text only) and DECISIONS.md added. Not code; nothing to run.

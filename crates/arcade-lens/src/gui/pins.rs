@@ -378,12 +378,11 @@ impl Recording {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "linux"))]
 mod tests {
     use super::*;
 
     /// LN-6: dropping a recording ends its recorder; nothing is left behind.
-    #[cfg(target_os = "linux")]
     #[test]
     fn a_dropped_recording_leaves_no_recorder() {
         let child = std::process::Command::new("sh").args(["-c", "head -c1 >/dev/null"]).stdin(std::process::Stdio::piped()).spawn().unwrap();

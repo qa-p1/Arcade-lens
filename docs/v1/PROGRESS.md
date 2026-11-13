@@ -11,7 +11,11 @@
   `707a5c8` LN-7 (solo pins keep their source area, so X11 pins offer Live).
 - Tested: `cargo test --workspace`, `cargo clippy --workspace --all-targets -D warnings`. Not tested by hand: the
   fresh-profile AppImage dialog (LN-1) and the X11 recorder/pin paths; the owner checks those.
-- Open: the P2 items (RD-LENS-4, LN-9..13, RD-LENS-6, LN-11), then steps 2 and 4-8.
+- P2: `3037cc3` LN-13 (IBANs are not phones), `e2aac59` LN-9 (colour codes in text), `ae30ff4` LN-12 (OCR lines
+  under 0.2 confidence dropped), `ff19f8e` RD-LENS-6 (a table needs aligned columns), `1243784` LN-11 (`--status`
+  counts Link-opened overlays). Each with a unit test that fails without it.
+- Open: LN-10 (the loupe reads the same frozen image as the click, so the wrong colour is likely a hover-coordinate
+  mismatch; needs the harness to reproduce) and RD-LENS-4 (pin menu clipped by the pin window); then steps 2, 4-8.
 
 ## 2026-11-11 - main builds carry the plain version (D6)
 - `ci.yml`: builds from main and pull requests are labelled with the Cargo version, not `-dev.<sha>`, so Link's

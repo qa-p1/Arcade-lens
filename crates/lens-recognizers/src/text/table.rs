@@ -67,7 +67,7 @@ pub fn from_layout(layout: &TextLayout) -> Option<Table> {
         return None;
     }
     let multi = rows.iter().filter(|r| r.len() >= 2).count();
-    if multi < 2 || multi * 10 < rows.len() * 6 {
+    if multi < 2 || multi * 10 < rows.len() * 6 || !columns_line_up(&rows, gap) {
         return None;
     }
     let table_rows: Vec<Vec<String>> = rows
@@ -86,6 +86,25 @@ pub fn from_layout(layout: &TextLayout) -> Option<Table> {
         })
         .collect();
     Some(with_header(table_rows))
+}
+
+/// A table's rows share a cell count, and each of those columns lines up (left,
+/// right or centre) from row to row. Plain lines whose words happen to be far
+/// apart do not (RD-LENS-6).
+fn columns_line_up(rows: &[Vec<Cell>], tolerance: i32) -> bool {
+    let multi: Vec<&Vec<Cell>> = rows.iter().filter(|r| r.len() >= 2).collect();
+    let Some(mode) = multi.iter().map(|r| r.len()).max_by_key(|n| multi.iter().filter(|r| r.len() == *n).count()) else { return false };
+    let same: Vec<&&Vec<Cell>> = multi.iter().filter(|r| r.len() == mode).collect();
+    if same.len() < 2 {
+        return false;
+    }
+    let first = same[0];
+    (0..mode).all(|k| {
+        same.iter().all(|r| {
+            let (a, b) = (&first[k], &r[k]);
+            (a.x0 - b.x0).abs() <= tolerance || (a.x1 - b.x1).abs() <= tolerance || ((a.x0 + a.x1) - (b.x0 + b.x1)).abs() <= 2 * tolerance
+        })
+    })
 }
 
 pub fn from_text(text: &str) -> Option<(Table, f32)> {
@@ -193,5 +212,27 @@ mod tests {
         assert_eq!(t.rows[1], vec!["NAME", "UNIT PRICE", "QTY"]);
         assert_eq!(t.rows[3], vec!["RAM kit", "₹4,499", "4"]);
         assert_eq!(t.rows[0], vec!["Inventory report", "", ""]);
+    }
+
+    /// RD-LENS-6: three plain lines with wide word gaps are text, not a table.
+    #[test]
+    fn widely_spaced_plain_lines_are_not_a_table() {
+        let spaced = |words: &[&str], y: i32| {
+            let mut x = 0;
+            line(
+                words
+                    .iter()
+                    .map(|w| {
+                        let out = word(w, x, y);
+                        x += w.len() as i32 * 9 + 30;
+                        out
+                    })
+                    .collect(),
+            )
+        };
+        let layout = TextLayout {
+            lines: vec![spaced(&["ARCADE", "LENS", "OCR", "4821"], 0), spaced(&["Region", "capture", "test", "line"], 30), spaced(&["#FF8800", "colour"], 60)],
+        };
+        assert!(from_layout(&layout).is_none());
     }
 }

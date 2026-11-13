@@ -81,6 +81,30 @@ fn spawn(solo: &Solo) -> Option<Child> {
 }
 
 /// Opens a window process and reaps it when it exits.
+/// Capture overlays opened for a Link request, which run outside the loop's
+/// `capture` slot; `--status` counts them too (LN-11).
+static LINK_OVERLAYS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Counts one Link-opened overlay for as long as it lives.
+struct LinkOverlay;
+
+impl LinkOverlay {
+    fn open() -> LinkOverlay {
+        LINK_OVERLAYS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        LinkOverlay
+    }
+}
+
+impl Drop for LinkOverlay {
+    fn drop(&mut self) {
+        LINK_OVERLAYS.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+fn link_overlays_open() -> bool {
+    LINK_OVERLAYS.load(std::sync::atomic::Ordering::SeqCst) > 0
+}
+
 fn spawn_detached(solo: &Solo) -> bool {
     if let Some(mut child) = spawn(solo) {
         std::thread::spawn(move || child.wait());
@@ -237,7 +261,15 @@ impl Shortcut {
 fn link_request(request: crate::link::GuiRequest) -> bool {
     use crate::link::{GuiRequest, PickTarget};
     match request {
-        GuiRequest::Capture { act: true, mode, .. } => return spawn_detached(&Solo::Capture(mode)),
+        GuiRequest::Capture { act: true, mode, .. } => {
+            let Some(mut child) = spawn(&Solo::Capture(mode)) else { return false };
+            let open = LinkOverlay::open();
+            std::thread::spawn(move || {
+                let _open = open;
+                child.wait()
+            });
+            return true;
+        }
         GuiRequest::Capture { target: PickTarget::Reply(reply), .. } => {
             if !reply.is_pending() {
                 return true;
@@ -249,7 +281,9 @@ fn link_request(request: crate::link::GuiRequest) -> bool {
             ));
             let _ = std::fs::create_dir_all(temp_dir());
             let Some(mut child) = spawn(&Solo::Pick(out.clone())) else { return false };
+            let open = LinkOverlay::open();
             std::thread::spawn(move || {
+                let _open = open;
                 // Only a pending picker needs this worker. Cancellation
                 // releases its sender immediately and stops this child.
                 while reply.is_pending() {
@@ -437,7 +471,7 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
                 }
             }
             Cmd::Status(reply) => {
-                let open = capture.as_mut().is_some_and(|c: &mut Child| matches!(c.try_wait(), Ok(None)));
+                let open = capture.as_mut().is_some_and(|c: &mut Child| matches!(c.try_wait(), Ok(None))) || link_overlays_open();
                 let _ = reply.send(super::status_json(paths, true, open));
             }
             Cmd::SettingsAt(section) => {
@@ -539,6 +573,16 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+
+    /// LN-11: an overlay opened for a Link request counts while it is open.
+    #[test]
+    fn link_overlays_count_while_open() {
+        let before = LINK_OVERLAYS.load(std::sync::atomic::Ordering::SeqCst);
+        let open = LinkOverlay::open();
+        assert!(link_overlays_open());
+        drop(open);
+        assert_eq!(LINK_OVERLAYS.load(std::sync::atomic::Ordering::SeqCst), before);
+    }
 
     /// LN-7: a pin's origin survives the trip to its own process.
     #[test]

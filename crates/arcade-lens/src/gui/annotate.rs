@@ -345,7 +345,8 @@ impl Editor {
             } else if i.consume_key(cmd, egui::Key::Z) {
                 self.undo();
             }
-            if i.consume_key(cmd, egui::Key::C) {
+            let copy_event = super::keys::take_copy(&mut i.events);
+            if i.consume_key(cmd, egui::Key::C) || copy_event {
                 out.push(EditorRequest::Copy(self.export()));
             }
             if i.consume_key(cmd, egui::Key::S) {

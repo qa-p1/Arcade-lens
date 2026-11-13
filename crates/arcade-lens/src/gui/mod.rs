@@ -12,6 +12,7 @@ pub mod geometry;
 pub mod ghost;
 pub mod glyphs;
 pub mod history;
+pub mod keys;
 pub mod measure;
 pub mod overlay;
 pub mod panels;

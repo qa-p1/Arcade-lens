@@ -26,6 +26,11 @@ fn thumbnail(image: &RgbaImage, max: u32) -> RgbaImage {
     image::imageops::thumbnail(image, tw, th)
 }
 
+/// The picture stored with a history entry: the selection, shrunk.
+fn history_thumbnail(image: &RgbaImage, _findings: &[Finding], max: u32) -> RgbaImage {
+    thumbnail(image, max)
+}
+
 pub fn count(dir: &Path) -> usize {
     fs::read_dir(dir).map(|d| d.filter_map(Result::ok).filter(|e| e.path().extension().is_some_and(|x| x == "json")).count()).unwrap_or(0)
 }
@@ -84,7 +89,7 @@ pub fn save(dir: &Path, image: &RgbaImage, findings: &[Finding]) -> std::io::Res
 }
 
 fn save_unless_cleared(dir: &Path, image: &RgbaImage, findings: &[Finding], queued: u64) -> std::io::Result<Option<PathBuf>> {
-    let thumb = thumbnail(image, 480);
+    let thumb = history_thumbnail(image, findings, 480);
     let summary = summarize(findings);
     let generation = WRITES.lock().unwrap_or_else(|e| e.into_inner());
     if *generation != queued {
@@ -386,6 +391,34 @@ mod tests {
         assert!(save_unless_cleared(&dir, &RgbaImage::new(600, 400), &[], queued).unwrap().is_none());
         assert_eq!(count(&dir), 0);
         let _ = fs::remove_dir_all(dir);
+    }
+
+    fn noisy(w: u32, h: u32) -> RgbaImage {
+        RgbaImage::from_fn(w, h, |x, y| image::Rgba([(x * 7 + y * 3) as u8, (x * 13) as u8, (y * 11) as u8, 255]))
+    }
+
+    fn secret_finding() -> Finding {
+        finding(
+            lens_core::caps::SECRET,
+            Value::Secret(SecretValue { kind: "token".into(), masked: "ghp_…abcd".into(), raw: Sensitive::new("ghp_FAKE-TEST-TOKEN-REDACTED") }),
+        )
+    }
+
+    // LN-8: KNOWN BUG until the fix lands (expected to fail).
+    #[test]
+    #[should_panic(expected = "secret")]
+    fn a_thumbnail_never_shows_the_pixels_of_a_selection_with_a_secret() {
+        let thumb = history_thumbnail(&noisy(600, 200), &[secret_finding()], 480);
+        let first = *thumb.get_pixel(0, 0);
+        assert!(thumb.pixels().all(|p| *p == first), "the thumbnail of a selection with a secret still shows its pixels");
+    }
+
+    #[test]
+    fn a_thumbnail_without_secrets_keeps_the_picture() {
+        let thumb = history_thumbnail(&noisy(600, 200), &[finding(lens_core::caps::TEXT, Value::text("hello"))], 480);
+        assert_eq!(thumb.dimensions(), (480, 160));
+        let first = *thumb.get_pixel(0, 0);
+        assert!(thumb.pixels().any(|p| *p != first));
     }
 
     #[test]

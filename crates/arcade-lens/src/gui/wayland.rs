@@ -256,6 +256,10 @@ fn link_request(request: crate::link::GuiRequest) -> bool {
 
 /// Starts `solo`, or brings the previous one to the front if it is still open.
 fn open_once(slot: &mut Option<Child>, solo: &Solo) {
+    open_once_with(slot, || spawn(solo));
+}
+
+fn open_once_with(slot: &mut Option<Child>, start: impl FnOnce() -> Option<Child>) {
     if let Some(c) = slot {
         if matches!(c.try_wait(), Ok(None)) {
             if hyprland::active() {
@@ -264,7 +268,7 @@ fn open_once(slot: &mut Option<Child>, solo: &Solo) {
             return;
         }
     }
-    *slot = spawn(solo);
+    *slot = start();
 }
 
 fn close_child(slot: &mut Option<Child>) {
@@ -502,5 +506,27 @@ mod tests {
         }
         // Every rule is scoped to Lens's own app id (Lua sees `\.`).
         assert_eq!(rules.matches(r#"class = "^(dev\\.arcade\\.Lens)$""#).count(), WINDOW_RULES.len());
+    }
+
+    #[cfg(target_os = "linux")]
+    fn zombie(pid: u32) -> bool {
+        std::fs::read_to_string(format!("/proc/{pid}/stat")).is_ok_and(|s| s.rsplit(") ").next().is_some_and(|rest| rest.starts_with('Z')))
+    }
+
+    #[cfg(target_os = "linux")]
+    // LN-3 / BP-6: KNOWN BUG until the fix lands (expected to fail).
+    #[test]
+    #[should_panic(expected = "zombie")]
+    fn closed_windows_leave_no_zombies_after_20_cycles() {
+        let mut slot: Option<Child> = None;
+        let mut pids = Vec::new();
+        for _ in 0..20 {
+            open_once_with(&mut slot, || Command::new("sh").args(["-c", "exit 0"]).spawn().ok());
+            pids.push(slot.as_ref().map(Child::id).unwrap());
+            std::thread::sleep(std::time::Duration::from_millis(30));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        let zombies: Vec<u32> = pids.into_iter().filter(|p| zombie(*p)).collect();
+        assert!(zombies.is_empty(), "zombie children left behind: {zombies:?}");
     }
 }

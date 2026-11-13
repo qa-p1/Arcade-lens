@@ -922,7 +922,7 @@ impl Overlay {
         let events = ctx.input(|i| i.events.clone());
         let in_text_panel = matches!(self.panel, Panel::Expanded { .. });
         for e in events {
-            let egui::Event::Key { key, pressed: true, modifiers, .. } = e else { continue };
+            let egui::Event::Key { key, pressed: true, modifiers, .. } = super::keys::normalize_copy(e) else { continue };
             if self.job.is_some() && key != Key::Escape {
                 continue;
             }

@@ -26,9 +26,15 @@ fn thumbnail(image: &RgbaImage, max: u32) -> RgbaImage {
     image::imageops::thumbnail(image, tw, th)
 }
 
-/// The picture stored with a history entry: the selection, shrunk.
-fn history_thumbnail(image: &RgbaImage, _findings: &[Finding], max: u32) -> RgbaImage {
-    thumbnail(image, max)
+/// The picture stored with a history entry: the selection, shrunk. A
+/// selection with a secret in it is stored as a plain grey tile of the same
+/// size, so the history never keeps the secret's pixels (LN-8).
+fn history_thumbnail(image: &RgbaImage, findings: &[Finding], max: u32) -> RgbaImage {
+    let thumb = thumbnail(image, max);
+    if findings.iter().any(|f| matches!(f.value, Value::Secret(_))) {
+        return RgbaImage::from_pixel(thumb.width(), thumb.height(), image::Rgba([128, 128, 128, 255]));
+    }
+    thumb
 }
 
 pub fn count(dir: &Path) -> usize {
@@ -404,9 +410,8 @@ mod tests {
         )
     }
 
-    // LN-8: KNOWN BUG until the fix lands (expected to fail).
+    // LN-8
     #[test]
-    #[should_panic(expected = "secret")]
     fn a_thumbnail_never_shows_the_pixels_of_a_selection_with_a_secret() {
         let thumb = history_thumbnail(&noisy(600, 200), &[secret_finding()], 480);
         let first = *thumb.get_pixel(0, 0);

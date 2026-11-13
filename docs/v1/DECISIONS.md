@@ -7,7 +7,8 @@
 - D3. LN-1: `--status` and `--hide` join the list of commands that skip the first-run install dialog; the install
   dialog applies its style in the eframe creator so fonts exist before its first frame.
 - D4. LN-3: Link v1.0.6 `runtime::reap`/`spawn_reaped` reap fire-and-forget children (notify-send, pin/annotate
-  windows); tracked window slots are reaped by a watcher thread that also reports the exit.
+  windows); tracked window slots (capture, Settings, History) are reaped by the background loop on every command and
+  on a 2 s tick (`reap_exited`), so a closed window is a zombie for at most 2 s.
 - D5. LN-4: the overlay no longer closes on focus change (fleet popup rule); only Escape, an action or `--hide`.
 - D6. Builds from main and pull requests are labelled with the Cargo version (`0.4.2`), not `0.4.2-dev.<sha>`, like
   every other fleet app's. The binary reports its label (link.rs VERSION), so a `-dev` build is a prerelease: Link's

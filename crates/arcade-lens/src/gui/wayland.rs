@@ -271,6 +271,14 @@ fn open_once_with(slot: &mut Option<Child>, start: impl FnOnce() -> Option<Child
     *slot = start();
 }
 
+/// Forgets a window process that has exited; `try_wait` reaps it, so a
+/// closed Settings or History window leaves no zombie (LN-3).
+fn reap_exited(slot: &mut Option<Child>) {
+    if slot.as_mut().is_some_and(|c| !matches!(c.try_wait(), Ok(None))) {
+        *slot = None;
+    }
+}
+
 fn close_child(slot: &mut Option<Child>) {
     if let Some(mut c) = slot.take() {
         if matches!(c.try_wait(), Ok(None)) {
@@ -291,6 +299,8 @@ enum Cmd {
     /// peer to finish a handed-off action; it no longer counts as the capture.
     Detach(u32),
     Hub(Trigger),
+    /// Every 2 s: reap window processes that have exited.
+    Tick,
 }
 
 /// The background instance: IPC, the shortcut and the tray icon, no window.
@@ -298,6 +308,14 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
     use arcade_link::trayhost::TrayState;
     let background = initial.is_none();
     let (tx, rx) = mpsc::channel::<Cmd>();
+    {
+        let tick = tx.clone();
+        std::thread::spawn(move || {
+            while tick.send(Cmd::Tick).is_ok() {
+                std::thread::sleep(std::time::Duration::from_secs(2));
+            }
+        });
+    }
     let t = std::sync::Mutex::new(tx.clone());
     lens_platform::ipc::serve(&paths.endpoint(), move |cmd| {
         let send = |c: Cmd| t.lock().unwrap_or_else(|e| e.into_inner()).send(c).is_ok();
@@ -385,7 +403,11 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
     let mut finishing: Vec<Child> = Vec::new();
     for cmd in rx {
         finishing.retain_mut(|c| matches!(c.try_wait(), Ok(None)));
+        for slot in [&mut capture, &mut settings_window, &mut history_window] {
+            reap_exited(slot);
+        }
         match cmd {
+            Cmd::Tick => {}
             Cmd::Detach(pid) => {
                 if capture.as_ref().is_some_and(|c| c.id() == pid) {
                     finishing.extend(capture.take());
@@ -514,9 +536,8 @@ mod tests {
     }
 
     #[cfg(target_os = "linux")]
-    // LN-3 / BP-6: KNOWN BUG until the fix lands (expected to fail).
+    // LN-3 / BP-6
     #[test]
-    #[should_panic(expected = "zombie")]
     fn closed_windows_leave_no_zombies_after_20_cycles() {
         let mut slot: Option<Child> = None;
         let mut pids = Vec::new();
@@ -526,6 +547,7 @@ mod tests {
             std::thread::sleep(std::time::Duration::from_millis(30));
         }
         std::thread::sleep(std::time::Duration::from_millis(300));
+        reap_exited(&mut slot); // the daemon's 2 s tick
         let zombies: Vec<u32> = pids.into_iter().filter(|p| zombie(*p)).collect();
         assert!(zombies.is_empty(), "zombie children left behind: {zombies:?}");
     }

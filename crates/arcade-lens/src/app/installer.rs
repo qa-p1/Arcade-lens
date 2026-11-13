@@ -231,6 +231,8 @@ pub fn dismiss(paths: &Paths, path: &Path) -> io::Result<()> {
 /// so they must not raise the first-run install dialog.
 fn skips_prompt(args: &[String]) -> bool {
     const SKIP: &[&str] = &[
+        "--status",
+        "--hide",
         "--background",
         "--arcade-invoke",
         "--arcade-manifest",
@@ -823,9 +825,8 @@ mod bundle_destination_tests {
         list.iter().map(|a| a.to_string()).collect()
     }
 
-    // LN-1: KNOWN BUG until the fix lands (expected to fail).
+    // LN-1
     #[test]
-    #[should_panic(expected = "--status")]
     fn status_and_hide_never_raise_the_install_dialog() {
         for command in ["--status", "--hide"] {
             assert!(skips_prompt(&args(&[command])), "{command} would open the first-run dialog");

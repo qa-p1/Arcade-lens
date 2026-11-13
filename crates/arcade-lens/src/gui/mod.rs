@@ -92,7 +92,8 @@ impl AppState {
 
     fn add_pin(&mut self, image: Arc<RgbaImage>, origin: Option<lens_core::geometry::Rect>) {
         if self.solo {
-            wayland::open_image(wayland::Solo::Pin, &image);
+            // The pin's own process gets the origin too, so X11 pins keep Live (LN-7).
+            wayland::open_image(|p| wayland::Solo::Pin(p, origin), &image);
             return;
         }
         let scale = origin
@@ -1272,7 +1273,7 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
     };
     crate::lens_debug!("captured after {:?}", started.elapsed());
     let image = match &solo {
-        Solo::Pin(p) | Solo::Annotate(p) => Some(Arc::new(wayland::load_image(p)?)),
+        Solo::Pin(p, _) | Solo::Annotate(p) => Some(Arc::new(wayland::load_image(p)?)),
         _ => None,
     };
     let rt = Arc::new(loading.join().map_err(|_| "Couldn't load settings.".to_string())??);
@@ -1309,7 +1310,7 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
         }
         Solo::Settings(_) => geometry::builder("settings", settings_view::SettingsView::builder(), &rt.paths.data),
         Solo::History => geometry::builder("history", history::HistoryView::builder(), &rt.paths.data),
-        Solo::Pin(_) => pins::Pin::new(0, image.clone().unwrap(), None, 1.0).builder(),
+        Solo::Pin(_, origin) => pins::Pin::new(0, image.clone().unwrap(), *origin, 1.0).builder(),
         Solo::Annotate(_) => annotate::Editor::new(0, image.clone().unwrap()).builder(),
     };
     let mode = Mode { daemon: false, one_shot: true, solo: true, fullscreen };
@@ -1340,9 +1341,9 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
             st.settings = Some(view);
         }
         Solo::History => st.history = Some(history::HistoryView::new(st.env.rt.paths.history())),
-        Solo::Pin(_) => {
+        Solo::Pin(_, origin) => {
             let id = st.id();
-            st.pins.push(pins::Pin::new(id, image.unwrap(), None, 1.0));
+            st.pins.push(pins::Pin::new(id, image.unwrap(), origin, 1.0));
         }
         Solo::Annotate(_) => {
             let id = st.id();

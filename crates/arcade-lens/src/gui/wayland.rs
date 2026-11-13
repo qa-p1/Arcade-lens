@@ -25,7 +25,8 @@ pub enum Solo {
     /// Settings, optionally opened on a section.
     Settings(Option<super::settings_view::Section>),
     History,
-    Pin(PathBuf),
+    /// A pin of the image, and the screen area it came from (for Live refresh).
+    Pin(PathBuf, Option<lens_core::geometry::Rect>),
     Annotate(PathBuf),
     /// Arcade Link `lens.capture`: select once, write the region to the path, exit.
     Pick(PathBuf),
@@ -65,7 +66,13 @@ fn spawn(solo: &Solo) -> Option<Child> {
             &mut cmd
         }
         Solo::History => cmd.arg("history"),
-        Solo::Pin(p) => cmd.arg("pin").arg(p),
+        Solo::Pin(p, origin) => {
+            cmd.arg("pin").arg(p);
+            if let Some(r) = origin {
+                cmd.arg(rect_arg(r));
+            }
+            &mut cmd
+        }
         Solo::Annotate(p) => cmd.arg("annotate").arg(p),
         Solo::Pick(p) => cmd.arg("pick").arg(p),
         Solo::Analyze(p) => cmd.arg("analyze").arg(p),
@@ -88,7 +95,23 @@ fn temp_dir() -> PathBuf {
 }
 
 /// Opens `image` in a new pin or editor process (`kind` is `Solo::Pin` or `Solo::Annotate`).
-pub fn open_image(kind: fn(PathBuf) -> Solo, image: &RgbaImage) -> bool {
+/// `x,y,width,height`, the pin window's origin argument.
+pub fn rect_arg(r: &lens_core::geometry::Rect) -> String {
+    format!("{},{},{},{}", r.x, r.y, r.width, r.height)
+}
+
+pub fn parse_rect_arg(s: &str) -> Option<lens_core::geometry::Rect> {
+    let mut it = s.split(',');
+    let r = lens_core::geometry::Rect {
+        x: it.next()?.parse().ok()?,
+        y: it.next()?.parse().ok()?,
+        width: it.next()?.parse().ok()?,
+        height: it.next()?.parse().ok()?,
+    };
+    it.next().is_none().then_some(r)
+}
+
+pub fn open_image(kind: impl FnOnce(PathBuf) -> Solo, image: &RgbaImage) -> bool {
     let dir = temp_dir();
     let path =
         dir.join(format!("{}-{}.png", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos())));
@@ -249,7 +272,7 @@ fn link_request(request: crate::link::GuiRequest) -> bool {
         GuiRequest::CancelCapture(_) => {} // the picker worker observes the released sender
         GuiRequest::Capture { target: PickTarget::File(_), .. } => return false,
         GuiRequest::Analyze(image) => return open_image(Solo::Analyze, &image),
-        GuiRequest::Pin(image) => return open_image(Solo::Pin, &image),
+        GuiRequest::Pin(image) => return open_image(|p| Solo::Pin(p, None), &image),
     }
     true
 }
@@ -516,6 +539,16 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+
+    /// LN-7: a pin's origin survives the trip to its own process.
+    #[test]
+    fn a_pin_origin_round_trips_through_its_argument() {
+        let r = lens_core::geometry::Rect { x: -1920, y: 40, width: 300, height: 200 };
+        assert_eq!(parse_rect_arg(&rect_arg(&r)), Some(r));
+        assert_eq!(parse_rect_arg("1,2,3"), None);
+        assert_eq!(parse_rect_arg("1,2,3,4,5"), None);
+    }
+
     use super::*;
 
     #[test]

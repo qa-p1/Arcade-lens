@@ -149,7 +149,7 @@ fn run(args: &[String]) -> Result<(), String> {
                 "capture" => gui::wayland::Solo::Capture(link::CaptureMode::parse(args.get(2).map(String::as_str)).map_err(|e| e.to_string())?),
                 "settings" => gui::wayland::Solo::Settings(args.get(2).and_then(|l| gui::settings_view::Section::from_label(l))),
                 "history" => gui::wayland::Solo::History,
-                "pin" => gui::wayland::Solo::Pin(image()?),
+                "pin" => gui::wayland::Solo::Pin(image()?, args.get(3).and_then(|r| gui::wayland::parse_rect_arg(r))),
                 "annotate" => gui::wayland::Solo::Annotate(image()?),
                 "pick" => gui::wayland::Solo::Pick(image()?),
                 "analyze" => gui::wayland::Solo::Analyze(image()?),

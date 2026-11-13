@@ -133,7 +133,9 @@ impl Pin {
         if resp.drag_started() {
             ctx.send_viewport_cmd(ViewportCommand::StartDrag);
         }
-        if resp.double_clicked() || ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+        // Escape with the menu open closes only the menu (RD-LENS-3).
+        let escape = ctx.input(|i| i.key_pressed(egui::Key::Escape)) && !egui::Popup::is_any_open(&ctx);
+        if resp.double_clicked() || escape {
             self.closed = true;
         }
         let (scroll, ctrl) = ctx.input(|i| (i.smooth_scroll_delta.y, i.modifiers.ctrl || i.modifiers.command));

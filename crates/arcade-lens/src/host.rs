@@ -28,6 +28,24 @@ pub struct DesktopHost {
 #[cfg(target_os = "linux")]
 static HELD_CLIPBOARD: std::sync::Mutex<Option<arboard::Clipboard>> = std::sync::Mutex::new(None);
 
+#[derive(Debug, PartialEq, Eq)]
+enum ClipboardHelper {
+    WlCopy,
+    Xclip,
+    /// The package that provides the helper this session needs.
+    Missing(&'static str),
+}
+
+/// The program that keeps a short-lived process's copy alive after it exits.
+fn clipboard_helper(wayland: bool, wl_copy: bool, xclip: bool) -> ClipboardHelper {
+    match (wayland, wl_copy, xclip) {
+        (true, true, _) => ClipboardHelper::WlCopy,
+        (_, _, true) => ClipboardHelper::Xclip,
+        (true, false, false) => ClipboardHelper::Missing("wl-clipboard"),
+        (false, _, false) => ClipboardHelper::Missing("xclip"),
+    }
+}
+
 fn clipboard_error(e: arboard::Error) -> LensError {
     LensError::Failed(format!("clipboard: {e}"))
 }
@@ -156,13 +174,14 @@ impl DesktopHost {
         if !cfg!(target_os = "linux") || self.long_lived {
             return None;
         }
-        if std::env::var_os("WAYLAND_DISPLAY").is_some() && which("wl-copy").is_some() {
-            return Some(self.pipe_to("wl-copy", &["--type", mime], bytes));
-        }
-        if which("xclip").is_some() {
-            return Some(self.pipe_to("xclip", &["-selection", "clipboard", "-t", mime, "-i"], bytes));
-        }
-        None
+        let wayland = std::env::var_os("WAYLAND_DISPLAY").is_some();
+        Some(match clipboard_helper(wayland, which("wl-copy").is_some(), which("xclip").is_some()) {
+            ClipboardHelper::WlCopy => self.pipe_to("wl-copy", &["--type", mime], bytes),
+            ClipboardHelper::Xclip => self.pipe_to("xclip", &["-selection", "clipboard", "-t", mime, "-i"], bytes),
+            // Without a helper the copy would vanish when this process exits,
+            // after reporting success (LN-2): say what to install instead.
+            ClipboardHelper::Missing(package) => Err(LensError::Failed(format!("Copying needs {package} on this system; install it and try again."))),
+        })
     }
 
     fn with_clipboard<T>(&self, f: impl FnOnce(&mut arboard::Clipboard) -> std::result::Result<T, arboard::Error>) -> Result<T> {
@@ -358,6 +377,17 @@ impl Host for DesktopHost {
 
 #[cfg(test)]
 mod tests {
+
+    /// LN-2: with no helper, a short-lived copy is an error that names the package.
+    #[test]
+    fn a_missing_clipboard_helper_is_named() {
+        assert_eq!(clipboard_helper(true, true, false), ClipboardHelper::WlCopy);
+        assert_eq!(clipboard_helper(true, false, true), ClipboardHelper::Xclip);
+        assert_eq!(clipboard_helper(false, true, true), ClipboardHelper::Xclip);
+        assert_eq!(clipboard_helper(false, false, false), ClipboardHelper::Missing("xclip"));
+        assert_eq!(clipboard_helper(true, false, false), ClipboardHelper::Missing("wl-clipboard"));
+    }
+
     use super::*;
 
     #[test]

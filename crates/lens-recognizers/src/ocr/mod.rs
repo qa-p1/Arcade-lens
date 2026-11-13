@@ -69,7 +69,7 @@ impl Recognizer for OcrRecognizer {
                 }
             }
         }
-        layout.lines.retain(|l| !l.text.trim().is_empty());
+        keep_readable_lines(&mut layout);
         if layout.lines.is_empty() {
             return Ok(vec![]);
         }
@@ -84,4 +84,35 @@ impl Recognizer for OcrRecognizer {
     }
 }
 
+/// Below this mean word confidence a line is noise: the "text" OCR reads off
+/// a QR code's modules or a photo's texture scores 0.0-0.1 (LN-12).
+const MIN_LINE_CONFIDENCE: f32 = 0.2;
+
+/// Drops empty lines and lines OCR itself barely believes.
+fn keep_readable_lines(layout: &mut TextLayout) {
+    layout.lines.retain(|l| {
+        let mean = if l.words.is_empty() { 1.0 } else { l.words.iter().map(|w| w.confidence).sum::<f32>() / l.words.len() as f32 };
+        !l.text.trim().is_empty() && mean >= MIN_LINE_CONFIDENCE
+    });
+}
+
 pub mod tesseract;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lens_core::value::{TextLine, Word};
+
+    fn line(text: &str, confidence: f32) -> TextLine {
+        let r = Rect::new(0, 0, 10, 10);
+        TextLine { text: text.into(), bbox: r, words: vec![Word { text: text.into(), bbox: r, confidence }] }
+    }
+
+    /// LN-12: the junk OCR reads off a QR code is dropped; real text stays.
+    #[test]
+    fn junk_lines_are_dropped_and_real_text_kept() {
+        let mut layout = TextLayout { lines: vec![line("=]k,", 0.05), line("Scan to pay", 0.91), line("Ofzs0", 0.1), line("  ", 0.9)] };
+        keep_readable_lines(&mut layout);
+        assert_eq!(layout.lines.iter().map(|l| l.text.as_str()).collect::<Vec<_>>(), vec!["Scan to pay"]);
+    }
+}

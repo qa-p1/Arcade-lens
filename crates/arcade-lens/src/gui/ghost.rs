@@ -34,7 +34,7 @@ pub struct GuiHost {
 }
 
 fn which(cmd: &str) -> bool {
-    std::env::var_os("PATH").is_some_and(|p| std::env::split_paths(&p).any(|d| d.join(cmd).is_file() || d.join(format!("{cmd}.exe")).is_file()))
+    crate::host::which(cmd).is_some()
 }
 
 pub fn ffmpeg_available() -> bool {

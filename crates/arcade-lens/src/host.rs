@@ -50,9 +50,10 @@ fn clipboard_error(e: arboard::Error) -> LensError {
     LensError::Failed(format!("clipboard: {e}"))
 }
 
-fn which(cmd: &str) -> Option<PathBuf> {
+/// The program `cmd` on PATH (with `.exe` on Windows): the one lookup Lens uses to decide what it can offer.
+pub(crate) fn which(cmd: &str) -> Option<PathBuf> {
     let path = std::env::var_os("PATH")?;
-    std::env::split_paths(&path).map(|d| d.join(cmd)).find(|p| p.is_file())
+    std::env::split_paths(&path).flat_map(|d| [d.join(cmd), d.join(format!("{cmd}.exe"))]).find(|p| p.is_file())
 }
 
 fn spawn(program: &str, args: &[&str]) -> Result<()> {

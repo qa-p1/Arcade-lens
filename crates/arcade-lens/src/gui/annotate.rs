@@ -345,11 +345,17 @@ impl Editor {
             } else if i.consume_key(cmd, egui::Key::Z) {
                 self.undo();
             }
-            if i.consume_key(cmd, egui::Key::C) {
+            let copy_event = super::keys::take_copy(&mut i.events);
+            if i.consume_key(cmd, egui::Key::C) || copy_event {
                 out.push(EditorRequest::Copy(self.export()));
             }
             if i.consume_key(cmd, egui::Key::S) {
                 out.push(EditorRequest::Save(self.export()));
+            }
+            // Escape while typing cancels the text (below); otherwise the editor
+            // is at its top view and Escape closes it (LN-5).
+            if !typing && i.consume_key(egui::Modifiers::NONE, egui::Key::Escape) {
+                self.closed = true;
             }
             if !typing {
                 for (n, t) in Tool::ALL.iter().enumerate() {
@@ -669,6 +675,26 @@ fn draw_mark(p: &egui::Painter, m: &Mark, to_scr: &dyn Fn([f32; 2]) -> Pos2, sca
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn press(ctx: &egui::Context, editor: &mut Editor, key: egui::Key) {
+        let mut input = egui::RawInput::default();
+        input.events.push(egui::Event::Key { key, physical_key: None, pressed: true, repeat: false, modifiers: egui::Modifiers::NONE });
+        let _ = ctx.run(input, |ctx| {
+            editor.ui(ctx);
+        });
+    }
+
+    /// LN-5: Escape at the editor's top view closes it.
+    #[test]
+    fn escape_closes_the_editor_at_its_top_view() {
+        let ctx = egui::Context::default();
+        theme::apply_style(&ctx, "dark");
+        let mut editor = Editor::new(1, Arc::new(RgbaImage::new(40, 30)));
+        press(&ctx, &mut editor, egui::Key::Enter);
+        assert!(!editor.closed);
+        press(&ctx, &mut editor, egui::Key::Escape);
+        assert!(editor.closed);
+    }
 
     #[test]
     fn export_draws_shapes_and_pixelates() {

@@ -922,7 +922,7 @@ impl Overlay {
         let events = ctx.input(|i| i.events.clone());
         let in_text_panel = matches!(self.panel, Panel::Expanded { .. });
         for e in events {
-            let egui::Event::Key { key, pressed: true, modifiers, .. } = e else { continue };
+            let egui::Event::Key { key, pressed: true, modifiers, .. } = super::keys::normalize_copy(e) else { continue };
             if self.job.is_some() && key != Key::Escape {
                 continue;
             }
@@ -931,10 +931,16 @@ impl Overlay {
                     if let Some(job) = &self.job {
                         job.cancel.cancel();
                     }
-                    match self.panel {
+                    // One step back: measuring, then a typed filter (RD-LENS-2),
+                    // then the list, then the overlay.
+                    match &mut self.panel {
                         Panel::Primary if self.measure && self.sel.is_some() => self.measure = false,
                         Panel::Primary => self.close_requested = true,
-                        _ => self.panel = Panel::Primary,
+                        Panel::Expanded { filter, cursor, .. } if !filter.is_empty() => {
+                            filter.clear();
+                            *cursor = 0;
+                        }
+                        panel => *panel = Panel::Primary,
                     }
                     continue;
                 }

@@ -25,7 +25,8 @@ pub enum Solo {
     /// Settings, optionally opened on a section.
     Settings(Option<super::settings_view::Section>),
     History,
-    Pin(PathBuf),
+    /// A pin of the image, and the screen area it came from (for Live refresh).
+    Pin(PathBuf, Option<lens_core::geometry::Rect>),
     Annotate(PathBuf),
     /// Arcade Link `lens.capture`: select once, write the region to the path, exit.
     Pick(PathBuf),
@@ -65,7 +66,13 @@ fn spawn(solo: &Solo) -> Option<Child> {
             &mut cmd
         }
         Solo::History => cmd.arg("history"),
-        Solo::Pin(p) => cmd.arg("pin").arg(p),
+        Solo::Pin(p, origin) => {
+            cmd.arg("pin").arg(p);
+            if let Some(r) = origin {
+                cmd.arg(rect_arg(r));
+            }
+            &mut cmd
+        }
         Solo::Annotate(p) => cmd.arg("annotate").arg(p),
         Solo::Pick(p) => cmd.arg("pick").arg(p),
         Solo::Analyze(p) => cmd.arg("analyze").arg(p),
@@ -74,6 +81,30 @@ fn spawn(solo: &Solo) -> Option<Child> {
 }
 
 /// Opens a window process and reaps it when it exits.
+/// Capture overlays opened for a Link request, which run outside the loop's
+/// `capture` slot; `--status` counts them too (LN-11).
+static LINK_OVERLAYS: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
+
+/// Counts one Link-opened overlay for as long as it lives.
+struct LinkOverlay;
+
+impl LinkOverlay {
+    fn open() -> LinkOverlay {
+        LINK_OVERLAYS.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        LinkOverlay
+    }
+}
+
+impl Drop for LinkOverlay {
+    fn drop(&mut self) {
+        LINK_OVERLAYS.fetch_sub(1, std::sync::atomic::Ordering::SeqCst);
+    }
+}
+
+fn link_overlays_open() -> bool {
+    LINK_OVERLAYS.load(std::sync::atomic::Ordering::SeqCst) > 0
+}
+
 fn spawn_detached(solo: &Solo) -> bool {
     if let Some(mut child) = spawn(solo) {
         std::thread::spawn(move || child.wait());
@@ -88,7 +119,23 @@ fn temp_dir() -> PathBuf {
 }
 
 /// Opens `image` in a new pin or editor process (`kind` is `Solo::Pin` or `Solo::Annotate`).
-pub fn open_image(kind: fn(PathBuf) -> Solo, image: &RgbaImage) -> bool {
+/// `x,y,width,height`, the pin window's origin argument.
+pub fn rect_arg(r: &lens_core::geometry::Rect) -> String {
+    format!("{},{},{},{}", r.x, r.y, r.width, r.height)
+}
+
+pub fn parse_rect_arg(s: &str) -> Option<lens_core::geometry::Rect> {
+    let mut it = s.split(',');
+    let r = lens_core::geometry::Rect {
+        x: it.next()?.parse().ok()?,
+        y: it.next()?.parse().ok()?,
+        width: it.next()?.parse().ok()?,
+        height: it.next()?.parse().ok()?,
+    };
+    it.next().is_none().then_some(r)
+}
+
+pub fn open_image(kind: impl FnOnce(PathBuf) -> Solo, image: &RgbaImage) -> bool {
     let dir = temp_dir();
     let path =
         dir.join(format!("{}-{}.png", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos())));
@@ -214,7 +261,15 @@ impl Shortcut {
 fn link_request(request: crate::link::GuiRequest) -> bool {
     use crate::link::{GuiRequest, PickTarget};
     match request {
-        GuiRequest::Capture { act: true, mode, .. } => return spawn_detached(&Solo::Capture(mode)),
+        GuiRequest::Capture { act: true, mode, .. } => {
+            let Some(mut child) = spawn(&Solo::Capture(mode)) else { return false };
+            let open = LinkOverlay::open();
+            std::thread::spawn(move || {
+                let _open = open;
+                child.wait()
+            });
+            return true;
+        }
         GuiRequest::Capture { target: PickTarget::Reply(reply), .. } => {
             if !reply.is_pending() {
                 return true;
@@ -226,7 +281,9 @@ fn link_request(request: crate::link::GuiRequest) -> bool {
             ));
             let _ = std::fs::create_dir_all(temp_dir());
             let Some(mut child) = spawn(&Solo::Pick(out.clone())) else { return false };
+            let open = LinkOverlay::open();
             std::thread::spawn(move || {
+                let _open = open;
                 // Only a pending picker needs this worker. Cancellation
                 // releases its sender immediately and stops this child.
                 while reply.is_pending() {
@@ -249,13 +306,17 @@ fn link_request(request: crate::link::GuiRequest) -> bool {
         GuiRequest::CancelCapture(_) => {} // the picker worker observes the released sender
         GuiRequest::Capture { target: PickTarget::File(_), .. } => return false,
         GuiRequest::Analyze(image) => return open_image(Solo::Analyze, &image),
-        GuiRequest::Pin(image) => return open_image(Solo::Pin, &image),
+        GuiRequest::Pin(image) => return open_image(|p| Solo::Pin(p, None), &image),
     }
     true
 }
 
 /// Starts `solo`, or brings the previous one to the front if it is still open.
 fn open_once(slot: &mut Option<Child>, solo: &Solo) {
+    open_once_with(slot, || spawn(solo));
+}
+
+fn open_once_with(slot: &mut Option<Child>, start: impl FnOnce() -> Option<Child>) {
     if let Some(c) = slot {
         if matches!(c.try_wait(), Ok(None)) {
             if hyprland::active() {
@@ -264,7 +325,15 @@ fn open_once(slot: &mut Option<Child>, solo: &Solo) {
             return;
         }
     }
-    *slot = spawn(solo);
+    *slot = start();
+}
+
+/// Forgets a window process that has exited; `try_wait` reaps it, so a
+/// closed Settings or History window leaves no zombie (LN-3).
+fn reap_exited(slot: &mut Option<Child>) {
+    if slot.as_mut().is_some_and(|c| !matches!(c.try_wait(), Ok(None))) {
+        *slot = None;
+    }
 }
 
 fn close_child(slot: &mut Option<Child>) {
@@ -287,6 +356,8 @@ enum Cmd {
     /// peer to finish a handed-off action; it no longer counts as the capture.
     Detach(u32),
     Hub(Trigger),
+    /// Every 2 s: reap window processes that have exited.
+    Tick,
 }
 
 /// The background instance: IPC, the shortcut and the tray icon, no window.
@@ -294,6 +365,14 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
     use arcade_link::trayhost::TrayState;
     let background = initial.is_none();
     let (tx, rx) = mpsc::channel::<Cmd>();
+    {
+        let tick = tx.clone();
+        std::thread::spawn(move || {
+            while tick.send(Cmd::Tick).is_ok() {
+                std::thread::sleep(std::time::Duration::from_secs(2));
+            }
+        });
+    }
     let t = std::sync::Mutex::new(tx.clone());
     lens_platform::ipc::serve(&paths.endpoint(), move |cmd| {
         let send = |c: Cmd| t.lock().unwrap_or_else(|e| e.into_inner()).send(c).is_ok();
@@ -381,14 +460,18 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
     let mut finishing: Vec<Child> = Vec::new();
     for cmd in rx {
         finishing.retain_mut(|c| matches!(c.try_wait(), Ok(None)));
+        for slot in [&mut capture, &mut settings_window, &mut history_window] {
+            reap_exited(slot);
+        }
         match cmd {
+            Cmd::Tick => {}
             Cmd::Detach(pid) => {
                 if capture.as_ref().is_some_and(|c| c.id() == pid) {
                     finishing.extend(capture.take());
                 }
             }
             Cmd::Status(reply) => {
-                let open = capture.as_mut().is_some_and(|c: &mut Child| matches!(c.try_wait(), Ok(None)));
+                let open = capture.as_mut().is_some_and(|c: &mut Child| matches!(c.try_wait(), Ok(None))) || link_overlays_open();
                 let _ = reply.send(super::status_json(paths, true, open));
             }
             Cmd::SettingsAt(section) => {
@@ -490,6 +573,26 @@ pub fn daemon(paths: &Paths, initial: Option<Trigger>) -> Result<(), String> {
 
 #[cfg(test)]
 mod tests {
+
+    /// LN-11: an overlay opened for a Link request counts while it is open.
+    #[test]
+    fn link_overlays_count_while_open() {
+        let before = LINK_OVERLAYS.load(std::sync::atomic::Ordering::SeqCst);
+        let open = LinkOverlay::open();
+        assert!(link_overlays_open());
+        drop(open);
+        assert_eq!(LINK_OVERLAYS.load(std::sync::atomic::Ordering::SeqCst), before);
+    }
+
+    /// LN-7: a pin's origin survives the trip to its own process.
+    #[test]
+    fn a_pin_origin_round_trips_through_its_argument() {
+        let r = lens_core::geometry::Rect { x: -1920, y: 40, width: 300, height: 200 };
+        assert_eq!(parse_rect_arg(&rect_arg(&r)), Some(r));
+        assert_eq!(parse_rect_arg("1,2,3"), None);
+        assert_eq!(parse_rect_arg("1,2,3,4,5"), None);
+    }
+
     use super::*;
 
     #[test]
@@ -502,5 +605,27 @@ mod tests {
         }
         // Every rule is scoped to Lens's own app id (Lua sees `\.`).
         assert_eq!(rules.matches(r#"class = "^(dev\\.arcade\\.Lens)$""#).count(), WINDOW_RULES.len());
+    }
+
+    #[cfg(target_os = "linux")]
+    fn zombie(pid: u32) -> bool {
+        std::fs::read_to_string(format!("/proc/{pid}/stat")).is_ok_and(|s| s.rsplit(") ").next().is_some_and(|rest| rest.starts_with('Z')))
+    }
+
+    #[cfg(target_os = "linux")]
+    // LN-3 / BP-6
+    #[test]
+    fn closed_windows_leave_no_zombies_after_20_cycles() {
+        let mut slot: Option<Child> = None;
+        let mut pids = Vec::new();
+        for _ in 0..20 {
+            open_once_with(&mut slot, || Command::new("sh").args(["-c", "exit 0"]).spawn().ok());
+            pids.push(slot.as_ref().map(Child::id).unwrap());
+            std::thread::sleep(std::time::Duration::from_millis(30));
+        }
+        std::thread::sleep(std::time::Duration::from_millis(300));
+        reap_exited(&mut slot); // the daemon's 2 s tick
+        let zombies: Vec<u32> = pids.into_iter().filter(|p| zombie(*p)).collect();
+        assert!(zombies.is_empty(), "zombie children left behind: {zombies:?}");
     }
 }

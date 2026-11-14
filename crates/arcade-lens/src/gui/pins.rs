@@ -133,7 +133,9 @@ impl Pin {
         if resp.drag_started() {
             ctx.send_viewport_cmd(ViewportCommand::StartDrag);
         }
-        if resp.double_clicked() || ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+        // Escape with the menu open closes only the menu (RD-LENS-3).
+        let escape = ctx.input(|i| i.key_pressed(egui::Key::Escape)) && !egui::Popup::is_any_open(&ctx);
+        if resp.double_clicked() || escape {
             self.closed = true;
         }
         let (scroll, ctrl) = ctx.input(|i| (i.smooth_scroll_delta.y, i.modifiers.ctrl || i.modifiers.command));
@@ -299,6 +301,14 @@ pub struct Recording {
     pub title: String,
 }
 
+/// A recording never outlives the Lens process that started it: ffmpeg is
+/// stopped when the recording is dropped (LN-6, the orphan recorder).
+impl Drop for Recording {
+    fn drop(&mut self) {
+        self.finish();
+    }
+}
+
 impl Recording {
     pub fn start(window: &lens_core::selection::WindowInfo, dir: &std::path::Path) -> Result<Recording, String> {
         std::fs::create_dir_all(dir).map_err(|e| e.to_string())?;
@@ -322,19 +332,28 @@ impl Recording {
 
     /// Asks ffmpeg to finish the file cleanly.
     pub fn stop(mut self) -> std::path::PathBuf {
+        self.finish();
+        self.path.clone()
+    }
+
+    /// Ends ffmpeg ('q', then a kill after 5 s) and reaps it. Idempotent.
+    fn finish(&mut self) {
         use std::io::Write;
+        if !matches!(self.child.try_wait(), Ok(None)) {
+            return;
+        }
         if let Some(stdin) = self.child.stdin.as_mut() {
             let _ = stdin.write_all(b"q");
         }
         let deadline = Instant::now() + Duration::from_secs(5);
         while Instant::now() < deadline {
-            if let Ok(Some(_)) = self.child.try_wait() {
-                return self.path;
+            if !matches!(self.child.try_wait(), Ok(None)) {
+                return;
             }
             std::thread::sleep(Duration::from_millis(50));
         }
         let _ = self.child.kill();
-        self.path
+        let _ = self.child.wait();
     }
 
     pub fn ui(&self, ui: &mut egui::Ui) -> bool {
@@ -356,5 +375,19 @@ impl Recording {
             });
         });
         stop
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+mod tests {
+    use super::*;
+
+    /// LN-6: dropping a recording ends its recorder; nothing is left behind.
+    #[test]
+    fn a_dropped_recording_leaves_no_recorder() {
+        let child = std::process::Command::new("sh").args(["-c", "head -c1 >/dev/null"]).stdin(std::process::Stdio::piped()).spawn().unwrap();
+        let pid = child.id();
+        drop(Recording { child, path: "unused.mp4".into(), started: Instant::now(), title: String::new() });
+        assert!(!std::path::Path::new(&format!("/proc/{pid}")).exists(), "the recorder (pid {pid}) is still there");
     }
 }

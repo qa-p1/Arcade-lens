@@ -12,6 +12,7 @@ pub mod geometry;
 pub mod ghost;
 pub mod glyphs;
 pub mod history;
+pub mod keys;
 pub mod measure;
 pub mod overlay;
 pub mod panels;
@@ -91,7 +92,8 @@ impl AppState {
 
     fn add_pin(&mut self, image: Arc<RgbaImage>, origin: Option<lens_core::geometry::Rect>) {
         if self.solo {
-            wayland::open_image(wayland::Solo::Pin, &image);
+            // The pin's own process gets the origin too, so X11 pins keep Live (LN-7).
+            wayland::open_image(|p| wayland::Solo::Pin(p, origin), &image);
             return;
         }
         let scale = origin
@@ -186,11 +188,9 @@ struct LensApp {
     /// was mapped); requests continue only briefly after it, for window
     /// managers that settle focus a moment later.
     focus_granted: Option<Instant>,
-    /// Some Lens window had focus during this capture; losing it closes the
-    /// overlay (STANDARD: overlays close when they lose focus).
+    /// Some Lens window had focus during this capture, so Lens stops asking
+    /// for it. Losing focus never closes the overlay (fleet popup rule, D5).
     overlay_had_focus: bool,
-    /// When every Lens window lost focus, while the overlay is up.
-    overlay_unfocused_since: Option<Instant>,
     hidden_once: bool,
     waking: bool,
     registered: std::collections::HashSet<ViewportId>,
@@ -397,7 +397,6 @@ impl LensApp {
         self.shown_at = Instant::now();
         self.focus_granted = None;
         self.overlay_had_focus = false;
-        self.overlay_unfocused_since = None;
         self.activity = true;
         crate::lens_debug!("overlay shown on {} ({:?})", m.name, m.rect);
     }
@@ -641,39 +640,14 @@ impl LensApp {
         st.overlay.is_some() || !st.pins.is_empty() || !st.editors.is_empty() || st.settings.is_some() || st.history.is_some() || st.recording.is_some()
     }
 
-    /// Closes the capture once it has had focus and then no Lens window has
-    /// focus for `FOCUS_GRACE`, as Esc does. The grace absorbs the focus
-    /// hand-offs while the overlay is placed; clicks on another monitor's
-    /// overlay, a pin or Settings keep focus inside Lens, so they never close
-    /// it. No polling: focus changes wake egui, and the only extra repaint is
-    /// the one at the end of the grace.
-    fn close_overlay_on_focus_loss(&mut self, ctx: &egui::Context) {
-        const FOCUS_GRACE: Duration = Duration::from_millis(300);
+    /// Notes that the overlay has had focus (LN-4: only Escape, an action, the
+    /// shortcut or `--hide` close it; a focus change never does).
+    fn track_overlay_focus(&mut self, ctx: &egui::Context) {
         let up = (self.solo || self.root_visible) && self.state.lock().unwrap().overlay.as_ref().is_some_and(|ov| !ov.close_requested);
         if !up {
             self.overlay_had_focus = false;
-            self.overlay_unfocused_since = None;
-            return;
-        }
-        let focused = ctx.input(|i| i.raw.viewports.values().any(|v| v.focused == Some(true)));
-        if focused {
+        } else if ctx.input(|i| i.raw.viewports.values().any(|v| v.focused == Some(true))) {
             self.overlay_had_focus = true;
-            self.overlay_unfocused_since = None;
-            return;
-        }
-        if !self.overlay_had_focus {
-            return;
-        }
-        let since = *self.overlay_unfocused_since.get_or_insert_with(Instant::now);
-        let left = FOCUS_GRACE.saturating_sub(since.elapsed());
-        if !left.is_zero() {
-            ctx.request_repaint_after(left);
-            return;
-        }
-        crate::lens_debug!("overlay lost focus; closing");
-        self.overlay_unfocused_since = None;
-        if let Some(ov) = &mut self.state.lock().unwrap().overlay {
-            ov.close_requested = true;
         }
     }
 
@@ -825,7 +799,7 @@ impl LensApp {
         // Ask for focus until a request takes effect (X refuses focus until the
         // window is mapped, which a loaded machine can delay by seconds), then
         // for a moment more while a window manager settles focus. After that,
-        // losing focus closes the capture instead of taking focus back.
+        // losing focus leaves the capture open and Lens does not take focus back.
         const FOCUS_GIVE_UP: Duration = Duration::from_secs(15);
         const FOCUS_SETTLE: Duration = Duration::from_secs(1);
         let asking = self.focus_granted.map_or(self.shown_at.elapsed() < FOCUS_GIVE_UP, |t| t.elapsed() < FOCUS_SETTLE);
@@ -855,7 +829,7 @@ impl LensApp {
             self.focus_pending = false;
         }
 
-        self.close_overlay_on_focus_loss(&ctx);
+        self.track_overlay_focus(&ctx);
 
         // Root window: the overlay for the monitor under the pointer.
         let mut close_overlay = false;
@@ -1299,7 +1273,7 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
     };
     crate::lens_debug!("captured after {:?}", started.elapsed());
     let image = match &solo {
-        Solo::Pin(p) | Solo::Annotate(p) => Some(Arc::new(wayland::load_image(p)?)),
+        Solo::Pin(p, _) | Solo::Annotate(p) => Some(Arc::new(wayland::load_image(p)?)),
         _ => None,
     };
     let rt = Arc::new(loading.join().map_err(|_| "Couldn't load settings.".to_string())??);
@@ -1336,7 +1310,7 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
         }
         Solo::Settings(_) => geometry::builder("settings", settings_view::SettingsView::builder(), &rt.paths.data),
         Solo::History => geometry::builder("history", history::HistoryView::builder(), &rt.paths.data),
-        Solo::Pin(_) => pins::Pin::new(0, image.clone().unwrap(), None, 1.0).builder(),
+        Solo::Pin(_, origin) => pins::Pin::new(0, image.clone().unwrap(), *origin, 1.0).builder(),
         Solo::Annotate(_) => annotate::Editor::new(0, image.clone().unwrap()).builder(),
     };
     let mode = Mode { daemon: false, one_shot: true, solo: true, fullscreen };
@@ -1367,9 +1341,9 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
             st.settings = Some(view);
         }
         Solo::History => st.history = Some(history::HistoryView::new(st.env.rt.paths.history())),
-        Solo::Pin(_) => {
+        Solo::Pin(_, origin) => {
             let id = st.id();
-            st.pins.push(pins::Pin::new(id, image.unwrap(), None, 1.0));
+            st.pins.push(pins::Pin::new(id, image.unwrap(), origin, 1.0));
         }
         Solo::Annotate(_) => {
             let id = st.id();
@@ -1477,7 +1451,6 @@ fn start_app(
                 shown_at: Instant::now(),
                 focus_granted: None,
                 overlay_had_focus: false,
-                overlay_unfocused_since: None,
                 hidden_once: false,
                 waking: false,
                 registered: Default::default(),

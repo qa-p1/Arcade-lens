@@ -217,9 +217,15 @@ fn run(paths: AppPaths, mode: Mode) -> Result<Outcome, String> {
     eframe::run_native(
         title,
         options,
-        Box::new(move |_cc| {
+        Box::new(move |cc| {
+            // Fonts installed inside a frame bind only from the next one, and the
+            // first frame already uses "Arcade Semibold": install them before it
+            // (LN-1, the fresh-profile panic).
+            let appearance = crate::config::load_settings(&paths).unwrap_or_default().appearance;
+            crate::gui::theme::apply_style(&cc.egui_ctx, appearance.as_str());
+            let appearance = Some((appearance, std::time::Instant::now()));
             let (tx, rx) = mpsc::channel();
-            Ok(Box::new(Dialog { paths, mode, result, tx, rx, busy: false, error: None, completed: None, legacy, toast: None, appearance: None }))
+            Ok(Box::new(Dialog { paths, mode, result, tx, rx, busy: false, error: None, completed: None, legacy, toast: None, appearance }))
         }),
     )
     .map_err(|e| e.to_string())?;

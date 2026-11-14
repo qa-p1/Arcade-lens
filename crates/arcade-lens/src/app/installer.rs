@@ -227,8 +227,12 @@ pub fn dismiss(paths: &Paths, path: &Path) -> io::Result<()> {
 
 /// Only AppImages and first-run macOS bundles prompt. The checks before the
 /// platform-specific discovery are cheap and keep normal startup untouched.
-pub fn automatic_prompt(paths: &Paths, args: &[String], environment: &Environment, runtime: &Runtime) -> io::Result<Option<(Detection, DialogState)>> {
+/// Commands that never open a window, or open one only inside a running Lens,
+/// so they must not raise the first-run install dialog.
+fn skips_prompt(args: &[String]) -> bool {
     const SKIP: &[&str] = &[
+        "--status",
+        "--hide",
         "--background",
         "--arcade-invoke",
         "--arcade-manifest",
@@ -245,7 +249,11 @@ pub fn automatic_prompt(paths: &Paths, args: &[String], environment: &Environmen
         "--help",
         "-h",
     ];
-    if std::env::var("ARCADE_NO_INSTALL_PROMPT").as_deref() == Ok("1") || args.iter().any(|a| SKIP.contains(&a.split('=').next().unwrap_or(a))) {
+    args.iter().any(|a| SKIP.contains(&a.split('=').next().unwrap_or(a)))
+}
+
+pub fn automatic_prompt(paths: &Paths, args: &[String], environment: &Environment, runtime: &Runtime) -> io::Result<Option<(Detection, DialogState)>> {
+    if std::env::var("ARCADE_NO_INSTALL_PROMPT").as_deref() == Ok("1") || skips_prompt(args) {
         return Ok(None);
     }
     #[cfg(target_os = "linux")]
@@ -811,5 +819,27 @@ mod bundle_destination_tests {
         assert!(bundle_destination(&environment, Some(&receipt), name).is_err());
         receipt.path = Path::new("/Applications/Other.app").into();
         assert!(bundle_destination(&environment, Some(&receipt), name).is_err());
+    }
+
+    fn args(list: &[&str]) -> Vec<String> {
+        list.iter().map(|a| a.to_string()).collect()
+    }
+
+    // LN-1
+    #[test]
+    fn status_and_hide_never_raise_the_install_dialog() {
+        for command in ["--status", "--hide"] {
+            assert!(skips_prompt(&args(&[command])), "{command} would open the first-run dialog");
+        }
+    }
+
+    #[test]
+    fn windowless_commands_skip_the_install_dialog() {
+        for command in ["--background", "--version", "--help", "--quit", "--restart", "--arcade-manifest", "--window", "--install=x"] {
+            assert!(skips_prompt(&args(&[command])), "{command}");
+        }
+        for command in ["--capture", "--settings", "--toggle"] {
+            assert!(!skips_prompt(&args(&[command])), "{command}");
+        }
     }
 }

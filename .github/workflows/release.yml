@@ -4,8 +4,9 @@
 #
 #   beta    on main: a private draft prerelease v<version>-beta.<run>, to check
 #           a release before tagging. Nothing public changes.
-#   nightly on main: refreshes the rolling "nightly" prerelease (Tools' nightly
-#           channel).
+#   nightly on main: a prerelease v<version>-nightly.<YYYYMMDD>.<run>, the fleet's
+#           nightly tag that Tools' nightly channel lists (a tag named just
+#           "nightly" is not one it reads).
 #   stable  on the tag tag.yml made (v<version>): the latest release.
 name: Release
 
@@ -49,7 +50,7 @@ jobs:
               tag="v$version-beta.$GITHUB_RUN_NUMBER" label="$version-beta.$GITHUB_RUN_NUMBER" ;;
             nightly)
               [ "$GITHUB_REF" = refs/heads/main ] || { echo "Nightly runs on main"; exit 1; }
-              tag=nightly label="$version-dev.${GITHUB_SHA::7}" ;;
+              label="$version-nightly.$(date -u +%Y%m%d).$GITHUB_RUN_NUMBER" tag="v$label" ;;
             *) echo "Unknown channel $CHANNEL"; exit 1 ;;
           esac
           echo "tag=$tag label=$label version=$version"
@@ -115,7 +116,7 @@ jobs:
           ls -l dist
       - name: Release notes
         run: |
-          prev=$(git tag --list 'v*' --sort=-v:refname | grep -vx "$TAG" | grep -v -- '-beta\.' | head -1 || true)
+          prev=$(git tag --list 'v*' --sort=-v:refname | grep -vx "$TAG" | grep -v -e '-beta\.' -e '-nightly\.' | head -1 || true)
           packaging/release-notes.sh "$TAG" "$LABEL" "$prev" > "$RUNNER_TEMP/notes.md"
       - name: Publish beta draft
         if: env.CHANNEL == 'beta'
@@ -127,17 +128,8 @@ jobs:
         run: |
           gh release create "$TAG" dist/* --verify-tag --latest \
             --title "Arcade Lens $VERSION" --notes-file "$RUNNER_TEMP/notes.md"
-      - name: Refresh the nightly prerelease
+      - name: Publish nightly prerelease
         if: env.CHANNEL == 'nightly'
         run: |
-          if gh release view nightly > /dev/null 2>&1; then
-            gh api -X PATCH "repos/$GH_REPO/git/refs/tags/nightly" -f sha="$GITHUB_SHA" -F force=true > /dev/null
-            gh release view nightly --json assets --jq '.assets[].name' | while read -r name; do
-              gh release delete-asset nightly "$name" --yes
-            done
-            gh release upload nightly dist/*
-            gh release edit nightly --prerelease --latest=false --title "Nightly ($LABEL)" --notes-file "$RUNNER_TEMP/notes.md"
-          else
-            gh release create nightly dist/* --target "$GITHUB_SHA" --prerelease --latest=false \
-              --title "Nightly ($LABEL)" --notes-file "$RUNNER_TEMP/notes.md"
-          fi
+          gh release create "$TAG" dist/* --target "$GITHUB_SHA" --prerelease --latest=false \
+            --title "Arcade Lens $LABEL" --notes-file "$RUNNER_TEMP/notes.md"

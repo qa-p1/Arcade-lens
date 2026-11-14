@@ -17,6 +17,10 @@ static PHONE: LazyLock<Regex> =
 static PHONE_CONTEXT: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"(?i)\b(?:phone|tel|telephone|call|mobile|mob|cell|ph|whatsapp|fax|contact)\b[.:]?\s*$").unwrap());
 
+/// An IBAN (country code, check digits, then groups): its digit groups are
+/// not a phone number (LN-13).
+static IBAN: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){2,7}(?: ?[A-Z0-9]{1,3})?\b").unwrap());
+
 pub fn emails(text: &str) -> Vec<Range<usize>> {
     let urls: Vec<_> = url::find(text).into_iter().map(|(r, _)| r).collect();
     EMAIL
@@ -37,9 +41,10 @@ pub fn detect(input: &TextInput, _cx: &RecognizeContext) -> Vec<Detection> {
         let domain = email.rsplit('@').next().unwrap_or_default().to_ascii_lowercase();
         out.push(Detection::new(caps::EMAIL, Value::Email(email.to_string())).span(r.clone()).confidence(0.95).detail("Domain", domain));
     }
+    let iban_ranges: Vec<_> = IBAN.find_iter(text).map(|m| m.range()).collect();
     for m in PHONE.find_iter(text) {
         let r = m.range();
-        if email_ranges.iter().any(|e| overlaps(e, &r)) {
+        if email_ranges.iter().chain(&iban_ranges).any(|e| overlaps(e, &r)) {
             continue;
         }
         if let Some((value, confidence)) = phone(text, r.clone()) {
@@ -129,7 +134,18 @@ mod tests {
 
     #[test]
     fn not_phones() {
-        for t in ["192.168.1.34", "2024-03-05", "05.03.2024", "$1234567", "version 1.2.3", "Total: 12345", "ID 1234567", "3.14159265"] {
+        for t in [
+            "192.168.1.34",
+            "2024-03-05",
+            "05.03.2024",
+            "$1234567",
+            "version 1.2.3",
+            "Total: 12345",
+            "ID 1234567",
+            "3.14159265",
+            "IBAN GB82 WEST 1234 5698 7654 32",
+            "DE89370400440532013000",
+        ] {
             assert!(caps_of(t).iter().all(|(c, _)| c != "phone"), "{t}");
         }
     }

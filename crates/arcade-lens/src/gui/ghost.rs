@@ -58,7 +58,9 @@ impl GuiHost {
         settings: Arc<lens_core::Settings>,
     ) -> Self {
         let mut f = desktop.features() | HostFeatures::PIN | HostFeatures::ANNOTATE | HostFeatures::MEASURE | lens_platform::window_features();
-        if ffmpeg_available() {
+        // x11grab records X11 (and Windows' gdigrab); a Wayland session has no
+        // window list or grab for it, so the action is not offered there (LN-6).
+        if ffmpeg_available() && std::env::var_os("WAYLAND_DISPLAY").is_none() {
             f |= HostFeatures::RECORD_WINDOW;
         }
         if which("kdeconnect-cli") {

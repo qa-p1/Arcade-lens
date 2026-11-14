@@ -124,7 +124,7 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--id", required=True, help="canonical app ID, e.g. arcade.look")
     p.add_argument("--version", required=True, help="release version without the leading v")
-    p.add_argument("--channel", default="stable", choices=["stable", "nightly"])
+    p.add_argument("--channel", default="stable", choices=["stable", "nightly", "test"])
     p.add_argument("--notes", required=True, help="release notes URL")
     p.add_argument("--windows-installer", default="nsis", choices=["nsis", "inno"],
                    help="installer technology of *.exe assets")

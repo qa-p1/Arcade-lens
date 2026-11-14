@@ -1,5 +1,13 @@
 # Lens 1.0 progress (newest first)
 
+## 2026-11-14 - steps 2 and 6 (cloud session, branch `claude/sharp-cori-29w5eg`)
+- Step 6 (`343a0cc`): releases are rc-only through Link `app-publish` on the hidden `test` channel; `promote.yml`
+  makes stable from a verified rc byte for byte; `nightly.yml` republishes main CI's packages. Inno kept.
+- Step 2 (`0b39213`, merged in): one PATH lookup. `host::which` also finds `<cmd>.exe`, and the ghost host's copy
+  delegates to it, so the GUI and the host agree on what Lens can offer.
+- Tested: `cargo +1.88.0 clippy --workspace --all-targets -D warnings`, `cargo +1.88.0 test --workspace`. The PR
+  opens once Link v1.0.8 is tagged (the release workflows pin it).
+
 ## 2026-11-13 - steps 1 and 3: every P0 and P1 fixed (PR #17)
 - `11a9332` behaviour locks; each fix below flips its lock or adds a test that failed before.
 - P0: `34e97e3` + `0a8d14b` LN-1 (`--status`/`--hide` skip the install dialog; its fonts load before the first

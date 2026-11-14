@@ -27,7 +27,8 @@
     "channel": {
       "enum": [
         "stable",
-        "nightly"
+        "nightly",
+        "test"
       ]
     },
     "linkProtocol": {

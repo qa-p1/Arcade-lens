@@ -1,8 +1,8 @@
 # Vendored Arcade Link assets
 
 Shared installer, release, shortcut and protocol assets are copied unchanged
-from [Arcade Link](https://github.com/qa-p1/Arcade-Link/tree/v0.4.14) tag `v0.4.14` (commit
-`b08c391de1bfc9a15c7f01b3c17911dd42a1f6e5`), the tag Cargo.toml pins. License: MIT OR Apache-2.0.
+from [Arcade Link](https://github.com/qa-p1/Arcade-Link/tree/v1.0.7) tag `v1.0.7` (commit
+`40ec0279095f7a5082b0fbe2912d1a869b98f55d`), the tag Cargo.toml pins. License: MIT OR Apache-2.0.
 Run `python3 scripts/check-vendored.py` to verify the SHA-256 inventory.
 Refresh the source pin and hashes together.
 
@@ -49,11 +49,11 @@ c465b26a2dc16802573def0390bf00b4a33d58e78c98e7ce60023d18b68fc8dc  crates/lens-ac
 2b2a8b699dc1e6c81c02bb9ad9be1ddf2f8a5447541eb1dfe886056aa5dc4fd6  packaging/windows/arcade-integration.ps1
 fe152028ff674fdacdef4aed8970bb0a7afeb2dd67d2a3af075d7d95683bf96b  packaging/windows/arcade.iss
 1f548b420bc08b479d6c65801a208aa67dc80fef851b5e2a49696d307562831e  packaging/windows/arcade.nsh
-8f360855419930730c486d0978acaecf7a8179cc063465c9f8324878dcf6c2fd  scripts/arcade-release.py
+f7ee3aaaa84c1023adc4e564427e0a03b84167455c34d0dae5580795d36e33f8  scripts/arcade-release.py
 58d78ac6a7b5d129bac4509e59f50fedb9db8c1fd2247431726bc8768776439a  scripts/test_arcade_release.py
 8e616c4585084906a4976b207b4cb657c26ab05388e78fc3cdd79df942689dae  scripts/test_validate_shortcuts.py
 3b5d2981ab87fdf07437daa294dce825d59b63580430e9ffa2b58e87d5d72cf0  scripts/validate_shortcuts.py
-b3f4fffd8929a6a9449947b303b9e07171de8a5820d576f2d47b002944a00624  spec/arcade-release.schema.json
+011f5d91fd4c15fc821633058a880fa464bfe73832ee795c4783a222a29da793  spec/arcade-release.schema.json
 bf510b32071cd2883cee1e258afbd3bcf51fd6eb92f07e8a58cc117686546e07  spec/receipt.schema.json
 68e8ed4c5adae97895b215813f5a528b53f2b720bb428112e94ab35489269a1a  spec/shortcuts.schema.json
 67d0d5a86e8d9f953c2cf779136c790bdd62d7983fa12d36a65c446e12b246ec  spec/vectors/accelerators.json
@@ -61,7 +61,7 @@ a3c5796e067e4e0d71dad453e1be141a873b0999cba6fe9616c866be0906e2e5  spec/vectors/m
 aebde82ca97adebe6c4fdd5d0dea338d1134db5ccddf0678ec4cb6d836f94198  spec/vectors/receipts.json
 2691d5b60314b7060bac5c219ada25edbfdc30829ea8a22d7496714afe2d4cc5  spec/vectors/shortcuts.json
 4e1ce6155a2fbff13cfb5878ed66ee691843ecc36b631693914d5d893b2e8204  spec/vectors/trayhost.json
-8f360855419930730c486d0978acaecf7a8179cc063465c9f8324878dcf6c2fd  tools/arcade-release.py
+f7ee3aaaa84c1023adc4e564427e0a03b84167455c34d0dae5580795d36e33f8  tools/arcade-release.py
 58d78ac6a7b5d129bac4509e59f50fedb9db8c1fd2247431726bc8768776439a  tools/test_arcade_release.py
 8e616c4585084906a4976b207b4cb657c26ab05388e78fc3cdd79df942689dae  tools/test_validate_shortcuts.py
 3b5d2981ab87fdf07437daa294dce825d59b63580430e9ffa2b58e87d5d72cf0  tools/validate_shortcuts.py
@@ -69,8 +69,8 @@ aebde82ca97adebe6c4fdd5d0dea338d1134db5ccddf0678ec4cb6d836f94198  spec/vectors/r
 
 ## Arcade design kit
 
-Copied unchanged from [Arcade Link](https://github.com/qa-p1/Arcade-Link/tree/v0.4.14) tag `v0.4.14` (commit
-`b08c391de1bfc9a15c7f01b3c17911dd42a1f6e5`) by `scripts/sync-design`; never edit these files here.
+Copied unchanged from [Arcade Link](https://github.com/qa-p1/Arcade-Link/tree/v1.0.7) tag `v1.0.7` (commit
+`40ec0279095f7a5082b0fbe2912d1a869b98f55d`) by `scripts/sync-design`; never edit these files here.
 License: MIT OR Apache-2.0.
 
 ```text

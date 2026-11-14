@@ -1,0 +1,30 @@
+# Nightly: main CI's already-tested installers as a signed prerelease vX.Y.Z-nightly.YYYYMMDD.N, with no rebuild.
+# Skipped when main hasn't changed or its CI isn't green.
+name: Nightly
+on:
+  schedule: [{ cron: "37 4 * * *" }]
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  version:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - uses: actions/checkout@v7
+      - id: v
+        run: echo "version=$(python3 scripts/check-version.py)" >> "$GITHUB_OUTPUT"
+  nightly:
+    needs: version
+    uses: qa-p1/Arcade-Link/.github/workflows/app-nightly.yml@v1.0.8
+    with:
+      app: arcade.lens
+      version: ${{ needs.version.outputs.version }}
+      artifacts: "*-*"
+      windows-installer: inno
+      link-ref: v1.0.8
+    secrets:
+      ARCADE_UPDATE_SIGNING_KEY: ${{ secrets.ARCADE_UPDATE_SIGNING_KEY }}

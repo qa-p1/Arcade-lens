@@ -41,6 +41,9 @@ jobs:
         with:
           components: clippy, rustfmt
       - uses: Swatinem/rust-cache@v2
+        with:
+          # Saved only on main (Link spec §4): caches from pull requests crowded main's out of the 10 GB.
+          save-if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
       - name: Linux build dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libxkbcommon-dev libwayland-dev
@@ -84,6 +87,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: release
+          # Saved only on main (Link spec §4): caches from pull requests crowded main's out of the 10 GB.
+          save-if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
       - run: python3 scripts/package.py --label "${{ needs.version.outputs.label }}"
       - name: Verify AppImage install, repair and uninstall in a temporary profile
         run: |
@@ -116,6 +121,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: release
+          # Saved only on main (Link spec §4): caches from pull requests crowded main's out of the 10 GB.
+          save-if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
       - name: Inno Setup
         shell: pwsh
         run: |
@@ -146,6 +153,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: release
+          # Saved only on main (Link spec §4): caches from pull requests crowded main's out of the 10 GB.
+          save-if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
       - run: python3 scripts/package.py --label "${{ needs.version.outputs.label }}"
       - name: Minimum macOS of each slice
         run: |

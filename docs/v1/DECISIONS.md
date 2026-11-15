@@ -15,3 +15,32 @@
   ecosystem e2e published the main AppImage as a stable release for Tools' catalog-bundle and update checks, and
   Tools rightly refused a prerelease tag on the stable channel ("No stable release is published", Link e2e run
   42988304697, three checks). Release builds still get their label from the release workflow (rc, nightly).
+- D7. Dead code (step 4): only what no tool or search can find a user for was removed; everything else stays, with
+  the reason below. Tools: `cargo machete` (no unused dependency), rustc `dead_code` through clippy with
+  `-D warnings` (clean before and after), and, because rustc cannot judge `pub` items in library crates, a
+  throwaway build with every `pub` item of one library crate narrowed to `pub(crate)`, items the other crates
+  need restored from the compiler's privacy errors, and the remaining `dead_code` warnings checked by grep over
+  crates, tests, examples, scripts, packaging, CI and docs.
+  - Removed, no reference anywhere: lens-core `ActionRef`, `Analysis::cancel_token`, `Engine::settings`,
+    `Registry::plugins`, `DateTimeValue::is_ambiguous`, `Host::share_text` (trait default, `RecordingHost`
+    override and `HostCall::ShareText`; no host implements or calls it); lens-core `Rect::is_empty`;
+    lens-recognizers `units::find_unit` and `register` (only a rustdoc link named it; `register_builtins` is what
+    Lens calls); lens-platform `Shortcuts::current_id`.
+  - Removed, referenced only by its own unit test: lens-core `geometry::monitor_for` (the app picks monitors in
+    arcade-lens `gui/geometry.rs`); the test keeps its `Rect::to_logical` assertion.
+  - `allow(dead_code)` on `autostart::write_if_changed` became the `cfg` its callers have (linux, macos).
+  - `[dev-dependencies]` entries that repeated a normal dependency (lens-actions: lens-recognizers; lens-plugins:
+    lens-core) were dropped; `Cargo.lock` is unchanged.
+  - Kept although the compiler sees no non-test use, because tests of other crates (or a test pinning documented
+    behaviour) use them: `HostCall`, `RecordingHost`, `NullEnvironment`, `Engine::registry`, `Analysis::wait` (the
+    prompt-cancel test), `AnalysisReport::{with, first, has}`, `UsageStore::is_empty` (the reset test),
+    `arcade::with_peers` (nine calls in `tests/arcade.rs`; the app calls `with_cached_peers`), and
+    `PaletteEntry::needs_confirmation` (asserted by the dangerous-action tests). Never-read data fields kept as
+    descriptive API: `ParamSpec::default`, `PluginStatus::name`.
+  - Kept: the `allow(unreachable_code)` / `allow(unreachable_patterns)` on per-platform fall-through branches in
+    lens-platform, net.rs and tray.rs (each branch is live on some platform), `allow(clippy::...)` (not dead
+    code), and Link's `watch` feature (implied by `trayhost`, kept explicit because the registry relies on it).
+  - Not deleted, listed for review: `scripts/test-arcade-release.py` (hyphenated, so the `test_*.py` discovery in
+    `scripts/check.py` never runs it, and nothing else references it), `tools/test_*.py` (vendored copies, only
+    run by hand), `packaging/release-notes.sh` and `scripts/third-party-notices.py` (documented only in their own
+    headers), and the `signals` and `pdf` examples (documented only in their own doc comments).

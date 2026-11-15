@@ -1,5 +1,16 @@
 # Lens 1.0 progress (newest first)
 
+## 2026-11-15 (cloud session)
+- Step 4, dead code (D7). Removed 11 public items nothing used (lens-core `ActionRef`,
+  `Analysis::cancel_token`, `Engine::settings`, `Registry::plugins`, `DateTimeValue::is_ambiguous`,
+  `Host::share_text`, `Rect::is_empty`, `geometry::monitor_for`; lens-recognizers `register`, `find_unit`;
+  lens-platform `Shortcuts::current_id`), swapped `allow(dead_code)` on `write_if_changed` for its real `cfg`, and
+  dropped two repeated dev-dependencies. `cargo machete` found no unused dependency. Items kept on purpose, and
+  scripts/examples nothing references (listed, not deleted), are in D7.
+- Tested: `python3 scripts/check.py` (version, docs, vendored, 12 script tests, fmt, `clippy --workspace
+  --all-targets --locked -D warnings`, `cargo test --workspace --locked` in the isolated profile): 216 passed,
+  0 failed, 2 ignored (the two `#[ignore]`d tests in `lens-actions/tests/arcade.rs`, which need Link's e2e harness or real apps). Windows and macOS code was not compiled here.
+
 ## 2026-11-14 - steps 2 and 6 (cloud session, branch `claude/sharp-cori-29w5eg`)
 - Step 6 (`343a0cc`): releases are rc-only through Link `app-publish` on the hidden `test` channel; `promote.yml`
   makes stable from a verified rc byte for byte; `nightly.yml` republishes main CI's packages. Inno kept.

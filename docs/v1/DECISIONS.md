@@ -72,3 +72,13 @@
   workflow D9 already uses; 1.0.8's changes are in the Qt/QML and Dart kits Lens does not use. The vendored files
   and the design kit are byte-identical at v1.0.11 (only the recorded tag moves). Every Link workflow is pinned to
   `v1.0.11`.
+- D11. Tier 1 on headless Hyprland (step 7): `tests/desktop/lens_desktop.py` runs on Link's harness
+  (`desktop-e2e.yml`) in CI on every build and in the gates on the published rc, from the AppImage as a user starts it
+  (without the harness's `ARCADE_UNPACKED`). The harness has no screenshot portal, so the overlay is opened on a
+  known image with `--window analyze` (the overlay Link's `lens.analyze` opens; same selection and keys as a
+  capture). It checks: every window's class is `dev.arcade.Lens` (ID-1); the overlay maps floating and full-screen
+  through the resident's window rules and has keyboard focus; Ctrl+C on a selection puts an image on the Wayland
+  clipboard (RD-LENS-1, until now only a unit test of the key mapping); Escape closes the overlay and its process
+  exits; on a pin with its menu open the first Escape closes only the menu (RD-LENS-3); Settings floats and Ctrl+W
+  closes it; `--status` and `--quit`. Tier 1 blocks the gates on any failure. LN-10 and RD-LENS-4 (P2) need to read
+  what egui draws, which the harness cannot; they are in `BACKLOG.md` with the reason.

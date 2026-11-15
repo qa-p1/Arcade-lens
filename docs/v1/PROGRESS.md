@@ -2,6 +2,9 @@
 
 ## 2026-11-15 - Link 1.0.11 (cloud session, branch `claude/sharp-cori-29w5eg`)
 - D10: Link 1.0.7 → 1.0.11 (crate, every reusable workflow, vendored record, notices).
+- CHANGELOG in Keep a Changelog format with every user-visible v1 change under Unreleased.
+- D11: Tier 1 on headless Hyprland (`tests/desktop/lens_desktop.py`) in CI and the gates; written for the harness,
+  which runs only in CI, so its first run is this PR's. LN-10 and RD-LENS-4 (P2) moved to `BACKLOG.md`.
 
 ## 2026-11-15 - step 7: release gates (cloud session, branch `claude/sharp-cori-29w5eg`)
 - D9: `gates.yml` on Link `app-gates.yml@v1.0.9` for the published rc; `scripts/verify-upgrade.py`, the upgrade gate

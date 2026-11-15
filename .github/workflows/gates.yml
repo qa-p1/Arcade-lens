@@ -40,8 +40,16 @@ jobs:
         label=${dmg#rc/ArcadeLens-}
         packaging/macos/verify-dmg-copy.sh "$dmg" "$(python3 scripts/check-version.py)" "${label%-macos-universal.dmg}"
 
-  # Tier 2 (sway, KWin, Mutter, X11) blocks on a crash or data loss. Lens has no Tier 1 script yet (LN-10 and
-  # RD-LENS-4 need the harness; docs/v1/PROGRESS.md).
+  # Tier 1 (headless Hyprland) blocks on any failure; Tier 2 (sway, KWin, Mutter, X11) on a crash or data loss.
+  desktop:
+    needs: gates
+    uses: qa-p1/Arcade-Link/.github/workflows/desktop-e2e.yml@v1.0.11
+    with:
+      name: lens
+      test: tests/desktop/lens_desktop.py
+      args: '"$APP"'
+      artifact: gate-appimage
+      link-ref: v1.0.11
   desktop-tier2:
     needs: gates
     uses: qa-p1/Arcade-Link/.github/workflows/desktop-tier2.yml@v1.0.11

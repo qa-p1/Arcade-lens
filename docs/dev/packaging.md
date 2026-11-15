@@ -28,17 +28,18 @@ run's installers, so naming problems show up in pull requests, not at release ti
 
 ## Releasing
 
-Releases are started by hand, the same way in every Arcade app:
+Stable is never built: it is a verified release candidate promoted byte for byte, the same way in every Arcade app.
 
 1. Merge to `main` with the new version in `Cargo.toml`, `docs/user/shortcuts.json` and
    `CHANGELOG.md` (`scripts/check` verifies the shortcut file's version).
-2. **Beta rehearsal:** Actions → Release → Run workflow on `main`, channel `beta`. It
-   runs the full CI, then publishes a private draft prerelease `v<version>-beta.<run>`.
-   Check its assets, `arcade-release.json` and `SHA256SUMS.txt`. Nothing public changes.
-3. **Tag:** Actions → Tag a release, with `v<version>` and the full merge SHA. `tag.yml`
-   refuses a commit that isn't on `main` or whose version differs.
-4. **Stable:** Actions → Release → Run workflow on the tag, channel `stable`. It
-   publishes the latest release that Tools and the catalog read.
+2. **Release candidate:** Actions → Tag a release, with `v<version>-rc.<n>` and the full merge
+   SHA. `tag.yml` refuses a commit that isn't on `main` or whose version differs, creates the
+   tag and starts Release on it: the full CI, then Link's `app-publish` puts the installers on
+   the hidden `test` channel as a prerelease (`arcade-release.json` keeps the Inno switches).
+3. **Exit gates** run against those published files.
+4. **Promote:** Actions → Promote, with the rc tag. Link's `app-promote` republishes the same
+   files as `v<version>` with a signed `manifest.json` and checks every hash again.
 
-Channel `nightly` (on `main`) refreshes the rolling `nightly` prerelease, which Tools'
-nightly channel follows. Nothing is published from `ci.yml`.
+Nightly (`nightly.yml`, daily) republishes main CI's installers as a signed
+`v<version>-nightly.*` prerelease when `main` has changed and its CI is green. Nothing is
+published from `ci.yml`.

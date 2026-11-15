@@ -1,0 +1,21 @@
+# Promotes a verified release candidate to stable: the same bytes, a signed manifest, no rebuild (Link's reusable
+# promote, which verifies the hashes after publishing and keeps the rc's Inno installer switches). Run it only after
+# every exit gate in the 1.0 plan passed against the rc's published files. Without the ARCADE_UPDATE_SIGNING_KEY
+# secret it publishes nothing.
+name: Promote
+on:
+  workflow_dispatch:
+    inputs:
+      rc-tag:
+        description: Verified release candidate, e.g. v1.0.0-rc.2
+        required: true
+permissions:
+  contents: write
+jobs:
+  promote:
+    uses: qa-p1/Arcade-Link/.github/workflows/app-promote.yml@v1.0.8
+    with:
+      rc-tag: ${{ inputs.rc-tag }}
+      link-ref: v1.0.8
+    secrets:
+      ARCADE_UPDATE_SIGNING_KEY: ${{ secrets.ARCADE_UPDATE_SIGNING_KEY }}

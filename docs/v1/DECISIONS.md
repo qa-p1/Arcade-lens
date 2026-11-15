@@ -54,3 +54,14 @@
   window processes it spawns run from the same copy. One-shot commands (`--status`, `--hide`, `--quit`, and any
   command a running instance takes) never relaunch. The budget (8 PSS / 8 RSS) is measured on the published rc by the
   gates' budget job.
+- D9. Release gates (step 7): `.github/workflows/gates.yml` runs PLAN's exit gates on the published files of an rc
+  through Link's reusable `app-gates.yml@v1.0.9` (published files and SHA256SUMS, the rc's manifest, conformance, N-1,
+  budgets, the delta through Tools' updater, the Windows and macOS smoke on the published installers), with Lens's
+  Linux checks on the published AppImage (the package smoke, the upgrade, the tray's lifecycle) and the Tier 2
+  desktop smoke. "Promote" runs only after a green Gates run on the rc it promotes. Lens had no upgrade test:
+  `scripts/verify-upgrade.py` installs the real previous release from a download folder, gives it a user's settings
+  (non-default values, Link off), a saved chain and learned usage, runs it, installs the candidate over it and checks
+  that the new version reads the settings (`--status` shows Link off), every setting value is kept, the chain and
+  usage files are unchanged, there is one launcher and one login item, and an uninstall without `--remove-data` keeps
+  the data. CI runs it from 0.4.2 on every build. No Tier 1 script yet: the overlay's focus rule is checked on Xvfb
+  (`tests/overlay-focus.py`, CI); LN-10 and RD-LENS-4 still need the Hyprland harness.

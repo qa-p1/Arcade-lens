@@ -1,0 +1,50 @@
+name: Gates
+
+# PLAN "Release" step 2: every exit gate against the published files of a release candidate, never a local build.
+# Run it on the rc tag ("Use workflow from: v1.0.0-rc.N") once "Release" has published it; "Promote" only after a
+# green run on the rc it promotes (docs/v1/DECISIONS.md D9). The shared gates (published files and manifest,
+# conformance, N-1, budgets, the delta through Tools' updater, Windows and macOS smoke) are Link's app-gates.yml;
+# Lens adds its own Linux checks on the published AppImage and the Tier 2 desktop smoke.
+on:
+  workflow_dispatch:
+    inputs:
+      previous:
+        description: The previous stable release (upgrade test, and the delta "from the previous release")
+        default: v0.4.2
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lens-gates-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  gates:
+    uses: qa-p1/Arcade-Link/.github/workflows/app-gates.yml@v1.0.9
+    with:
+      app: arcade.lens
+      name: lens
+      previous: ${{ inputs.previous }}
+      link-ref: v1.0.9
+      linux-packages: libxkbcommon-x11-0 python3-dbus
+      # The packaged install/repair/uninstall smoke, the upgrade with a user's data from the previous release, and
+      # the tray's lifecycle.
+      linux-checks: |
+        dbus-run-session -- xvfb-run -a python3 scripts/verify-appimage.py "$RC" arcade.lens Arcade-Lens.AppImage arcade-lens
+        python3 ../Arcade-Link/tools/e2e.py run -- python3 scripts/verify-upgrade.py "$PREVIOUS" "$RC"
+        python3 ../Arcade-Link/tools/e2e.py run -- /usr/bin/python3 tests/tray-registration.py "$RC" "$(command -v arcade-link)" lens
+      windows-check: mkdir -p dist && cp rc/*-windows-x64-setup.exe dist/ && pwsh -NoProfile -File packaging/windows/verify.ps1
+      macos-check: |
+        dmg=$(ls rc/*-macos-universal.dmg)
+        label=${dmg#rc/ArcadeLens-}
+        packaging/macos/verify-dmg-copy.sh "$dmg" "$(python3 scripts/check-version.py)" "${label%-macos-universal.dmg}"
+
+  # Tier 2 (sway, KWin, Mutter, X11) blocks on a crash or data loss. Lens has no Tier 1 script yet (LN-10 and
+  # RD-LENS-4 need the harness; docs/v1/PROGRESS.md).
+  desktop-tier2:
+    needs: gates
+    uses: qa-p1/Arcade-Link/.github/workflows/desktop-tier2.yml@v1.0.9
+    with:
+      artifact: gate-appimage
+      link-ref: v1.0.9

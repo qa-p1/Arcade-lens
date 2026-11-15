@@ -1,5 +1,12 @@
 # Lens 1.0 progress (newest first)
 
+## 2026-11-15 - step 7: release gates (cloud session, branch `claude/sharp-cori-29w5eg`)
+- D9: `gates.yml` on Link `app-gates.yml@v1.0.9` for the published rc; `scripts/verify-upgrade.py`, the upgrade gate
+  Lens did not have, run by CI from the published 0.4.2 and by the gates from the previous stable release.
+- Tested: `scripts/verify-upgrade.py` in Link's isolated runner (`tools/e2e.py run`) on the real published AppImages,
+  0.4.1 → 0.4.2 (the repository is still 0.4.2): passed. The workflow files parse. The 0.4.2 → candidate run is this
+  PR's CI.
+
 ## 2026-11-15 - step 4 (cloud session, branch `claude/sharp-cori-29w5eg`)
 - Step 4, dead code (D7). Removed 11 public items nothing used (lens-core `ActionRef`,
   `Analysis::cancel_token`, `Engine::settings`, `Registry::plugins`, `DateTimeValue::is_ambiguous`,

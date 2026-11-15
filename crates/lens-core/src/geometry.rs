@@ -47,6 +47,10 @@ impl Rect {
         self.width as u64 * self.height as u64
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.width == 0 || self.height == 0
+    }
+
     pub fn contains(&self, p: Point) -> bool {
         (p.x as i64) >= self.x as i64 && (p.x as i64) < self.right() && (p.y as i64) >= self.y as i64 && (p.y as i64) < self.bottom()
     }

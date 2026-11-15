@@ -1,5 +1,6 @@
 //! Start Lens at login, and register it with the desktop's app launcher.
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 use std::fs;
 use std::path::{Path, PathBuf};
 

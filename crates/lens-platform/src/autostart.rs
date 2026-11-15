@@ -1,5 +1,6 @@
 //! Start Lens at login, and register it with the desktop's app launcher.
 
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 use std::fs;
 use std::path::{Path, PathBuf};
 
@@ -61,7 +62,7 @@ fn appimage_for_exe(exe: &Path, appdir: Option<&Path>, image: Option<&Path>) -> 
 }
 
 /// Writes `contents` unless the file already holds exactly that.
-#[cfg_attr(windows, allow(dead_code))]
+#[cfg(any(target_os = "linux", target_os = "macos"))]
 fn write_if_changed(path: &Path, contents: &[u8]) -> std::io::Result<()> {
     if fs::read(path).is_ok_and(|c| c == contents) {
         return Ok(());

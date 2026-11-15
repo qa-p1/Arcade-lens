@@ -53,10 +53,6 @@ impl Engine {
         &self.registry
     }
 
-    pub fn settings(&self) -> &Arc<Settings> {
-        &self.settings
-    }
-
     /// Starts analysis in the background and returns a handle streaming
     /// [`AnalysisEvent`]s. Dropping the handle cancels outstanding work.
     pub fn analyze(&self, selection: Selection) -> Analysis {
@@ -246,10 +242,6 @@ pub struct Analysis {
 impl Analysis {
     pub fn events(&self) -> &Receiver<AnalysisEvent> {
         &self.events
-    }
-
-    pub fn cancel_token(&self) -> &CancelToken {
-        &self.cancel
     }
 
     /// Stops scheduling and abandons outstanding recognizers immediately.

@@ -84,10 +84,6 @@ impl Shortcuts {
         self.current = next;
         Ok(())
     }
-
-    pub fn current_id(&self) -> Option<u32> {
-        self.current.map(|h| h.id())
-    }
 }
 
 /// Calls `f` whenever a registered shortcut is pressed (not released).

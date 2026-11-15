@@ -111,9 +111,6 @@ pub trait Host: Send + Sync {
     fn annotate(&self, _image: Arc<RgbaImage>) -> Result<()> {
         Err(unsupported("annotation"))
     }
-    fn share_text(&self, _text: &str) -> Result<()> {
-        Err(unsupported("sharing"))
-    }
     fn share_image(&self, _image: &RgbaImage) -> Result<()> {
         Err(unsupported("sharing"))
     }
@@ -160,7 +157,6 @@ pub enum HostCall {
     SaveFile { name: String, bytes: usize, mime: String },
     Pin { width: u32, height: u32 },
     Annotate,
-    ShareText(String),
     ShareImage,
     SendToDevice { text: Option<String>, image: bool },
     Window { window: String, command: WindowCommand },
@@ -256,10 +252,6 @@ impl Host for RecordingHost {
     }
     fn annotate(&self, _image: Arc<RgbaImage>) -> Result<()> {
         self.record(HostCall::Annotate);
-        Ok(())
-    }
-    fn share_text(&self, text: &str) -> Result<()> {
-        self.record(HostCall::ShareText(text.into()));
         Ok(())
     }
     fn share_image(&self, _image: &RgbaImage) -> Result<()> {

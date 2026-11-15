@@ -65,3 +65,10 @@
   usage files are unchanged, there is one launcher and one login item, and an uninstall without `--remove-data` keeps
   the data. CI runs it from 0.4.2 on every build. No Tier 1 script yet: the overlay's focus rule is checked on Xvfb
   (`tests/overlay-focus.py`, CI); LN-10 and RD-LENS-4 still need the Hyprland harness.
+- D10. Link 1.0.11 (step 8 prep): Lens moves from Link 1.0.7. What touches Lens: 1.0.11 publishes release files
+  under names GitHub keeps and gives the unpacked copy's marker (`ARCADE_UNPACKED`) its own folder, so a restart
+  successor (`gui/background.rs`, started from `$APPIMAGE`) no longer inherits "already unpacked" and stays on the
+  FUSE mount; 1.0.10's uninstall removes Lens's own copies under `<data>/arcade/runtime/lens-*`; 1.0.9 is the gates
+  workflow D9 already uses; 1.0.8's changes are in the Qt/QML and Dart kits Lens does not use. The vendored files
+  and the design kit are byte-identical at v1.0.11 (only the recorded tag moves). Every Link workflow is pinned to
+  `v1.0.11`.

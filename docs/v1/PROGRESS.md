@@ -1,5 +1,8 @@
 # Lens 1.0 progress (newest first)
 
+## 2026-11-15 - Link 1.0.11 (cloud session, branch `claude/sharp-cori-29w5eg`)
+- D10: Link 1.0.7 → 1.0.11 (crate, every reusable workflow, vendored record, notices).
+
 ## 2026-11-15 - step 7: release gates (cloud session, branch `claude/sharp-cori-29w5eg`)
 - D9: `gates.yml` on Link `app-gates.yml@v1.0.9` for the published rc; `scripts/verify-upgrade.py`, the upgrade gate
   Lens did not have, run by CI from the published 0.4.2 and by the gates from the previous stable release.

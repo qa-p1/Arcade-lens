@@ -19,12 +19,12 @@ jobs:
         run: echo "version=$(python3 scripts/check-version.py)" >> "$GITHUB_OUTPUT"
   nightly:
     needs: version
-    uses: qa-p1/Arcade-Link/.github/workflows/app-nightly.yml@v1.0.8
+    uses: qa-p1/Arcade-Link/.github/workflows/app-nightly.yml@v1.0.11
     with:
       app: arcade.lens
       version: ${{ needs.version.outputs.version }}
       artifacts: "*-*"
       windows-installer: inno
-      link-ref: v1.0.8
+      link-ref: v1.0.11
     secrets:
       ARCADE_UPDATE_SIGNING_KEY: ${{ secrets.ARCADE_UPDATE_SIGNING_KEY }}

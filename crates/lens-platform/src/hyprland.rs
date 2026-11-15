@@ -158,6 +158,21 @@ pub fn focused_monitor_size() -> Option<(f32, f32)> {
     Some(if m["transform"].as_i64().unwrap_or(0) % 2 == 1 { (h, w) } else { (w, h) })
 }
 
+/// The focused monitor in physical pixels, as a full-screen window there sees it: (x, y, width, height).
+pub fn focused_monitor_pixels() -> Option<(i32, i32, u32, u32)> {
+    let monitors = json(&["monitors"])?;
+    let m = monitors.as_array()?.iter().find(|m| m["focused"].as_bool() == Some(true))?;
+    monitor_pixels(m)
+}
+
+fn monitor_pixels(m: &serde_json::Value) -> Option<(i32, i32, u32, u32)> {
+    let (w, h) = (u32::try_from(m["width"].as_u64()?).ok()?, u32::try_from(m["height"].as_u64()?).ok()?);
+    let (x, y) = (i32::try_from(m["x"].as_i64()?).ok()?, i32::try_from(m["y"].as_i64()?).ok()?);
+    // Odd transforms rotate by 90° or 270°.
+    let (w, h) = if m["transform"].as_i64().unwrap_or(0) % 2 == 1 { (h, w) } else { (w, h) };
+    (w > 0 && h > 0).then_some((x, y, w, h))
+}
+
 /// Whether process `pid` still has a window on screen.
 pub fn has_window(pid: u32) -> bool {
     json(&["clients"]).and_then(|c| c.as_array().map(|c| c.iter().any(|w| w["pid"].as_u64() == Some(u64::from(pid))))).unwrap_or(false)
@@ -235,6 +250,17 @@ pub fn on_config_reloaded(f: impl Fn() + Send + 'static) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// The analyze overlay's canvas is the monitor in physical pixels, turned with the monitor.
+    #[test]
+    fn monitor_pixels_are_physical_and_follow_the_transform() {
+        let m = |transform: i64| serde_json::json!({"x": 1920, "y": 0, "width": 2560, "height": 1440, "scale": 1.5, "transform": transform});
+        assert_eq!(monitor_pixels(&m(0)), Some((1920, 0, 2560, 1440)));
+        assert_eq!(monitor_pixels(&m(1)), Some((1920, 0, 1440, 2560)));
+        assert_eq!(monitor_pixels(&m(2)), Some((1920, 0, 2560, 1440)));
+        assert_eq!(monitor_pixels(&serde_json::json!({"x": 0, "y": 0, "width": 0, "height": 1080})), None);
+        assert_eq!(monitor_pixels(&serde_json::json!({"width": 1920})), None);
+    }
 
     #[test]
     fn shortcuts_translate_to_hyprland_keys() {

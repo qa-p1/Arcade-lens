@@ -202,9 +202,9 @@ finally:
         if process.poll() is None:
             process.terminate()
     log.flush()
+    failed = [r for r in results if r[0] == "FAIL"]
+    print(f"\n{len(results) - len(failed)}/{len(results)} checks passed", flush=True)
+    if failed:  # Also when a check stopped the run early.
+        print(Path(d.artifact("lens.log")).read_text(errors="replace")[-6000:], flush=True)
 
-failed = [r for r in results if r[0] == "FAIL"]
-print(f"\n{len(results) - len(failed)}/{len(results)} checks passed", flush=True)
-if failed:
-    print(Path(d.artifact("lens.log")).read_text(errors="replace")[-6000:], flush=True)
 sys.exit(1 if failed else 0)

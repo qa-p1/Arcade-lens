@@ -109,6 +109,7 @@ jobs:
           id=$(gh api repos/qa-p1/Arcade-lens/releases/tags/v0.4.2 --jq '.assets[] | select(.name | endswith(".AppImage")) | .id')
           gh api -H 'Accept: application/octet-stream' "repos/qa-p1/Arcade-lens/releases/assets/$id" > "$RUNNER_TEMP/previous.AppImage"
           chmod +x "$RUNNER_TEMP/previous.AppImage"
+          sudo apt-get install -y python3-tomli
           /usr/bin/python3 "$RUNNER_TEMP/link/tools/e2e.py" run -- /usr/bin/python3 scripts/verify-upgrade.py "$RUNNER_TEMP/previous.AppImage" dist/*.AppImage
       - name: The capture closes when another app takes focus (real binary, Xvfb)
         run: |

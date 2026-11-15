@@ -18,7 +18,10 @@ import shutil
 import subprocess
 import sys
 import time
-import tomllib
+try:
+    import tomllib
+except ModuleNotFoundError:  # Python 3.10 (Ubuntu 22.04's system Python): the same parser as python3-tomli
+    import tomli as tomllib
 
 ROOT = Path(__file__).resolve().parent.parent
 VERSION = tomllib.loads((ROOT / 'Cargo.toml').read_text(encoding='utf-8'))['workspace']['package']['version']

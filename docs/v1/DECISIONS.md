@@ -46,3 +46,11 @@
   - Kept: `tools/test_*.py` (vendored copies, run by hand), `packaging/release-notes.sh` and
     `scripts/third-party-notices.py` (maintainer tools documented in their own headers; the second regenerates
     `THIRD_PARTY_NOTICES.md`), and the `signals` and `pdf` examples (CI compiles them under `--all-targets`).
+- D8. Memory (step 5): AUDIT/memory.md lists two items for Lens: W0 (Lens 15/12 → 6/4 MB RSS/PSS measured) and U1. The
+  resident trims once five seconds after it starts and after each hide of the in-process overlay
+  (`ARCADE_LENS_RESIDENT_UI=1` on X11), through Link's `runtime::trim` (RT-5); its capture, settings and editor
+  windows are separate short-lived processes already. A resident start in an AppImage relaunches from
+  `<data>/arcade/runtime/lens-<version>-<key>/` (`runtime::relaunch_unpacked`, RT-7) and the launcher exits 0; the
+  window processes it spawns run from the same copy. One-shot commands (`--status`, `--hide`, `--quit`, and any
+  command a running instance takes) never relaunch. The budget (8 PSS / 8 RSS) is measured on the published rc by the
+  gates' budget job.

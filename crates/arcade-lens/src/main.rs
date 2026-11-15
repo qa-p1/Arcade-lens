@@ -69,6 +69,15 @@ fn main() -> ExitCode {
     }
 }
 
+/// Starts the resident instance. In an AppImage it first relaunches from the unpacked copy of the image (Link
+/// RT-7, AUDIT/memory.md U1), so no FUSE helper stays resident; this process then exits 0 at once.
+fn resident(initial: Option<gui::Trigger>) -> Result<(), String> {
+    if let Some(code) = arcade_link::runtime::relaunch_unpacked(arcade_link::ids::LENS, env!("CARGO_PKG_VERSION"), false) {
+        std::process::exit(code);
+    }
+    gui::run(initial)
+}
+
 /// Sends `command` to the running instance; `false` if none is running.
 fn tell_running(command: &str) -> bool {
     lens_platform::ipc::send(&Paths::discover().endpoint(), command).is_ok()
@@ -88,13 +97,13 @@ fn run(args: &[String]) -> Result<(), String> {
     match option {
         None | Some("settings") => {
             if !tell_running("settings") {
-                gui::run(Some(gui::Trigger::Settings))?;
+                resident(Some(gui::Trigger::Settings))?;
             }
             Ok(())
         }
         Some("background" | "start") => {
             if !tell_running("ping") {
-                gui::run(None)?;
+                resident(None)?;
             }
             Ok(())
         }
@@ -104,7 +113,7 @@ fn run(args: &[String]) -> Result<(), String> {
             while tell_running("ping") && Instant::now() < deadline {
                 std::thread::sleep(Duration::from_millis(50));
             }
-            gui::run(None)
+            resident(None)
         }
         Some("status") => {
             let paths = Paths::discover();
@@ -121,19 +130,19 @@ fn run(args: &[String]) -> Result<(), String> {
         }
         Some("toggle") => {
             if !tell_running("toggle") {
-                gui::run(Some(gui::Trigger::Capture))?;
+                resident(Some(gui::Trigger::Capture))?;
             }
             Ok(())
         }
         Some("capture" | "show") => {
             if !tell_running("capture") {
-                gui::run(Some(gui::Trigger::Capture))?;
+                resident(Some(gui::Trigger::Capture))?;
             }
             Ok(())
         }
         Some("restart") => {
             if !tell_running("restart") {
-                gui::run(None)?;
+                resident(None)?;
             }
             Ok(())
         }

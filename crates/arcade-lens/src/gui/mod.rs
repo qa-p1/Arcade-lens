@@ -407,6 +407,8 @@ impl LensApp {
             ctx.send_viewport_cmd(ViewportCommand::Fullscreen(false));
         }
         self.root_visible = false;
+        // The overlay's frames and textures are freed; hand the pages back (RT-5, W0).
+        std::thread::spawn(arcade_link::runtime::trim);
     }
 
     fn apply_settings_requests(&mut self, ctx: &egui::Context) {
@@ -1139,6 +1141,11 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
             notify(&e);
         }
     }
+    // Startup touches far more pages than the resident keeps (Link RT-5, AUDIT/memory.md W0).
+    std::thread::spawn(|| {
+        std::thread::sleep(std::time::Duration::from_secs(5));
+        arcade_link::runtime::trim();
+    });
     // The resident instance holds no window, GL context or egui state: each
     // capture, settings, pin or editor window is its own short-lived process
     // (a capture opens in about a quarter of a second). On X11 this saves

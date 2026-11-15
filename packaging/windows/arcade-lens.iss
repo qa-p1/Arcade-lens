@@ -40,6 +40,11 @@ WizardStyle=modern
 
 [Files]
 Source: "{#SourceExe}"; DestDir: "{app}"; DestName: "arcade-lens.exe"; Flags: ignoreversion
+; The licences and the third-party notices travel with the program.
+Source: "..\..\LICENSE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\LICENSE-MIT"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\LICENSE-APACHE"; DestDir: "{app}"; Flags: ignoreversion
+Source: "..\..\THIRD_PARTY_NOTICES.md"; DestDir: "{app}"; Flags: ignoreversion
 
 [Icons]
 Name: "{userprograms}\Arcade Lens\Arcade Lens Settings"; Filename: "{app}\arcade-lens.exe"; Parameters: "--settings"; AppUserModelID: "dev.arcade.Lens"; Flags: uninsneveruninstall

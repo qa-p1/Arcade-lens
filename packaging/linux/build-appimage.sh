@@ -20,6 +20,10 @@ install -Dm755 "$bin" "$app/usr/bin/arcade-lens"
 # The desktop id, icon name and window class are dev.arcade.Lens.
 install -Dm644 "$here/dev.arcade.Lens.desktop" "$app/usr/share/applications/dev.arcade.Lens.desktop"
 install -Dm644 "$icons/arcade-lens.png" "$app/usr/share/icons/hicolor/256x256/apps/dev.arcade.Lens.png"
+# The licences and the third-party notices travel with the program (scripts/third-party-notices.py --check-appimage).
+for file in LICENSE LICENSE-MIT LICENSE-APACHE THIRD_PARTY_NOTICES.md; do
+  install -Dm644 "$here/../../$file" "$app/usr/share/doc/arcade-lens/$file"
+done
 cp "$here/dev.arcade.Lens.desktop" "$app/dev.arcade.Lens.desktop"
 cp "$icons/arcade-lens.png" "$app/dev.arcade.Lens.png"
 ln -s dev.arcade.Lens.png "$app/.DirIcon"

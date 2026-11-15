@@ -34,6 +34,10 @@ install -m 755 "$bin" "$app/Contents/MacOS/arcade-lens"
 sed "s/@VERSION@/$version/g" "$here/Info.plist" > "$app/Contents/Info.plist"
 cp "$here/../icons/arcade-lens.icns" "$app/Contents/Resources/ArcadeLens.icns"
 printf 'APPL????' > "$app/Contents/PkgInfo"
+# The licences and the third-party notices travel with the program.
+for file in LICENSE LICENSE-MIT LICENSE-APACHE THIRD_PARTY_NOTICES.md; do
+  install -m 644 "$here/../../$file" "$app/Contents/Resources/$file"
+done
 
 ln -s /Applications "$work/dmg/Applications"
 install -m 755 "$here/install-cli.command" "$work/dmg/Install Arcade Lens CLI.command"

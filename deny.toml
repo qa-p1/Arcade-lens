@@ -1,0 +1,45 @@
+# cargo deny check (CI): advisories, licences, bans and sources.
+[graph]
+all-features = true
+
+[advisories]
+version = 2
+yanked = "deny"
+# Accepted advisories, each with its reason (also in SECURITY.md). None is a vulnerability Lens can reach: two are
+# in crates no Lens build compiles, the rest are "unmaintained" notices (no known vulnerability) for crates that
+# come only through dependencies with no maintained replacement they can take yet. Revisit when those move.
+ignore = [
+  { id = "RUSTSEC-2024-0429", reason = "glib 0.18 (VariantStrIter): only tray-icon's Linux GTK backend uses it, and Lens depends on tray-icon on Windows and macOS only (Linux uses ksni), so no Lens build compiles glib; nothing in gtk 0.18 calls array_iter_str either" },
+  { id = "RUSTSEC-2024-0370", reason = "proc-macro-error: build-time macro of glib-macros 0.18, which only the GTK tray backend above pulls in; no Lens build compiles it" },
+  { id = "RUSTSEC-2024-0436", reason = "paste: build-time macro of pulp, the SIMD helper of the exr decoder that rxing's image dependency enables" },
+  { id = "RUSTSEC-2026-0192", reason = "ttf-parser: unmaintained (no known vulnerability); egui's ab_glyph parses only the fonts compiled into Lens (Inter and egui's own), never a font file from disk, and has no maintained replacement yet" },
+  { id = "RUSTSEC-2026-0370", reason = "zvariant: merged into zbus 6; Lens's ashpd and ksni are on zbus 5" },
+  { id = "RUSTSEC-2026-0371", reason = "zbus_names: merged into zbus 6; Lens's ashpd and ksni are on zbus 5" },
+  { id = "RUSTSEC-2026-0372", reason = "zvariant_derive: merged into zbus 6; Lens's ashpd and ksni are on zbus 5" },
+]
+
+[licenses]
+version = 2
+confidence-threshold = 0.9
+allow = [
+  "0BSD", "MIT", "Apache-2.0", "Apache-2.0 WITH LLVM-exception", "BSD-2-Clause", "BSD-3-Clause", "ISC",
+  "Unicode-3.0", "Zlib", "CC0-1.0", "MPL-2.0", "OFL-1.1", "Unlicense", "BSL-1.0", "CDLA-Permissive-2.0", "NCSA",
+  # epaint_default_fonts (the fonts egui ships): Ubuntu-Light under the Ubuntu Font Licence; its text is in
+  # THIRD_PARTY_NOTICES.md.
+  "Ubuntu-font-1.0",
+]
+unused-allowed-license = "warn"
+# Lens's own crates are MIT OR Apache-2.0 and never published (publish = false).
+[licenses.private]
+ignore = true
+
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+allow-wildcard-paths = true
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+# Arcade Link, pinned to a release tag.
+allow-git = ["https://github.com/qa-p1/Arcade-Link"]

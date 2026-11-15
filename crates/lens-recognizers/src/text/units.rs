@@ -179,10 +179,6 @@ pub fn conversions(amount: f64, unit: &Unit) -> Vec<(String, String)> {
     targets.into_iter().take(6).map(|(_, v, t)| (format_number(v), t.symbol.to_string())).collect()
 }
 
-pub fn find_unit(symbol: &str) -> Option<&'static Unit> {
-    UNITS.iter().find(|u| u.symbol == symbol)
-}
-
 pub fn detect(input: &TextInput, _cx: &RecognizeContext) -> Vec<Detection> {
     let text = input.text;
     let mut out = Vec::new();

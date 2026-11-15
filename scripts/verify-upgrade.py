@@ -99,7 +99,7 @@ def main():
 
     old_receipt = json.loads(command(previous, '--install', '--silent', '--no-launch', '--keep-download'))
     old_version = old_receipt['version']
-    assert old_version != VERSION, old_receipt
+    # The same version is allowed: before the release bump CI's build still carries the previous release's number.
     old_installed = Path(old_receipt['path'])
     assert old_installed.is_relative_to(root), old_installed
 

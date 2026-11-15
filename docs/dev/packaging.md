@@ -14,6 +14,11 @@ workspace version (`[workspace.package] version` in `Cargo.toml`, read by
 | Windows | `ArcadeLens-<label>-windows-x64-portable.exe` | a copy of the release exe; `arcade-release.json` lists it as `portable`, which Tools never installs |
 | macOS | `ArcadeLens-<label>-macos-universal.dmg` (Apple silicon and Intel, macOS 12.3+) | `packaging/macos/build-dmg.sh` |
 
+Every package carries `LICENSE`, `LICENSE-MIT`, `LICENSE-APACHE` and `THIRD_PARTY_NOTICES.md` (the
+AppImage under `usr/share/doc/arcade-lens/`, the Windows installer in the install folder, the macOS
+bundle in `Contents/Resources/`; not the portable exe, which is one file). The notices are generated
+by `scripts/third-party-notices.py`, which also checks the AppImage; see `SECURITY.md`.
+
 Nothing for text recognition is bundled: Lens uses the Tesseract installed on the computer
 (Settings › Text recognition can download it).
 

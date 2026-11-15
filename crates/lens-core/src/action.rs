@@ -7,7 +7,6 @@
 //! providers that happen to accept `url`.
 
 use std::borrow::Cow;
-use std::sync::Arc;
 
 use bitflags::bitflags;
 use serde::{Deserialize, Serialize};
@@ -259,5 +258,3 @@ pub trait Action: Send + Sync {
 
     fn execute(&self, input: &Item, cx: &ActionContext) -> Result<ActionOutcome>;
 }
-
-pub type ActionRef = Arc<dyn Action>;

@@ -194,13 +194,6 @@ pub struct DateTimeValue {
     pub candidates: Vec<DateTimeCandidate>,
 }
 
-impl DateTimeValue {
-    /// True when interpretations disagree, so actions must ask the user.
-    pub fn is_ambiguous(&self) -> bool {
-        self.candidates.len() > 1
-    }
-}
-
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 pub struct DateTimeCandidate {
     /// ISO-8601 calendar date, if a date was present.

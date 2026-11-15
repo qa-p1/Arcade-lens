@@ -107,10 +107,6 @@ impl Registry {
         self.actions.retain(|a| !ids.contains(&a.descriptor().id.as_str()));
         self.action_index = self.actions.iter().enumerate().map(|(i, a)| (a.descriptor().id.clone(), i)).collect();
     }
-
-    pub fn plugins(&self) -> &[PluginManifest] {
-        &self.plugins
-    }
 }
 
 pub struct PluginRegistrar<'m> {

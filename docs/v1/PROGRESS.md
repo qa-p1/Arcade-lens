@@ -1,11 +1,11 @@
 # Lens 1.0 progress (newest first)
 
-## 2026-11-15 (cloud session)
+## 2026-11-15 - step 4 (cloud session, branch `claude/sharp-cori-29w5eg`)
 - Step 4, dead code (D7). Removed 11 public items nothing used (lens-core `ActionRef`,
   `Analysis::cancel_token`, `Engine::settings`, `Registry::plugins`, `DateTimeValue::is_ambiguous`,
   `Host::share_text`, `Rect::is_empty`, `geometry::monitor_for`; lens-recognizers `register`, `find_unit`;
   lens-platform `Shortcuts::current_id`), swapped `allow(dead_code)` on `write_if_changed` for its real `cfg`, and
-  dropped two repeated dev-dependencies. `cargo machete` found no unused dependency. Items kept on purpose, and
+  dropped two repeated dev-dependencies. The release fixture test that discovery never found now runs. `cargo machete` found no unused dependency. Items kept on purpose, and
   scripts/examples nothing references (listed, not deleted), are in D7.
 - Tested: `python3 scripts/check.py` (version, docs, vendored, 12 script tests, fmt, `clippy --workspace
   --all-targets --locked -D warnings`, `cargo test --workspace --locked` in the isolated profile): 216 passed,

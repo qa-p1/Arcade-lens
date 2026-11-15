@@ -40,7 +40,9 @@
   - Kept: the `allow(unreachable_code)` / `allow(unreachable_patterns)` on per-platform fall-through branches in
     lens-platform, net.rs and tray.rs (each branch is live on some platform), `allow(clippy::...)` (not dead
     code), and Link's `watch` feature (implied by `trayhost`, kept explicit because the registry relies on it).
-  - Not deleted, listed for review: `scripts/test-arcade-release.py` (hyphenated, so the `test_*.py` discovery in
-    `scripts/check.py` never runs it, and nothing else references it), `tools/test_*.py` (vendored copies, only
-    run by hand), `packaging/release-notes.sh` and `scripts/third-party-notices.py` (documented only in their own
-    headers), and the `signals` and `pdf` examples (documented only in their own doc comments).
+  - `scripts/test-arcade-release.py` (Lens's package names through the release manifest writer CI's
+    `release-manifest` job runs) was never run: the hyphen kept it out of `scripts/check.py`'s `test_*.py`
+    discovery. It passes and is now `scripts/test_lens_release.py`, so `check.py` runs it.
+  - Kept: `tools/test_*.py` (vendored copies, run by hand), `packaging/release-notes.sh` and
+    `scripts/third-party-notices.py` (maintainer tools documented in their own headers; the second regenerates
+    `THIRD_PARTY_NOTICES.md`), and the `signals` and `pdf` examples (CI compiles them under `--all-targets`).

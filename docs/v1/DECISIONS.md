@@ -125,3 +125,14 @@
   file each, never rewritten; an unreadable one is skipped and left in place) and the append-only `collections/`
   lines need no code change and have tests. Fixtures in the 0.4.2 shape, with non-default values, are in
   `crates/arcade-lens/tests/data/v0.4.2/`; 14 of the new tests failed on the old code.
+
+- D16. Round 5: clean uninstall, and 1.0.0. `scripts/verify-appimage.py` checks a clean uninstall the way Box (D19)
+  and Look (D20) do: it takes an inventory of the disposable profile before installing; after `--uninstall --silent`
+  nothing may be new except Lens's own folders (`ARCADE_LENS_HOME`) and no unpacked copy (`arcade/runtime/lens-*`,
+  U1, removed by Link 1.0.11's uninstall) may remain; it then installs again and after `--uninstall --silent
+  --remove-data` nothing new may remain at all (Link's sockets and locks under `run` and `handoff` are not counted).
+  The profile's XDG data and config roots now sit under `ARCADE_HOME`, as in Look's check, so Link's environment and
+  its unpacked copies use the same folders, as in a real profile. The "keeps user data" sentinel moved from the top
+  of `ARCADE_LENS_HOME`, which `--remove-data` never deletes, into Lens's settings folder (`config`). Version 1.0.0
+  for the first release candidate, `v1.0.0-rc.1`. README screenshots stay open, as for Box and Look.
+

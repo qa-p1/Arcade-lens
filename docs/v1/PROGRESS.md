@@ -1,5 +1,9 @@
 # Lens 1.0 progress (newest first)
 
+## 2026-11-16 - Round 5: clean uninstall; 1.0.0
+- D16: the AppImage check compares the profile before install with what a plain uninstall and one with
+  `--remove-data` leave (Box's and Look's check). Version 1.0.0 for `v1.0.0-rc.1`. The check runs only in CI.
+
 ## 2026-11-16 - Round 5: schema versions and safe downgrade (branch `local/lens-schema`)
 - D15: `settings.toml`, `chains.json`, `usage.json` and `window-geometry.json` carry a schema version (none means 1),
   keep fields Lens doesn't know through a save, are never written over when a newer Lens made them, and are moved

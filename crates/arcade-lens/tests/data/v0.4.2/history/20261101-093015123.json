@@ -1,0 +1,15 @@
+{
+  "findings": [
+    {
+      "capability": "url",
+      "confidence": 0.95,
+      "summary": "https://example.org/docs"
+    },
+    {
+      "capability": "text",
+      "confidence": 0.8,
+      "summary": "See the docs…"
+    }
+  ],
+  "time": "20261101-093015123"
+}

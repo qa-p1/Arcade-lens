@@ -213,4 +213,83 @@ mod tests {
         let _ = std::fs::remove_file(dir.join(FILE));
         let _ = std::fs::remove_dir(&dir);
     }
+
+    // FS-2 (D15)
+    use crate::testdata::{install, set_aside, temp};
+
+    fn saved(x: f32, y: f32, w: f32, h: f32) -> Saved {
+        Saved { x, y, w, h }
+    }
+
+    #[test]
+    fn v042_geometry_loads_with_every_value_kept() {
+        let dir = temp("geometry-fixture");
+        let bytes = install("window-geometry.json", &dir.join(FILE));
+        let store = load(&dir);
+        assert_eq!(store["history"]["DP-1@2560x1440"], saved(120.0, 80.0, 900.0, 640.0));
+        assert_eq!(store["settings"][ANY_MONITOR], saved(0.0, 0.0, 820.0, 600.0));
+        assert_eq!(store["settings"]["HDMI-1@1920x1080"], saved(300.5, 200.0, 780.0, 560.0));
+        // Saving one rectangle again leaves the file as 0.4.2 wrote it (no schema field in v1).
+        save(&dir, "settings", "HDMI-1@1920x1080", saved(300.5, 200.0, 780.0, 560.0));
+        let after: serde_json::Value = serde_json::from_slice(&std::fs::read(dir.join(FILE)).unwrap()).unwrap();
+        assert_eq!(after, serde_json::from_slice::<serde_json::Value>(&bytes).unwrap());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn missing_geometry_fields_default() {
+        let dir = temp("geometry-missing");
+        assert!(load(&dir).is_empty());
+        std::fs::write(dir.join(FILE), "{}").unwrap();
+        assert!(load(&dir).is_empty());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn unknown_geometry_fields_survive_a_save() {
+        let dir = temp("geometry-unknown");
+        std::fs::write(
+            dir.join(FILE),
+            r#"{"settings":{"A@1x1":{"x":1.0,"y":2.0,"w":3.0,"h":4.0,"maximized":true}},"tray":{"A@1x1":{"x":9.0,"y":9.0,"w":9.0,"h":9.0}},"future":[1,2]}"#,
+        )
+        .unwrap();
+        save(&dir, "settings", "A@1x1", saved(5.0, 6.0, 7.0, 8.0));
+        let after: serde_json::Value = serde_json::from_slice(&std::fs::read(dir.join(FILE)).unwrap()).unwrap();
+        assert_eq!(after["settings"]["A@1x1"]["x"], 5.0);
+        assert_eq!(after["settings"]["A@1x1"]["maximized"], true);
+        assert_eq!(after["tray"]["A@1x1"]["w"], 9.0);
+        assert_eq!(after["future"][1], 2);
+        assert!(after.get("schema").is_none());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn a_newer_geometry_file_is_read_and_never_written_over() {
+        let dir = temp("geometry-newer");
+        let newer = r#"{"schema":2,"settings":{"A@1x1":{"x":1.0,"y":2.0,"w":3.0,"h":4.0}},"layout":"tabs"}"#;
+        std::fs::write(dir.join(FILE), newer).unwrap();
+        assert_eq!(load(&dir)["settings"]["A@1x1"], saved(1.0, 2.0, 3.0, 4.0));
+        save(&dir, "settings", "A@1x1", saved(9.0, 9.0, 9.0, 9.0));
+        assert_eq!(std::fs::read_to_string(dir.join(FILE)).unwrap(), newer);
+        assert!(set_aside(&dir, FILE).is_empty());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn an_unreadable_geometry_file_is_moved_aside_not_destroyed() {
+        let dir = temp("geometry-unreadable");
+        for bytes in [&b"{\"settings\": "[..], br#"{"settings":{"A":{"x":"left"}}}"#, b"[1]"] {
+            std::fs::write(dir.join(FILE), bytes).unwrap();
+            assert!(load(&dir).is_empty());
+            let kept = set_aside(&dir, FILE);
+            assert_eq!(kept.len(), 1);
+            assert_eq!(std::fs::read(&kept[0]).unwrap(), bytes);
+            save(&dir, "settings", "A", saved(1.0, 1.0, 1.0, 1.0));
+            assert_eq!(std::fs::read(&kept[0]).unwrap(), bytes);
+            assert_eq!(load(&dir)["settings"]["A"], saved(1.0, 1.0, 1.0, 1.0));
+            std::fs::remove_file(&kept[0]).unwrap();
+            std::fs::remove_file(dir.join(FILE)).unwrap();
+        }
+        std::fs::remove_dir_all(dir).ok();
+    }
 }

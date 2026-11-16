@@ -422,4 +422,28 @@ mod tests {
         assert_eq!(b.file_name().unwrap(), "shot (2).png");
         fs::remove_dir_all(dir).ok();
     }
+
+    // FS-2 (D15): `collections/*.jsonl` are append-only logs Lens never reads back, so a save adds one line
+    // and an older Lens cannot lose or corrupt what a newer one wrote.
+    #[test]
+    fn saved_colours_and_palettes_are_appended_to_what_is_there() {
+        let dir = crate::testdata::temp("collections");
+        let collections = dir.join("collections");
+        let colors = crate::testdata::install("collections/colors.jsonl", &collections.join("colors.jsonl"));
+        let palettes = crate::testdata::install("collections/palettes.jsonl", &collections.join("palettes.jsonl"));
+        // A line a newer Lens wrote, with a schema field and a shape this build does not know.
+        let newer = b"{\"schema\":2,\"hex\":\"#010203\",\"alpha\":0.5}\n";
+        fs::OpenOptions::new().append(true).open(collections.join("colors.jsonl")).unwrap().write_all(newer).unwrap();
+        let host = DesktopHost::new(Settings::default(), collections.clone());
+        host.persist("colors", serde_json::json!({ "hex": "#ABCDEF" })).unwrap();
+        host.persist("palettes", serde_json::json!({ "colors": ["#000000", "#FFFFFF"] })).unwrap();
+        let after = fs::read(collections.join("colors.jsonl")).unwrap();
+        assert!(after.starts_with(&[colors.as_slice(), newer].concat()), "earlier lines are kept byte for byte");
+        let last = String::from_utf8(after).unwrap().lines().last().unwrap().to_string();
+        assert_eq!(last, r##"{"hex":"#ABCDEF"}"##, "a v1 line has no schema field, as 0.4.x wrote it");
+        let after = fs::read_to_string(collections.join("palettes.jsonl")).unwrap();
+        assert!(after.starts_with(std::str::from_utf8(&palettes).unwrap()));
+        assert_eq!(after.lines().last().unwrap(), r##"{"colors":["#000000","#FFFFFF"]}"##);
+        fs::remove_dir_all(dir).ok();
+    }
 }

@@ -1,0 +1,45 @@
+[
+  {
+    "id": "clean-copy",
+    "name": "Clean Copy",
+    "steps": [
+      {
+        "step": "take",
+        "capability": "text"
+      },
+      {
+        "step": "run",
+        "action": "core.text.remove-line-breaks"
+      },
+      {
+        "step": "run",
+        "action": "core.copy"
+      }
+    ]
+  },
+  {
+    "id": "small-webp",
+    "name": "Small WebP",
+    "steps": [
+      {
+        "step": "take",
+        "capability": "region"
+      },
+      {
+        "step": "run",
+        "action": "core.image.resize",
+        "params": {
+          "percent": 33
+        }
+      },
+      {
+        "step": "run",
+        "action": "core.save",
+        "params": {
+          "directory": "~/Pictures/Small",
+          "format": "webp"
+        }
+      }
+    ]
+  }
+]

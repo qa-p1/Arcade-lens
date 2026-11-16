@@ -14,6 +14,8 @@ mod host;
 mod icon;
 mod link;
 mod net;
+#[cfg(test)]
+mod testdata;
 
 use std::path::PathBuf;
 use std::process::ExitCode;

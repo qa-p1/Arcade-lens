@@ -50,6 +50,19 @@ jobs:
       - name: scripts/check
         run: python3 scripts/check.py
 
+  # Advisories, licences, bans and sources (deny.toml). --workspace: every crate's dependencies, not only the first
+  # member's.
+  deny:
+    name: cargo deny (advisories, licences, bans, sources)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: EmbarkStudios/cargo-deny-action@v2
+        with:
+          arguments: --workspace --all-features
+          command: check
+
   # The version (from Cargo.toml) and the label the packages are named with.
   version:
     runs-on: ubuntu-24.04
@@ -90,6 +103,10 @@ jobs:
           # Saved only on main (Link spec §4): caches from pull requests crowded main's out of the 10 GB.
           save-if: ${{ github.ref == 'refs/heads/main' && github.event_name == 'push' }}
       - run: python3 scripts/package.py --label "${{ needs.version.outputs.label }}"
+      # THIRD_PARTY_NOTICES.md says the AppImage bundles no library of its own: a new one, or a new component in its
+      # runtime, fails here.
+      - name: The AppImage bundles only what THIRD_PARTY_NOTICES.md lists
+        run: python3 scripts/third-party-notices.py --check-appimage dist/*.AppImage
       - name: Verify AppImage install, repair and uninstall in a temporary profile
         run: |
           sudo apt-get update
@@ -120,6 +137,17 @@ jobs:
           name: linux-appimage
           path: dist/*.AppImage
           if-no-files-found: error
+
+  # Tier 1: Lens's windows on headless Hyprland (Link's desktop harness), from the AppImage built above.
+  desktop:
+    needs: linux
+    uses: qa-p1/Arcade-Link/.github/workflows/desktop-e2e.yml@v1.0.11
+    with:
+      name: lens
+      test: tests/desktop/lens_desktop.py
+      args: '"$APP"'
+      artifact: linux-appimage
+      link-ref: v1.0.11
 
   windows:
     needs: [test, version]

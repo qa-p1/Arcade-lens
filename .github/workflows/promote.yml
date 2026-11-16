@@ -13,9 +13,9 @@ permissions:
   contents: write
 jobs:
   promote:
-    uses: qa-p1/Arcade-Link/.github/workflows/app-promote.yml@v1.0.8
+    uses: qa-p1/Arcade-Link/.github/workflows/app-promote.yml@v1.0.11
     with:
       rc-tag: ${{ inputs.rc-tag }}
-      link-ref: v1.0.8
+      link-ref: v1.0.11
     secrets:
       ARCADE_UPDATE_SIGNING_KEY: ${{ secrets.ARCADE_UPDATE_SIGNING_KEY }}

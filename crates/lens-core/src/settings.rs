@@ -222,6 +222,20 @@ mod tests {
         assert_eq!(partial.providers.whois, Providers::default().whois);
     }
 
+    /// SECURITY.md: no history is kept, no plugin runs, no reverse image search is configured, and secrets are
+    /// guarded, until the user chooses otherwise.
+    #[test]
+    fn defaults_keep_history_plugins_and_image_search_off() {
+        let s = Settings::default();
+        assert!(!s.privacy.history_enabled);
+        assert!(s.privacy.guard_secrets);
+        assert!(s.enabled_plugins.is_empty());
+        assert!(s.providers.reverse_image_search.is_none());
+        // A settings file that says nothing about privacy changes none of that.
+        let partial: Settings = toml::from_str("primary_action_count = 4").unwrap();
+        assert!(!partial.privacy.history_enabled && partial.privacy.guard_secrets && partial.enabled_plugins.is_empty());
+    }
+
     #[test]
     fn templates_are_encoded() {
         assert_eq!(fill_template("https://x/?q={query}", &[("query", "a b&c=ü")]), "https://x/?q=a+b%26c%3D%C3%BC");

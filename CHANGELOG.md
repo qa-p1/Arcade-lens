@@ -1,13 +1,58 @@
 # Changelog
 
-## 0.4.2 — 2026-11-06
+All notable changes to Arcade Lens. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project uses [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [Unreleased]
+
+### Added
+
+- Colour codes written in text (`#RRGGBB`, `#RGB`, `rgb()` and `rgba()`) are recognized as colours (LN-9).
+
+### Changed
+
+- A capture stays open when another window or app takes focus. Only Esc, an action or `--hide` closes it (LN-4, RD-LENS-5).
+- A background start from the AppImage, and a restart, run from an unpacked copy under `<data>/arcade/runtime/`, so no FUSE helper stays running. `--status`, `--hide` and `--quit` never start Lens or make a copy.
+- Lens uses less memory while it runs in the background: it gives back memory it no longer needs five seconds after it starts, and each time a capture overlay that runs in the background instance is hidden.
+- Uninstalling Lens also removes its unpacked runtime copies. Other Arcade apps' copies stay.
+- Lens moves from Arcade Link 0.4.14 to 1.0.11. The shared design kit is unchanged.
+- Releases start as release candidates on a hidden test channel and are promoted to stable, byte for byte with a signed manifest, only after the release gates pass on the published files. The gates include an upgrade from the previous release that checks the new version reads and keeps a user's settings, chain and learned usage, leaves one launcher and one login item, and keeps the data on uninstall.
+- A signed prerelease, `vX.Y.Z-nightly.YYYYMMDD.N`, is published each night from the packages `main` already built, when `main` has changed and its checks pass. It replaces the rolling `nightly` prerelease.
+- Promotion to stable refuses to publish without the update signing key, so nothing is published unsigned.
+
+### Fixed
+
+- "Analyze with Lens" (Arcade Link's `lens.analyze`) opens on Wayland. It stopped with "monitor geometry is not exposed on Wayland" before showing anything; on Hyprland it now covers the focused monitor.
+- `--status` and `--hide` no longer open the first-run install dialog (LN-1).
+- The first-run install dialog opens on a fresh profile instead of failing with "The install dialog could not open": its fonts are installed before its first frame (LN-1).
+- Ctrl+C copies in the capture overlay, the result panel and the annotator on Wayland (RD-LENS-1).
+- Closed Settings, History and capture windows no longer stay behind as defunct processes. Lens reaps them within 2 seconds (LN-3).
+- Esc closes the annotator at its top view; while you type text it still cancels only the text (LN-5).
+- Esc in the actions list with a filter typed clears the filter first, then leaves the list (RD-LENS-2).
+- Esc on a pin with its menu open closes only the menu (RD-LENS-3).
+- A copy from a capture window that would be lost when the window closes is an error that names the package to install (`xclip`, or `wl-clipboard` on Wayland), not a success with an empty clipboard (LN-2).
+- A window recording never outlives Lens: its ffmpeg is stopped and the file finished when the recording ends or Lens drops it, instead of recording on with no way to stop it (LN-6).
+- A pin opened from a capture keeps the screen area it came from, so X11 pins offer Live (LN-7).
+- `--status` reports `"overlay":true` while a capture overlay opened by another Arcade app is on screen (LN-11).
+- Text that OCR reads off a QR code's modules or a photo's texture no longer adds a junk text result: lines it barely believes are dropped (LN-12).
+- Digit groups in an IBAN are no longer offered as a phone number (LN-13).
+- Plain lines of text with wide gaps between words are no longer detected as a table; the columns must line up (RD-LENS-6).
+
+### Removed
+
+- Record Window is not offered on Wayland, which has no window list or screen grab for it (LN-6).
+
+### Security
+
+- A history entry whose selection holds a recognized secret stores a plain grey tile instead of the picture, so the history no longer keeps the secret's pixels in its thumbnail (LN-8). Entries saved by earlier versions are not rewritten; clear the history to remove them.
+
+## [0.4.2] - 2026-11-06
 
 - Keep the resolved palette local to each GUI thread, so another context cannot change a frame's light/dark colours. A concurrent-context regression covers the Linux CI failure.
 - Clear inherited AppImage library and launcher paths when starting an explicit restart successor, so the fresh launcher uses its own environment.
 - Keep Settings keyboard shortcuts from consuming keys while the shortcut recorder is active. Ctrl/Cmd+K can be recorded instead of switching to Actions; Ctrl+W/Q and F1 also remain available to the recorder. Normal Settings shortcuts resume when recording ends.
 - Test real egui input through Settings key handling and the shared recorder, including Ctrl/Cmd+K capture and ordinary Actions-filter navigation.
 
-## 0.4.1 — 2026-11-01
+## [0.4.1] - 2026-11-01
 
 The first release of the new look. The `v0.4.0` tag was made but never
 released: its release build failed the capture focus check, fixed here.
@@ -46,7 +91,7 @@ released: its release build failed the capture focus check, fixed here.
 - Built against Arcade Link 0.4.14. Licences are listed in
   THIRD_PARTY_NOTICES.md.
 
-## 0.3.4 — 2026-10-25
+## [0.3.4] - 2026-10-25
 
 - Copy actions work on Wayland again: each capture runs in its own process, and
   the copied text or image disappeared when that process closed. Lens now
@@ -58,7 +103,7 @@ released: its release build failed the capture focus check, fixed here.
   frame while the desktop faded back in. The overlay now opens floating and
   full screen at your monitor's size, and closes straight to the desktop.
 
-## 0.3.3 — 2026-10-19
+## [0.3.3] - 2026-10-19
 
 - A helper an app starts from its own image (such as a settings window) keeps
   working after the app quits: the previous release stopped passing the AppImage
@@ -68,7 +113,7 @@ released: its release build failed the capture focus check, fixed here.
   file) drop it, so installing from Downloads still leaves nothing behind.
 - Restarting in the background no longer keeps the previous image mounted.
 
-## 0.3.2 — 2026-10-19
+## [0.3.2] - 2026-10-19
 
 - Installing or updating from your Downloads folder no longer leaves the
   downloaded AppImage mounted and its runtime running. The previous release
@@ -76,14 +121,14 @@ released: its release build failed the capture focus check, fixed here.
   waits on a pipe the app inherits, and the installed copy still inherited that;
   now no inherited handle is passed on.
 
-## 0.3.1 — 2026-10-18
+## [0.3.1] - 2026-10-18
 
 - Updating or installing from your Downloads folder, restarting into the
   background and starting other Arcade apps no longer leave the old AppImage
   mounted and its runtime (about 20 MB) running. A program the app started
   inherited an open handle on its AppImage mount and kept it busy.
 
-## 0.3.0 — 2026-10-18
+## [0.3.0] - 2026-10-18
 
 - Lower idle memory: on X11 the background instance keeps no window until you
   capture.
@@ -98,9 +143,19 @@ released: its release build failed the capture focus check, fixed here.
   escaped correctly, and upgrading names the older copy it replaces.
 - Built against Arcade Link commit `2fc7c91`.
 
-## 0.2.0 — 2026-10-14
+## [0.2.0] - 2026-10-14
 
 - Add Arcade Link v0.3.0 hub methods, tray hosting and portable settings.
 - Add receipt-owned installation, repair and removal, with Linux first-run setup and macOS Applications support.
 - Use the shared per-user Windows installer integration and release tools from Link v0.3.0.
 - Add user guides, generated shortcut tables and CI checks with isolated profiles on Rust 1.88.
+
+[Unreleased]: https://github.com/qa-p1/Arcade-lens/compare/v0.4.2...HEAD
+[0.4.2]: https://github.com/qa-p1/Arcade-lens/compare/v0.4.1...v0.4.2
+[0.4.1]: https://github.com/qa-p1/Arcade-lens/compare/v0.3.4...v0.4.1
+[0.3.4]: https://github.com/qa-p1/Arcade-lens/compare/v0.3.3...v0.3.4
+[0.3.3]: https://github.com/qa-p1/Arcade-lens/compare/v0.3.2...v0.3.3
+[0.3.2]: https://github.com/qa-p1/Arcade-lens/compare/v0.3.1...v0.3.2
+[0.3.1]: https://github.com/qa-p1/Arcade-lens/compare/v0.3.0...v0.3.1
+[0.3.0]: https://github.com/qa-p1/Arcade-lens/compare/v0.2.0...v0.3.0
+[0.2.0]: https://github.com/qa-p1/Arcade-lens/compare/v0.1.1...v0.2.0

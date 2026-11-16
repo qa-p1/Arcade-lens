@@ -1,5 +1,31 @@
 # Lens 1.0 progress (newest first)
 
+## 2026-11-15 - Round 5: security, licences, notices (cloud session, branch `local/lens-security`)
+- D12: `SECURITY.md` (what Lens guards and how, each row with its test or "not covered"), `deny.toml` and a `deny` CI job
+  (Box's, `--workspace --all-features`), and `THIRD_PARTY_NOTICES.md` from `scripts/third-party-notices.py`
+  (`--check` runs in `scripts/check.py`; `--check-appimage` runs in CI and the gates). The notices list the crates of
+  each shipped platform (`cargo tree --target`), the fonts (Inter, and the four egui ships, one under the Ubuntu Font
+  Licence), the vendored Link files at the recorded tag, and the AppImage runtime's six components. The AppImage bundles
+  no native library, so there is no native generator. Every package now carries the licences and the notices.
+- Advisories: updated within range rustls, rustls-webpki, webpki-roots, webpki-root-certs, tokio, rustix,
+  async-executor, clipboard-win; seven accepted with reasons (D12).
+- New tests: the endpoint file is `0600`, saved names stay in their folder, the defaults keep history, plugins and image
+  search off, Download only for http(s), terminal commands carry only a validated host, a secret copy asks, a dangerous
+  chain does not run unconfirmed, reverse image search never uploads, and the notices script.
+- Found, not changed (listed in `SECURITY.md`): Send to Phone leaves `arcade-lens-share-<pid>.png` in the temporary folder
+  with default permissions, and chains are not covered by the secret guard.
+- Tested: `python3 scripts/check.py` (version, docs, vendored, notices, 23 script tests, fmt, `clippy --workspace
+  --all-targets --locked -D warnings`, `cargo test --workspace --locked` in the isolated profile): 224 passed, 0 failed,
+  2 ignored. `cargo deny --workspace --all-features check --disable-fetch` against a local advisory database (the
+  sandbox cannot reach GitHub): ok. `--check-appimage` passed on an AppImage built here with `packaging/linux/build-appimage.sh` (a stand-in
+  binary). Windows and macOS packaging was not built here.
+
+## 2026-11-15 - Link 1.0.11 (cloud session, branch `claude/sharp-cori-29w5eg`)
+- D10: Link 1.0.7 → 1.0.11 (crate, every reusable workflow, vendored record, notices).
+- CHANGELOG in Keep a Changelog format with every user-visible v1 change under Unreleased.
+- D11: Tier 1 on headless Hyprland (`tests/desktop/lens_desktop.py`) in CI and the gates; written for the harness,
+  which runs only in CI, so its first run is this PR's. LN-10 and RD-LENS-4 (P2) moved to `BACKLOG.md`.
+
 ## 2026-11-15 - step 7: release gates (cloud session, branch `claude/sharp-cori-29w5eg`)
 - D9: `gates.yml` on Link `app-gates.yml@v1.0.9` for the published rc; `scripts/verify-upgrade.py`, the upgrade gate
   Lens did not have, run by CI from the published 0.4.2 and by the gates from the previous stable release.

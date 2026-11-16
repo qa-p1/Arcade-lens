@@ -1254,6 +1254,30 @@ fn send_trigger(tx: &Sender<Trigger>, t: Trigger) {
     }
 }
 
+/// The monitor the analyze overlay covers. X11 names its monitors; Wayland does not, so on Hyprland it is the focused
+/// monitor (where the full-screen overlay opens), and elsewhere a canvas the size of the image, as a portal capture
+/// is one "Desktop" frame.
+fn analyze_monitor(image: &RgbaImage) -> Result<lens_core::geometry::MonitorInfo, String> {
+    let focused = || lens_platform::hyprland::active().then(lens_platform::hyprland::focused_monitor_pixels).flatten();
+    pick_analyze_monitor(lens_platform::monitors().ok(), focused, image)
+}
+
+fn pick_analyze_monitor(
+    monitors: Option<Vec<lens_core::geometry::MonitorInfo>>,
+    focused: impl FnOnce() -> Option<(i32, i32, u32, u32)>,
+    image: &RgbaImage,
+) -> Result<lens_core::geometry::MonitorInfo, String> {
+    use lens_core::geometry::{MonitorInfo, Rect};
+    if let Some(monitors) = monitors {
+        return monitors.iter().find(|m| m.is_primary).or(monitors.first()).cloned().ok_or_else(|| "no monitor".into());
+    }
+    let (id, rect) = match focused() {
+        Some((x, y, w, h)) => ("hyprland", Rect::new(x, y, w, h)),
+        None => ("wayland", Rect::new(0, 0, image.width().max(1), image.height().max(1))),
+    };
+    Ok(MonitorInfo { id: id.into(), name: "Desktop".into(), rect, scale_factor: 1.0, refresh_rate_hz: None, is_primary: true })
+}
+
 /// Runs one window as this process's root window (Wayland), until it closes.
 pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
     use wayland::Solo;
@@ -1270,8 +1294,7 @@ pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
         },
         Solo::Analyze(p) => {
             let image = wayland::load_image(p)?;
-            let monitors = lens_platform::monitors().map_err(|e| e.to_string())?;
-            let monitor = monitors.iter().find(|m| m.is_primary).or(monitors.first()).cloned().ok_or("no monitor")?;
+            let monitor = analyze_monitor(&image)?;
             let (canvas, rect) = crate::link::analyze_canvas(&image, &monitor);
             analyze_rect = Some(rect);
             vec![lens_platform::Capture { monitor, image: Arc::new(canvas) }]
@@ -1470,4 +1493,27 @@ fn start_app(
         }),
     )
     .map_err(|e| e.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use lens_core::geometry::{MonitorInfo, Rect};
+
+    fn monitor(id: &str, primary: bool) -> MonitorInfo {
+        MonitorInfo { id: id.into(), name: id.into(), rect: Rect::new(0, 0, 1920, 1080), scale_factor: 1.0, refresh_rate_hz: None, is_primary: primary }
+    }
+
+    /// `--window analyze` (Link's lens.analyze) opens on Wayland too, where no monitor geometry is exposed.
+    #[test]
+    fn the_analyze_overlay_has_a_monitor_on_every_desktop() {
+        let image = RgbaImage::new(800, 600);
+        let x11 = pick_analyze_monitor(Some(vec![monitor("a", false), monitor("b", true)]), || unreachable!(), &image).unwrap();
+        assert_eq!(x11.id, "b");
+        assert!(pick_analyze_monitor(Some(Vec::new()), || None, &image).is_err());
+        let hyprland = pick_analyze_monitor(None, || Some((1920, 0, 2560, 1440)), &image).unwrap();
+        assert_eq!((hyprland.rect, hyprland.is_primary), (Rect::new(1920, 0, 2560, 1440), true));
+        let other = pick_analyze_monitor(None, || None, &image).unwrap();
+        assert_eq!(other.rect, Rect::new(0, 0, 800, 600));
+    }
 }

@@ -65,3 +65,35 @@
   usage files are unchanged, there is one launcher and one login item, and an uninstall without `--remove-data` keeps
   the data. CI runs it from 0.4.2 on every build. No Tier 1 script yet: the overlay's focus rule is checked on Xvfb
   (`tests/overlay-focus.py`, CI); LN-10 and RD-LENS-4 still need the Hyprland harness.
+- D10. Link 1.0.11 (step 8 prep): Lens moves from Link 1.0.7. What touches Lens: 1.0.11 publishes release files
+  under names GitHub keeps and gives the unpacked copy's marker (`ARCADE_UNPACKED`) its own folder, so a restart
+  successor (`gui/background.rs`, started from `$APPIMAGE`) no longer inherits "already unpacked" and stays on the
+  FUSE mount; 1.0.10's uninstall removes Lens's own copies under `<data>/arcade/runtime/lens-*`; 1.0.9 is the gates
+  workflow D9 already uses; 1.0.8's changes are in the Qt/QML and Dart kits Lens does not use. The vendored files
+  and the design kit are byte-identical at v1.0.11 (only the recorded tag moves). Every Link workflow is pinned to
+  `v1.0.11`.
+- D11. Tier 1 on headless Hyprland (step 7): `tests/desktop/lens_desktop.py` runs on Link's harness
+  (`desktop-e2e.yml`) in CI on every build and in the gates on the published rc, from the AppImage as a user starts it
+  (without the harness's `ARCADE_UNPACKED`). The harness has no screenshot portal, so the overlay is opened on a
+  known image with `--window analyze` (the overlay Link's `lens.analyze` opens; same selection and keys as a
+  capture). It checks: every window's class is `dev.arcade.Lens` (ID-1); the overlay maps floating and full-screen
+  through the resident's window rules and has keyboard focus; Ctrl+C on a selection puts an image on the Wayland
+  clipboard (RD-LENS-1, until now only a unit test of the key mapping); Escape closes the overlay and its process
+  exits; on a pin with its menu open the first Escape closes only the menu (RD-LENS-3); Settings floats and Ctrl+W
+  closes it; `--status` and `--quit`. Tier 1 blocks the gates on any failure. LN-10 and RD-LENS-4 (P2) need to read
+  what egui draws, which the harness cannot; they are in `BACKLOG.md` with the reason.
+- D12. Security, licences and notices (Round 5). `deny.toml` is Arcade Box's, with `allow-git` for Arcade Link only; the
+  licence list holds only licences the tree needs, plus `Ubuntu-font-1.0` for egui's bundled Ubuntu Light. Advisories
+  with a fix inside the range Lens already depends on were fixed with `cargo update -p … --precise …` (rustls 0.23.46,
+  rustls-webpki 0.103.17, webpki-roots and webpki-root-certs 1.0.12, tokio 1.54.1, rustix 1.1.6, async-executor 1.14.1,
+  clipboard-win 5.4.3), and `cargo check --workspace --all-targets` passes on Rust 1.88. Seven are accepted, each with
+  its reason in `deny.toml`: RUSTSEC-2024-0429 (glib 0.18) and RUSTSEC-2024-0370 (proc-macro-error) only through
+  `tray-icon`'s GTK backend, which no Lens build compiles (Lens takes `tray-icon` on Windows and macOS, `ksni` on
+  Linux); RUSTSEC-2024-0436 (paste, a build-time macro in the exr decoder rxing's `image` enables); RUSTSEC-2026-0192
+  (ttf-parser, which reads only the fonts compiled in); RUSTSEC-2026-0370/0371/0372 (zvariant, zbus_names,
+  zvariant_derive, merged into zbus 6 while `ashpd` and `ksni` use zbus 5). The notices list only the crates a shipped
+  build contains: `cargo tree --target` for Linux x86_64, Windows x64 and both macOS targets, not every crate in the
+  lock file. The AppImage bundles no library of its own (`build-appimage.sh` packs the binary, launcher, icon and
+  licences, with no linuxdeploy), so there is no native-library generator; `--check-appimage` enforces that, and
+  records the six components of the AppImage runtime. Every package now carries the licences and the notices.
+

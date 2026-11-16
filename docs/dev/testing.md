@@ -8,18 +8,25 @@
   links stay inside `docs/user`, the shortcut sheet matches the build and `shortcuts.md`
   is regenerated) and `scripts/check-vendored.py` (every vendored Link file matches its
   SHA-256);
-- the Python tests for the vendored release and shortcut scripts;
+- `scripts/third-party-notices.py --check`: `THIRD_PARTY_NOTICES.md` is current (after a
+  dependency change, `python3 scripts/third-party-notices.py > THIRD_PARTY_NOTICES.md`);
+- the Python tests for the vendored release and shortcut scripts, and for the notices script;
 - `cargo fmt --check`, `cargo clippy --workspace --all-targets -- -D warnings`;
 - `cargo test --workspace` in a temporary profile (`scripts/isolate.py`), so tests never
   touch real settings, history, login entries or the Link registry.
 
 `scripts/dev` runs Lens from source with its own profile in `target/dev-profile`.
 
+`cargo deny --workspace --all-features check` (advisories, licences, bans, sources; `deny.toml`)
+runs as its own CI job on every pull request; run it locally with cargo-deny 0.18.
+
 ## In CI after the checks
 
 Each OS then packages Lens (`scripts/package`) and verifies the installer for real:
 
-- **Linux:** `scripts/verify-appimage.py` installs, repairs and uninstalls the AppImage in a
+- **Linux:** `scripts/third-party-notices.py --check-appimage` unpacks the AppImage and fails
+  on any library or program in it besides `arcade-lens`, on licence files that differ from the
+  committed ones, or on a new component in the AppImage runtime. `scripts/verify-appimage.py` installs, repairs and uninstalls the AppImage in a
   disposable profile under Xvfb and D-Bus. `tests/tray-registration.py` registers the tray
   icon with a real StatusNotifierWatcher (through Link's `tools/e2e.py` runner, at the
   Link tag `Cargo.toml` pins). `tests/overlay-focus.py` checks, in both window modes, that a

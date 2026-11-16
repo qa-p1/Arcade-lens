@@ -82,7 +82,8 @@ def sync(link: Path, tag: str) -> None:
     section = "\n".join([
         f"## {HEADER}",
         "",
-        f"Copied unchanged from [Arcade Link]({LINK_URL}/tree/{tag}) tag `{tag}` (commit",
+        f"Copied unchanged from [Arcade Link]({LINK_URL}/tree/{tag})",
+        f"tag `{tag}` (commit",
         f"`{commit}`) by `scripts/sync-design`; never edit these files here.",
         "License: MIT OR Apache-2.0.",
         "",

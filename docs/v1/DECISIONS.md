@@ -135,4 +135,12 @@
   its unpacked copies use the same folders, as in a real profile. The "keeps user data" sentinel moved from the top
   of `ARCADE_LENS_HOME`, which `--remove-data` never deletes, into Lens's settings folder (`config`). Version 1.0.0
   for the first release candidate, `v1.0.0-rc.1`. README screenshots stay open, as for Box and Look.
-
+- D17. Link conformance before rc.2. The release of `v1.0.0-rc.1` was cancelled before the Gates ran: the static check
+  of Arcade Link, run locally (`arcade-link conformance .`), found 4 FAILs. ID-3: no `dev.arcade.Lens.svg` and no
+  symbolic icon in the repository; `packaging/linux/` now holds both (the app icon from Link's `design/app-icons/lens`,
+  the glyph `arcade.lens.svg` unchanged) and `build-appimage.sh` installs them under `hicolor/scalable/apps` and
+  `hicolor/symbolic/apps`. REPO-2: no update bot; `.github/dependabot.yml` (Arcade tools' file, cargo and
+  github-actions, grouped weekly, no rebase). REL-1: five steps of `ci.yml` that download or install had no
+  `timeout-minutes`; each has one (10, 15 or 20), commands unchanged. LINK-2: a false positive on prose, because the
+  line with the Link URL also held the tag; `VENDORED` and the text `scripts/sync-design.py` writes now put "tag
+  `v1.x.y` (commit" on its own line, which the notices parser (`\s+`) still reads. The check now shows 0 failed.

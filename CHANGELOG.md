@@ -43,6 +43,9 @@ All notable changes to Arcade Lens. The format follows [Keep a Changelog](https:
 
 ### Security
 
+- Lens hands images to its own windows (Wayland) and to KDE Connect through a private per-user folder (`$XDG_RUNTIME_DIR/arcade-lens`, or `arcade-lens-<uid>` in the temporary folder), created `0700` and refused if it is a symlink, belongs to someone else or is open to group or other. Before, a folder another user created first could receive your screenshots.
+- Send to Phone writes the image with mode `0600`, under a name unique to each share, and deletes shares older than an hour.
+- A chain with a step that sends something out is no longer offered, and is refused even when confirmed, if the selection contains a secret and "guard secrets" is on, the same as a single action.
 - A history entry whose selection holds a recognized secret stores a plain grey tile instead of the picture, so the history no longer keeps the secret's pixels in its thumbnail (LN-8). Entries saved by earlier versions are not rewritten; clear the history to remove them.
 
 ## [0.4.2] - 2026-11-06

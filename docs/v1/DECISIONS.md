@@ -96,4 +96,13 @@
   lock file. The AppImage bundles no library of its own (`build-appimage.sh` packs the binary, launcher, icon and
   licences, with no linuxdeploy), so there is no native-library generator; `--check-appimage` enforces that, and
   records the six components of the AppImage runtime. Every package now carries the licences and the notices.
+- D13. Security hardening of three open `SECURITY.md` rows. One function, `gui/private_dir.rs`, returns the folder for
+  files handed to another process: `$XDG_RUNTIME_DIR/arcade-lens` if that is a directory the user owns, else
+  `<temp>/arcade-lens-<uid>`; created `0700`, then verified with `symlink_metadata` (real directory, our uid, no
+  group/other bits) and refused otherwise, so a folder planted by another user is never written into. The Wayland
+  hand-over and Send to Phone both use it; shares are `0600`, named by pid, time and a counter, and shares over an hour
+  old are deleted when a new one is written (KDE Connect reads the file after the command returns). A chain with an
+  outbound step follows the secret guard in `Chain::run` and the palette: any secret finding refuses it, confirmed or
+  not (stricter than the single-action text check, since a chain's later steps are not previewed). Not changed, in
+  `BACKLOG.md`: plugins with `read-text` still receive secrets, and settings, chains, history and logs keep the umask.
 

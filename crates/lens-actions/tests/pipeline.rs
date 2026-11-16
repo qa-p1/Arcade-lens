@@ -463,11 +463,23 @@ fn a_confirmed_outbound_chain_is_refused_when_the_selection_holds_a_secret() {
     assert!(!p.all.iter().any(|e| e.target == Target::Chain("search".into())), "the chain is not offered");
 
     // A chain with no outbound step still runs with the guard on.
-    let local = Chain { id: "copy".into(), name: "Copy".into(), steps: vec![ChainStep::Take { capability: caps::TEXT }, ChainStep::Run { action: "core.copy".into(), params: Default::default() }] };
+    let local = Chain {
+        id: "copy".into(),
+        name: "Copy".into(),
+        steps: vec![ChainStep::Take { capability: caps::TEXT }, ChainStep::Run { action: "core.copy".into(), params: Default::default() }],
+    };
     let p = s.palette(&report, &UsageStore::default(), std::slice::from_ref(&local));
     assert!(p.all.iter().any(|e| e.target == Target::Chain("copy".into())));
     local
-        .run(ChainRunContext { registry: s.engine.registry(), findings: &report.findings, host: &host, settings: &s.settings, selection: Some(&sel), cancel: &cancel, confirmed: false })
+        .run(ChainRunContext {
+            registry: s.engine.registry(),
+            findings: &report.findings,
+            host: &host,
+            settings: &s.settings,
+            selection: Some(&sel),
+            cancel: &cancel,
+            confirmed: false,
+        })
         .unwrap();
 
     // Guard off: the same chain runs once confirmed.

@@ -1,0 +1,18 @@
+# Weekly, one grouped pull request per ecosystem for minor and patch updates (majors stay separate), and no
+# automatic rebase: each rebase started a full CI build per open pull request whenever main moved, which queued
+# release work behind them (24 queued runs on 2026-11-14). Ask "@dependabot rebase" on a pull request to refresh it.
+version: 2
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule: { interval: weekly }
+    open-pull-requests-limit: 5
+    rebase-strategy: disabled
+    groups:
+      cargo: { update-types: [minor, patch] }
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    rebase-strategy: disabled
+    groups:
+      actions: { update-types: [minor, patch] }

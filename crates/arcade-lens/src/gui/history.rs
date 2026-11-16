@@ -436,4 +436,63 @@ mod tests {
         assert!(!json.contains(password), "{json}");
         assert!(json.contains("password: hun…tery"), "{json}");
     }
+
+    // FS-2 (D15)
+    use crate::testdata::{fixture, install};
+
+    #[test]
+    fn a_v042_entry_loads_with_every_value_kept() {
+        let dir = temp("fixture");
+        install("history/20261101-093015123.json", &dir.join("20261101-093015123.json"));
+        let entries = load(&dir).unwrap();
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].summary, "https://example.org/docs");
+        assert_eq!(entries[0].kinds.len(), 2);
+        assert_eq!(entries[0].thumbnail, dir.join("20261101-093015123.png"));
+        let t = chrono::NaiveDate::from_ymd_opt(2026, 11, 1).unwrap().and_hms_milli_opt(9, 30, 15, 123).unwrap();
+        assert_eq!(entries[0].time_ms, t.and_local_timezone(chrono::Local).earliest().unwrap().timestamp_millis());
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn an_entry_is_written_in_the_v1_shape() {
+        let _guard = HISTORY_TEST.lock().unwrap();
+        let dir = temp("shape");
+        let path = save(&dir, &RgbaImage::new(10, 10), &[finding(lens_core::caps::TEXT, Value::text("hello"))]).unwrap();
+        let written: serde_json::Value = serde_json::from_slice(&fs::read(&path).unwrap()).unwrap();
+        let mut keys: Vec<&String> = written.as_object().unwrap().keys().collect();
+        keys.sort();
+        assert_eq!(keys, ["findings", "time"], "no schema field in v1, so 0.4.x reads it as before");
+        let fixture: serde_json::Value = serde_json::from_slice(&fs::read(fixture("history/20261101-093015123.json")).unwrap()).unwrap();
+        let mut keys: Vec<&String> = fixture.as_object().unwrap().keys().collect();
+        keys.sort();
+        assert_eq!(keys, ["findings", "time"]);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn missing_history_fields_default_and_a_newer_entry_is_read_untouched() {
+        let dir = temp("newer");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("20261102-100000000.json"), r#"{"time":"20261102-100000000"}"#).unwrap();
+        let newer = r#"{"schema":2,"time":"20261103-100000000","findings":[{"capability":"url","summary":"https://n.example","confidence":0.5,"box":[1,2]}],"tags":["x"]}"#;
+        fs::write(dir.join("20261103-100000000.json"), newer).unwrap();
+        let entries = load(&dir).unwrap();
+        assert_eq!(entries.len(), 2);
+        assert_eq!(entries[0].summary, "https://n.example");
+        assert_eq!(entries[1].summary, "A screen selection");
+        assert_eq!(fs::read_to_string(dir.join("20261103-100000000.json")).unwrap(), newer);
+        let _ = fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn an_unreadable_entry_is_skipped_and_left_where_it_is() {
+        let dir = temp("unreadable");
+        fs::create_dir_all(&dir).unwrap();
+        fs::write(dir.join("20261101-000000000.json"), b"{broken").unwrap();
+        install("history/20261101-093015123.json", &dir.join("20261101-093015123.json"));
+        assert_eq!(load(&dir).unwrap().len(), 1);
+        assert_eq!(fs::read(dir.join("20261101-000000000.json")).unwrap(), b"{broken");
+        let _ = fs::remove_dir_all(dir);
+    }
 }

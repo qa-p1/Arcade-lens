@@ -55,15 +55,73 @@ fn origin_and_size(m: &MonitorInfo) -> (Pos2, Vec2) {
     (egui::pos2(m.rect.x as f32 / s, m.rect.y as f32 / s), egui::vec2(m.rect.width as f32 / s, m.rect.height as f32 / s))
 }
 
-fn load(data: &Path) -> Store {
-    std::fs::read(data.join(FILE)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+/// `window-geometry.json` is a map of maps with no room for a `schema` field in version 1 (0.4.x would discard
+/// the whole file), so a `schema` key is only ever written by a newer Lens. This build reads such a file as far
+/// as it can and never writes it (D15).
+fn decode(doc: serde_json::Value, schema: u32) -> Result<Store, String> {
+    let serde_json::Value::Object(kinds) = doc else { return Err("not an object".into()) };
+    let newer = schema > lens_core::schema::CURRENT;
+    let mut store = Store::new();
+    for (kind, monitors) in kinds {
+        if kind == "schema" {
+            continue;
+        }
+        let rects = match monitors {
+            serde_json::Value::Object(rects) => rects,
+            _ if newer => continue,
+            _ => return Err(format!("`{kind}` is not a map of windows")),
+        };
+        for (monitor, rect) in rects {
+            match serde_json::from_value::<Saved>(rect) {
+                Ok(saved) => {
+                    store.entry(kind.clone()).or_default().insert(monitor, saved);
+                }
+                Err(_) if newer => {}
+                Err(e) => return Err(format!("`{kind}`: {e}")),
+            }
+        }
+    }
+    Ok(store)
 }
 
+fn load(data: &Path) -> Store {
+    let path = data.join(FILE);
+    crate::datafile::load_json_with(&path, decode)
+        .unwrap_or_else(|e| {
+            eprintln!("arcade-lens: can't read {}: {e}; using default window positions", path.display());
+            None
+        })
+        .unwrap_or_default()
+}
+
+/// 0.1f32 as 0.1, not 0.10000000149011612: the shortest text that reads back the same f32.
+fn number(x: f32) -> serde_json::Value {
+    x.to_string().parse::<f64>().ok().and_then(serde_json::Number::from_f64).map_or(serde_json::Value::Null, serde_json::Value::Number)
+}
+
+fn object(value: &mut serde_json::Value) -> &mut serde_json::Map<String, serde_json::Value> {
+    if !value.is_object() {
+        *value = serde_json::Value::Object(Default::default());
+    }
+    value.as_object_mut().expect("just made an object")
+}
+
+/// Stores `g` for window `kind` on `monitor`. Everything else in the file stays as it is, including fields this
+/// build doesn't know in the rectangle itself, other windows and other monitors.
 fn save(data: &Path, kind: &str, monitor: &str, g: Saved) {
-    let mut store = load(data);
-    store.entry(kind.to_string()).or_default().insert(monitor.to_string(), g);
-    if let Ok(json) = serde_json::to_vec_pretty(&store) {
-        let path: PathBuf = data.join(FILE);
+    let path: PathBuf = data.join(FILE);
+    if let Err(e) = crate::datafile::guard_write(&path, crate::datafile::Kind::Json) {
+        eprintln!("arcade-lens: {e}");
+        return;
+    }
+    let mut doc =
+        std::fs::read(&path).ok().and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok()).filter(serde_json::Value::is_object).unwrap_or_default();
+    let windows = object(object(&mut doc).entry(kind.to_string()).or_insert(serde_json::Value::Null));
+    let rect = object(windows.entry(monitor.to_string()).or_insert(serde_json::Value::Null));
+    for (key, value) in [("x", g.x), ("y", g.y), ("w", g.w), ("h", g.h)] {
+        rect.insert(key.to_string(), number(value));
+    }
+    if let Ok(json) = serde_json::to_vec_pretty(&doc) {
         let _ = std::fs::create_dir_all(data);
         let tmp = path.with_extension("json.tmp");
         if std::fs::write(&tmp, json).is_ok() {
@@ -212,5 +270,84 @@ mod tests {
         assert_eq!(s["history"]["*"], g);
         let _ = std::fs::remove_file(dir.join(FILE));
         let _ = std::fs::remove_dir(&dir);
+    }
+
+    // FS-2 (D15)
+    use crate::testdata::{install, set_aside, temp};
+
+    fn saved(x: f32, y: f32, w: f32, h: f32) -> Saved {
+        Saved { x, y, w, h }
+    }
+
+    #[test]
+    fn v042_geometry_loads_with_every_value_kept() {
+        let dir = temp("geometry-fixture");
+        let bytes = install("window-geometry.json", &dir.join(FILE));
+        let store = load(&dir);
+        assert_eq!(store["history"]["DP-1@2560x1440"], saved(120.0, 80.0, 900.0, 640.0));
+        assert_eq!(store["settings"][ANY_MONITOR], saved(0.0, 0.0, 820.0, 600.0));
+        assert_eq!(store["settings"]["HDMI-1@1920x1080"], saved(300.5, 200.0, 780.0, 560.0));
+        // Saving one rectangle again leaves the file as 0.4.2 wrote it (no schema field in v1).
+        save(&dir, "settings", "HDMI-1@1920x1080", saved(300.5, 200.0, 780.0, 560.0));
+        let after: serde_json::Value = serde_json::from_slice(&std::fs::read(dir.join(FILE)).unwrap()).unwrap();
+        assert_eq!(after, serde_json::from_slice::<serde_json::Value>(&bytes).unwrap());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn missing_geometry_fields_default() {
+        let dir = temp("geometry-missing");
+        assert!(load(&dir).is_empty());
+        std::fs::write(dir.join(FILE), "{}").unwrap();
+        assert!(load(&dir).is_empty());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn unknown_geometry_fields_survive_a_save() {
+        let dir = temp("geometry-unknown");
+        std::fs::write(
+            dir.join(FILE),
+            r#"{"settings":{"A@1x1":{"x":1.0,"y":2.0,"w":3.0,"h":4.0,"maximized":true}},"tray":{"A@1x1":{"x":9.0,"y":9.0,"w":9.0,"h":9.0}},"future":[1,2]}"#,
+        )
+        .unwrap();
+        save(&dir, "settings", "A@1x1", saved(5.0, 6.0, 7.0, 8.0));
+        let after: serde_json::Value = serde_json::from_slice(&std::fs::read(dir.join(FILE)).unwrap()).unwrap();
+        assert_eq!(after["settings"]["A@1x1"]["x"], 5.0);
+        assert_eq!(after["settings"]["A@1x1"]["maximized"], true);
+        assert_eq!(after["tray"]["A@1x1"]["w"], 9.0);
+        assert_eq!(after["future"][1], 2);
+        assert!(after.get("schema").is_none());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn a_newer_geometry_file_is_read_and_never_written_over() {
+        let dir = temp("geometry-newer");
+        let newer = r#"{"schema":2,"settings":{"A@1x1":{"x":1.0,"y":2.0,"w":3.0,"h":4.0}},"layout":"tabs"}"#;
+        std::fs::write(dir.join(FILE), newer).unwrap();
+        assert_eq!(load(&dir)["settings"]["A@1x1"], saved(1.0, 2.0, 3.0, 4.0));
+        save(&dir, "settings", "A@1x1", saved(9.0, 9.0, 9.0, 9.0));
+        assert_eq!(std::fs::read_to_string(dir.join(FILE)).unwrap(), newer);
+        assert!(set_aside(&dir, FILE).is_empty());
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn an_unreadable_geometry_file_is_moved_aside_not_destroyed() {
+        let dir = temp("geometry-unreadable");
+        for bytes in [&b"{\"settings\": "[..], br#"{"settings":{"A":{"x":"left"}}}"#, b"[1]"] {
+            std::fs::write(dir.join(FILE), bytes).unwrap();
+            assert!(load(&dir).is_empty());
+            let kept = set_aside(&dir, FILE);
+            assert_eq!(kept.len(), 1);
+            assert_eq!(std::fs::read(&kept[0]).unwrap(), bytes);
+            save(&dir, "settings", "A", saved(1.0, 1.0, 1.0, 1.0));
+            assert_eq!(std::fs::read(&kept[0]).unwrap(), bytes);
+            assert_eq!(load(&dir)["settings"]["A"], saved(1.0, 1.0, 1.0, 1.0));
+            std::fs::remove_file(&kept[0]).unwrap();
+            std::fs::remove_file(dir.join(FILE)).unwrap();
+        }
+        std::fs::remove_dir_all(dir).ok();
     }
 }

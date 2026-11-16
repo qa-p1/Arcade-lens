@@ -22,9 +22,15 @@ use crate::settings::Settings;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Chain {
+    #[serde(default)]
     pub id: String,
+    #[serde(default)]
     pub name: String,
+    #[serde(default)]
     pub steps: Vec<ChainStep>,
+    /// Fields this build does not know (a newer Lens's), kept through a save (FS-2, D15).
+    #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub extra: serde_json::Map<String, serde_json::Value>,
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -32,12 +38,18 @@ pub struct Chain {
 pub enum ChainStep {
     /// Pick the best finding with (a descendant of) this capability from the
     /// analysis — e.g. `text` for "OCR", `table` for "OCR Table".
-    Take { capability: Capability },
+    Take {
+        capability: Capability,
+        #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+        extra: serde_json::Map<String, serde_json::Value>,
+    },
     /// Run an action on the current value.
     Run {
         action: String,
         #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
         params: Params,
+        #[serde(flatten, default, skip_serializing_if = "serde_json::Map::is_empty")]
+        extra: serde_json::Map<String, serde_json::Value>,
     },
 }
 
@@ -62,7 +74,7 @@ impl Chain {
         let err = |step: usize, message: String| ChainError { step, message };
         let graph = registry.graph();
         let (input, mut rest) = match self.steps.first() {
-            Some(ChainStep::Take { capability }) => (capability.clone(), &self.steps[1..]),
+            Some(ChainStep::Take { capability, .. }) => (capability.clone(), &self.steps[1..]),
             Some(ChainStep::Run { .. }) => (caps::REGION, &self.steps[..]),
             None => return Err(err(0, "chain is empty".into())),
         };
@@ -121,7 +133,7 @@ impl Chain {
         let mut current = Item::from(start);
         let mut outcomes = Vec::new();
         for step in &self.steps {
-            let ChainStep::Run { action, params } = step else { continue };
+            let ChainStep::Run { action, params, .. } = step else { continue };
             cx.cancel.check()?;
             let a = cx.registry.action(action).expect("validated");
             let acx = ActionContext { host: cx.host, settings: cx.settings, selection: cx.selection, params, cancel: Some(cx.cancel) };

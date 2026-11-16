@@ -364,7 +364,12 @@ impl SettingsView {
                 k += 1;
                 id = format!("chain-{k}");
             }
-            self.chain_drafts.push(Chain { id, name: format!("My chain {k}"), steps: vec![ChainStep::Take { capability: caps::TEXT }] });
+            self.chain_drafts.push(Chain {
+                id,
+                name: format!("My chain {k}"),
+                steps: vec![ChainStep::Take { capability: caps::TEXT, extra: Default::default() }],
+                extra: Default::default(),
+            });
             self.chain_sel = self.chain_drafts.len() - 1;
         }
         self.commit_chains(&mut out);
@@ -904,14 +909,14 @@ impl SettingsView {
                             }
                         }
                         match step {
-                            ChainStep::Take { capability } => {
+                            ChainStep::Take { capability, .. } => {
                                 let options: Vec<(Capability, String)> =
                                     caps_list.iter().map(|c| (c.clone(), format!("Take {}", cap_label(c).to_lowercase()))).collect();
                                 let options: Vec<(Capability, &str)> = options.iter().map(|(c, l)| (c.clone(), l.as_str())).collect();
                                 kit.select(ui, ("take", sel, i), capability, &options);
                                 current = Some(capability.clone());
                             }
-                            ChainStep::Run { action, params } => {
+                            ChainStep::Run { action, params, .. } => {
                                 let compatible: Vec<(String, String)> = registry
                                     .actions()
                                     .iter()
@@ -965,7 +970,7 @@ impl SettingsView {
                         .map(|a| a.descriptor())
                         .find(|d| current.as_ref().is_some_and(|c| d.accepts.iter().any(|acc| graph.is_a(c, acc))));
                     if let Some(d) = first {
-                        chain.steps.push(ChainStep::Run { action: d.id.clone(), params: Default::default() });
+                        chain.steps.push(ChainStep::Run { action: d.id.clone(), params: Default::default(), extra: Default::default() });
                     }
                 }
                 delete = kit.button(ui, "Delete chain", ButtonKind::Danger).clicked();

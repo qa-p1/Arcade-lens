@@ -1,0 +1,46 @@
+appearance = "dark"
+notifications = false
+activation_shortcut = "Ctrl+Alt+Shift+K"
+browser = "firefox"
+terminal = "kitty"
+editor = "code"
+screenshot_dir = "/home/ada/Pictures/Shots"
+image_format = "webp"
+ocr_languages = [
+    "en",
+    "de",
+]
+primary_action_count = 4
+preferred_actions = [
+    "core.copy",
+    "chain:clean-copy",
+]
+disabled_recognizers = ["core.recognize.barcode"]
+disabled_actions = ["core.text.search"]
+date_order = "month-first"
+home_currency = "EUR"
+enabled_plugins = ["acme.shout"]
+
+[action_keys]
+"core.copy" = "y"
+"core.save" = "w"
+
+[providers]
+web_search = "https://example.org/?q={query}"
+maps_search = "https://maps.example.org/search?query={query}"
+maps_coordinates = "https://maps.example.org/?mlat={lat}&mlon={lon}"
+product_search = "https://example.org/?q={query}+barcode"
+whois = "https://whois.example.org/{query}"
+reverse_image_search = "https://images.example.org/?u={query}"
+
+[privacy]
+history_enabled = true
+learn_action_usage = false
+guard_secrets = true
+
+[link]
+enabled = false
+disabled_peers = [
+    "arcade.box",
+    "arcade.look",
+]

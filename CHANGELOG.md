@@ -21,6 +21,7 @@ All notable changes to Arcade Lens. The format follows [Keep a Changelog](https:
 
 ### Fixed
 
+- A settings, chains, usage or window-position file Lens can't read is kept next to it as `<name>.unreadable-<time>` and Lens starts on the defaults, instead of refusing to start (settings) or replacing the file at the next save. Settings Lens doesn't know, from a newer Lens or added by hand, are kept when Lens saves, and an older Lens never writes over a file a newer one made.
 - "Analyze with Lens" (Arcade Link's `lens.analyze`) opens on Wayland. It stopped with "monitor geometry is not exposed on Wayland" before showing anything; on Hyprland it now covers the focused monitor.
 - `--status` and `--hide` no longer open the first-run install dialog (LN-1).
 - The first-run install dialog opens on a fresh profile instead of failing with "The install dialog could not open": its fonts are installed before its first frame (LN-1).

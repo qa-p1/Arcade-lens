@@ -110,3 +110,18 @@
   on ubuntu-22.04 could restore a CLI built on ubuntu-24.04 ("GLIBC_2.39 not found"; Box's rc.2 gates hit it). Every
   reusable Link workflow and `link-ref` is pinned to `v1.0.12`, which keys the cache by runner image. The crate and the
   vendored files stay at `v1.0.11`: 1.0.12 changes no Rust code or design file.
+
+- D15. Schema versions and safe downgrade (Round 5, Link FS-2; the model is Arcade Box's D19). Every data file Lens
+  reads back has a version: no `schema` field means 1, the shape every release so far wrote, and the field is written
+  only above 1, so a v1 file stays exactly what 0.4.x writes and reads (`lens_core::schema`). One helper,
+  `crates/arcade-lens/src/datafile.rs`, loads and guards them: a file made by a newer Arcade Lens (schema above
+  `CURRENT`) is read as far as possible, logged and never written over (a save is refused); a file that can't be parsed
+  is moved to `<name>.unreadable-<unix seconds>` and Lens starts on the defaults, where before an unparseable
+  `settings.toml` stopped the start and unreadable chains or usage were replaced by the next save. Fields this build
+  doesn't know survive a save in `settings.toml` (each table keeps a flattened `extra`), chains, steps, usage and window
+  geometry. Shapes: `chains.json` is a bare list in v1, so a newer one is an object `{"schema": N, "chains": [...]}`;
+  `window-geometry.json` is a map of maps that 0.4.x would discard whole with a `schema` key, so a newer layout takes
+  a new file name rather than a key. Chain steps keep `capability` and `action` required. History entries (one JSON
+  file each, never rewritten; an unreadable one is skipped and left in place) and the append-only `collections/`
+  lines need no code change and have tests. Fixtures in the 0.4.2 shape, with non-default values, are in
+  `crates/arcade-lens/tests/data/v0.4.2/`; 14 of the new tests failed on the old code.

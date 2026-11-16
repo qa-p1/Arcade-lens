@@ -1,5 +1,11 @@
 # Lens 1.0 progress (newest first)
 
+## 2026-11-16 - Round 5: schema versions and safe downgrade (branch `local/lens-schema`)
+- D15: `settings.toml`, `chains.json`, `usage.json` and `window-geometry.json` carry a schema version (none means 1),
+  keep fields Lens doesn't know through a save, are never written over when a newer Lens made them, and are moved
+  aside, not replaced, when they can't be parsed. History and collections were already safe; they now have tests.
+- Tests first, from 0.4.2-shaped fixtures: 14 failed on the old code, all pass now.
+
 ## 2026-11-16 - Security hardening (branch `local/lens-hardening`)
 - D13: three rows of `SECURITY.md` that were documented as open are fixed, each with a test written first and seen to
   fail on the old code: the Wayland hand-over folder (now a verified private per-user folder, `private_dir.rs`), the

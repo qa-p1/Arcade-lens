@@ -106,3 +106,7 @@
   not (stricter than the single-action text check, since a chain's later steps are not previewed). Not changed, in
   `BACKLOG.md`: plugins with `read-text` still receive secrets, and settings, chains, history and logs keep the umask.
 
+- D14. Link 1.0.12's workflows. Link 1.0.11's `setup-arcade-link` cached its CLI under `runner.os` only, so a gates job
+  on ubuntu-22.04 could restore a CLI built on ubuntu-24.04 ("GLIBC_2.39 not found"; Box's rc.2 gates hit it). Every
+  reusable Link workflow and `link-ref` is pinned to `v1.0.12`, which keys the cache by runner image. The crate and the
+  vendored files stay at `v1.0.11`: 1.0.12 changes no Rust code or design file.

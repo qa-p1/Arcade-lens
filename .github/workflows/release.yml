@@ -46,7 +46,7 @@ jobs:
     needs: [prepare, ci]
     permissions:
       contents: write
-    uses: qa-p1/Arcade-Link/.github/workflows/app-publish.yml@v1.0.11
+    uses: qa-p1/Arcade-Link/.github/workflows/app-publish.yml@v1.0.12
     with:
       app: arcade.lens
       version: ${{ needs.prepare.outputs.version }}
@@ -56,4 +56,4 @@ jobs:
       # Link's publish writes again.
       artifacts: "*-*"
       windows-installer: inno
-      link-ref: v1.0.11
+      link-ref: v1.0.12

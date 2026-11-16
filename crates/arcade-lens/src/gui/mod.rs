@@ -17,6 +17,7 @@ pub mod measure;
 pub mod overlay;
 pub mod panels;
 pub mod pins;
+pub mod private_dir;
 pub mod runtime;
 pub mod settings_view;
 pub mod theme;

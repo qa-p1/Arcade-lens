@@ -9,15 +9,47 @@ pub fn private_dir() -> Result<PathBuf, String> {
 }
 
 /// [`private_dir`] with the roots passed in (for tests).
-pub fn private_dir_under(_runtime: Option<&Path>, temp: &Path) -> Result<PathBuf, String> {
-    let dir = temp.join("arcade-lens");
-    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+///
+/// On Unix: `<runtime>/arcade-lens` when `runtime` is a folder owned by this
+/// user, else `<temp>/arcade-lens-<uid>`. It is created with mode 0700 and
+/// then checked: a real folder (not a symlink), owned by this user, with no
+/// group or other access. Anything else is refused, never written into.
+pub fn private_dir_under(runtime: Option<&Path>, temp: &Path) -> Result<PathBuf, String> {
     #[cfg(unix)]
     {
-        use std::os::unix::fs::PermissionsExt;
-        let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
+        use std::os::unix::fs::{DirBuilderExt, MetadataExt};
+        // SAFETY: getuid has no preconditions and cannot fail.
+        let uid = unsafe { libc::getuid() };
+        let runtime = runtime.filter(|r| std::fs::metadata(r).is_ok_and(|m| m.is_dir() && m.uid() == uid));
+        let dir = match runtime {
+            Some(r) => r.join("arcade-lens"),
+            None => temp.join(format!("arcade-lens-{uid}")),
+        };
+        match std::fs::DirBuilder::new().mode(0o700).create(&dir) {
+            Ok(()) => {}
+            Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => {}
+            Err(e) => return Err(format!("{}: {e}", dir.display())),
+        }
+        let m = std::fs::symlink_metadata(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        if !m.file_type().is_dir() {
+            return Err(format!("{} is not a real folder", dir.display()));
+        }
+        if m.uid() != uid {
+            return Err(format!("{} belongs to another user", dir.display()));
+        }
+        if m.mode() & 0o077 != 0 {
+            return Err(format!("{} is not private (mode {:o}); remove it or fix it with chmod 700", dir.display(), m.mode() & 0o777));
+        }
+        Ok(dir)
     }
-    Ok(dir)
+    #[cfg(not(unix))]
+    {
+        // The temporary folder is already per user on Windows.
+        let _ = runtime;
+        let dir = temp.join("arcade-lens");
+        std::fs::create_dir_all(&dir).map_err(|e| format!("{}: {e}", dir.display()))?;
+        Ok(dir)
+    }
 }
 
 #[cfg(all(test, unix))]

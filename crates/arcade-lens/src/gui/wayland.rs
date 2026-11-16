@@ -114,8 +114,8 @@ fn spawn_detached(solo: &Solo) -> bool {
     }
 }
 
-fn temp_dir() -> PathBuf {
-    std::env::temp_dir().join("arcade-lens")
+fn hand_over_dir() -> Result<PathBuf, String> {
+    super::private_dir::private_dir()
 }
 
 /// Opens `image` in a new pin or editor process (`kind` is `Solo::Pin` or `Solo::Annotate`).
@@ -136,17 +136,16 @@ pub fn parse_rect_arg(s: &str) -> Option<lens_core::geometry::Rect> {
 }
 
 pub fn open_image(kind: impl FnOnce(PathBuf) -> Solo, image: &RgbaImage) -> bool {
-    let dir = temp_dir();
+    let dir = match hand_over_dir() {
+        Ok(dir) => dir,
+        Err(e) => {
+            notify(&format!("Couldn't pass the image to its window. {e}"));
+            return false;
+        }
+    };
     let path =
         dir.join(format!("{}-{}.png", std::process::id(), std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos())));
-    let r = std::fs::create_dir_all(&dir).map_err(|e| e.to_string()).and_then(|_| {
-        #[cfg(unix)]
-        {
-            use std::os::unix::fs::PermissionsExt;
-            let _ = std::fs::set_permissions(&dir, std::fs::Permissions::from_mode(0o700));
-        }
-        image.save(&path).map_err(|e| e.to_string())
-    });
+    let r = image.save(&path).map_err(|e| e.to_string());
     match r {
         Ok(()) => {
             let started = spawn_detached(&kind(path.clone()));
@@ -165,7 +164,7 @@ pub fn open_image(kind: impl FnOnce(PathBuf) -> Solo, image: &RgbaImage) -> bool
 /// Loads a window's image; hand-over files from [`open_image`] are deleted.
 pub fn load_image(path: &Path) -> Result<RgbaImage, String> {
     let img = image::open(path).map_err(|e| format!("{}: {e}", path.display()))?.to_rgba8();
-    if path.starts_with(temp_dir()) {
+    if hand_over_dir().is_ok_and(|dir| path.starts_with(dir)) {
         let _ = std::fs::remove_file(path);
     }
     Ok(img)
@@ -274,12 +273,12 @@ fn link_request(request: crate::link::GuiRequest) -> bool {
             if !reply.is_pending() {
                 return true;
             }
-            let out = temp_dir().join(format!(
+            let Ok(dir) = hand_over_dir() else { return false };
+            let out = dir.join(format!(
                 "pick-{}-{}.png",
                 std::process::id(),
                 std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos())
             ));
-            let _ = std::fs::create_dir_all(temp_dir());
             let Some(mut child) = spawn(&Solo::Pick(out.clone())) else { return false };
             let open = LinkOverlay::open();
             std::thread::spawn(move || {

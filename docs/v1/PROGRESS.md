@@ -1,5 +1,13 @@
 # Lens 1.0 progress (newest first)
 
+## 2026-11-16 - Security hardening (branch `local/lens-hardening`)
+- D13: three rows of `SECURITY.md` that were documented as open are fixed, each with a test written first and seen to
+  fail on the old code: the Wayland hand-over folder (now a verified private per-user folder, `private_dir.rs`), the
+  KDE Connect image share (mode 0600, unique name, shares over an hour old deleted) and chains (an outbound chain is
+  refused or not offered when the selection holds a secret, confirmed or not).
+- Moved to `BACKLOG.md` with reasons: plugins that declare `read-text` receive secrets; settings, chains, history and
+  logs take the umask.
+
 ## 2026-11-15 - Round 5: security, licences, notices (cloud session, branch `local/lens-security`)
 - D12: `SECURITY.md` (what Lens guards and how, each row with its test or "not covered"), `deny.toml` and a `deny` CI job
   (Box's, `--workspace --all-features`), and `THIRD_PARTY_NOTICES.md` from `scripts/third-party-notices.py`
@@ -12,7 +20,7 @@
 - New tests: the endpoint file is `0600`, saved names stay in their folder, the defaults keep history, plugins and image
   search off, Download only for http(s), terminal commands carry only a validated host, a secret copy asks, a dangerous
   chain does not run unconfirmed, reverse image search never uploads, and the notices script.
-- Found, not changed (listed in `SECURITY.md`): Send to Phone leaves `arcade-lens-share-<pid>.png` in the temporary folder
+- Found, not changed (listed in `SECURITY.md`; both fixed in the 2026-11-16 entry above): Send to Phone leaves `arcade-lens-share-<pid>.png` in the temporary folder
   with default permissions, and chains are not covered by the secret guard.
 - Tested: `python3 scripts/check.py` (version, docs, vendored, notices, 23 script tests, fmt, `clippy --workspace
   --all-targets --locked -D warnings`, `cargo test --workspace --locked` in the isolated profile): 224 passed, 0 failed,

@@ -4,7 +4,9 @@
 //! Chains are validated against action input/output capabilities before they
 //! can be saved or run, so "resize" can never receive a URL. A chain's
 //! effects are the union of its steps' effects; chains containing anything
-//! Dangerous or External require confirmation.
+//! Dangerous or External require confirmation. A chain with an outbound step
+//! follows the secret guard like a single action: with `guard_secrets` on and
+//! a secret among the findings it is neither offered nor run, confirmed or not.
 
 use serde::{Deserialize, Serialize};
 
@@ -104,6 +106,9 @@ impl Chain {
         let plan = self.validate(cx.registry).map_err(|e| LensError::InvalidInput(e.to_string()))?;
         if plan.needs_confirmation && !cx.confirmed {
             return Err(LensError::Blocked(format!("chain \"{}\" requires confirmation", self.name)));
+        }
+        if cx.settings.privacy.guard_secrets && plan.effects.intersects(Effects::OUTBOUND) && cx.findings.iter().any(|f| f.capability == caps::SECRET) {
+            return Err(LensError::Blocked(format!("chain \"{}\" would send out a selection that appears to contain a secret", self.name)));
         }
         let graph = cx.registry.graph();
         let start = cx

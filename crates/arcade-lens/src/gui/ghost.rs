@@ -174,8 +174,9 @@ impl Host for GuiHost {
             (Some(t), _) if t.starts_with("http") || t.starts_with("tel:") => Command::new("kdeconnect-cli").args(["-d", &device, "--share", t]).status(),
             (Some(t), _) => Command::new("kdeconnect-cli").args(["-d", &device, "--share-text", t]).status(),
             (None, Some(img)) => {
-                let path = std::env::temp_dir().join(format!("arcade-lens-share-{}.png", std::process::id()));
-                img.save(&path).map_err(|e| LensError::Failed(e.to_string()))?;
+                let path = super::private_dir::private_dir()
+                    .map_err(LensError::Failed)
+                    .and_then(|dir| write_share(&dir, img, std::time::SystemTime::now()).map_err(|e| LensError::Failed(e.to_string())))?;
                 Command::new("kdeconnect-cli").args(["-d", &device, "--share", &path.to_string_lossy()]).status()
             }
             (None, None) => return Err(LensError::InvalidInput("nothing to send".into())),
@@ -184,5 +185,110 @@ impl Host for GuiHost {
     }
     fn notify(&self, message: &str) {
         let _ = self.ui(UiCommand::Toast(message.to_string()));
+    }
+}
+
+/// Shares older than this are deleted when a new one is written. KDE Connect
+/// reads the file after the command returns, so it cannot be deleted at once.
+const SHARE_MAX_AGE: std::time::Duration = std::time::Duration::from_secs(3600);
+
+fn share_file_name(pid: u32, nanos: u128, seq: u64) -> String {
+    format!("arcade-lens-share-{pid}-{nanos}-{seq}.png")
+}
+
+fn is_share(name: &str) -> bool {
+    name.starts_with("arcade-lens-share-") && name.ends_with(".png")
+}
+
+/// Deletes Lens's shares in `dir` last modified more than `max_age` before `now`.
+fn sweep_shares(dir: &Path, now: std::time::SystemTime, max_age: std::time::Duration) {
+    let Ok(entries) = std::fs::read_dir(dir) else { return };
+    for e in entries.flatten() {
+        if !is_share(&e.file_name().to_string_lossy()) {
+            continue;
+        }
+        let old = e.metadata().and_then(|m| m.modified()).is_ok_and(|t| now.duration_since(t).is_ok_and(|age| age > max_age));
+        if old {
+            let _ = std::fs::remove_file(e.path());
+        }
+    }
+}
+
+/// Writes `img` for KDE Connect into the private folder `dir` (mode 0600, a
+/// name unique to this share), after deleting shares older than an hour.
+fn write_share(dir: &Path, img: &RgbaImage, now: std::time::SystemTime) -> std::io::Result<PathBuf> {
+    use std::io::Write;
+    static SEQ: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
+    sweep_shares(dir, now, SHARE_MAX_AGE);
+    let nanos = now.duration_since(std::time::UNIX_EPOCH).map_or(0, |d| d.as_nanos());
+    let path = dir.join(share_file_name(std::process::id(), nanos, SEQ.fetch_add(1, std::sync::atomic::Ordering::Relaxed)));
+    let mut png = std::io::Cursor::new(Vec::new());
+    img.write_to(&mut png, image::ImageFormat::Png).map_err(|e| std::io::Error::other(e.to_string()))?;
+    let mut options = std::fs::OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    options.open(&path)?.write_all(png.get_ref())?;
+    Ok(path)
+}
+
+#[cfg(all(test, unix))]
+mod tests {
+    use super::*;
+    use std::os::unix::fs::PermissionsExt;
+    use std::time::{Duration, SystemTime};
+
+    fn dir(name: &str) -> PathBuf {
+        let d = std::env::temp_dir().join(format!("lens-share-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&d);
+        std::fs::create_dir_all(&d).unwrap();
+        d
+    }
+
+    fn img() -> RgbaImage {
+        RgbaImage::from_pixel(4, 4, image::Rgba([1, 2, 3, 255]))
+    }
+
+    #[test]
+    fn share_names_are_unique_per_share_and_per_process() {
+        let a = share_file_name(7, 100, 0);
+        assert_ne!(a, share_file_name(7, 100, 1), "same instant, next share");
+        assert_ne!(a, share_file_name(7, 101, 0));
+        assert_ne!(a, share_file_name(8, 100, 0));
+        assert!(a.starts_with("arcade-lens-share-") && a.ends_with(".png"), "{a}");
+    }
+
+    #[test]
+    fn a_share_is_written_private_and_two_shares_do_not_collide() {
+        let d = dir("mode");
+        let now = SystemTime::now();
+        let one = write_share(&d, &img(), now).unwrap();
+        let two = write_share(&d, &img(), now).unwrap();
+        assert_ne!(one, two);
+        for p in [&one, &two] {
+            assert_eq!(std::fs::metadata(p).unwrap().permissions().mode() & 0o777, 0o600, "{}", p.display());
+        }
+        let _ = std::fs::remove_dir_all(&d);
+    }
+
+    #[test]
+    fn writing_a_share_deletes_old_shares_only() {
+        let d = dir("sweep");
+        let now = SystemTime::now();
+        let touch = |name: &str, age: Duration| {
+            let p = d.join(name);
+            std::fs::write(&p, b"x").unwrap();
+            std::fs::File::options().write(true).open(&p).unwrap().set_modified(now - age).unwrap();
+            p
+        };
+        let old = touch("arcade-lens-share-1-1-0.png", SHARE_MAX_AGE + Duration::from_secs(60));
+        let recent = touch("arcade-lens-share-1-2-0.png", SHARE_MAX_AGE - Duration::from_secs(60));
+        let other = touch("not-a-share.png", SHARE_MAX_AGE * 5);
+        let new = write_share(&d, &img(), now).unwrap();
+        assert!(!old.exists(), "a share older than an hour is deleted");
+        assert!(recent.exists(), "KDE Connect may still be reading a recent one");
+        assert!(other.exists(), "only Lens's own shares are touched");
+        assert!(new.exists());
+        let _ = std::fs::remove_dir_all(&d);
     }
 }

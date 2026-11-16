@@ -429,3 +429,65 @@ fn a_chain_with_a_dangerous_step_does_not_run_until_confirmed() {
     run(true).unwrap();
     assert_eq!(host.take_calls(), vec![HostCall::Terminal { cwd: None, command: Some("sudo pacman -S package".into()), execute: true }]);
 }
+
+#[test]
+fn a_confirmed_outbound_chain_is_refused_when_the_selection_holds_a_secret() {
+    let secret_text = "export GITHUB_TOKEN=ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789\ncurl https://api.github.com/user";
+    let chain = Chain {
+        id: "search".into(),
+        name: "Search it".into(),
+        steps: vec![ChainStep::Take { capability: caps::TEXT }, ChainStep::Run { action: "core.text.search".into(), params: Default::default() }],
+    };
+    let host = RecordingHost::all();
+    let cancel = CancelToken::new();
+    let run = |s: &Setup, sel: &Selection, report: &AnalysisReport, confirmed| {
+        chain.run(ChainRunContext {
+            registry: s.engine.registry(),
+            findings: &report.findings,
+            host: &host,
+            settings: &s.settings,
+            selection: Some(sel),
+            cancel: &cancel,
+            confirmed,
+        })
+    };
+
+    // Guard on (the default): refused, confirmed or not, and not offered.
+    let s = setup(Some(secret_text), Settings::default());
+    let (sel, report) = s.analyze(texty());
+    assert!(report.has(&caps::SECRET));
+    assert!(matches!(run(&s, &sel, &report, true), Err(lens_core::LensError::Blocked(_))), "a confirmation must not override the guard");
+    assert!(matches!(run(&s, &sel, &report, false), Err(lens_core::LensError::Blocked(_))));
+    assert!(host.calls().is_empty(), "nothing may be sent");
+    let p = s.palette(&report, &UsageStore::default(), std::slice::from_ref(&chain));
+    assert!(!p.all.iter().any(|e| e.target == Target::Chain("search".into())), "the chain is not offered");
+
+    // A chain with no outbound step still runs with the guard on.
+    let local = Chain {
+        id: "copy".into(),
+        name: "Copy".into(),
+        steps: vec![ChainStep::Take { capability: caps::TEXT }, ChainStep::Run { action: "core.copy".into(), params: Default::default() }],
+    };
+    let p = s.palette(&report, &UsageStore::default(), std::slice::from_ref(&local));
+    assert!(p.all.iter().any(|e| e.target == Target::Chain("copy".into())));
+    local
+        .run(ChainRunContext {
+            registry: s.engine.registry(),
+            findings: &report.findings,
+            host: &host,
+            settings: &s.settings,
+            selection: Some(&sel),
+            cancel: &cancel,
+            confirmed: false,
+        })
+        .unwrap();
+
+    // Guard off: the same chain runs once confirmed.
+    let mut settings = Settings::default();
+    settings.privacy.guard_secrets = false;
+    let s = setup(Some(secret_text), settings);
+    let (sel, report) = s.analyze(texty());
+    host.take_calls();
+    run(&s, &sel, &report, true).unwrap();
+    assert!(!host.calls().is_empty(), "with the guard off the confirmed chain runs");
+}

@@ -396,6 +396,20 @@ mod tests {
         assert_eq!(sh_quote("it's"), r"'it'\''s'");
     }
 
+    /// A name that comes from a plugin or a web address cannot put the file outside the folder it is saved in.
+    #[test]
+    fn saved_names_stay_in_the_folder() {
+        let dir = std::env::temp_dir().join(format!("lens-host-names-{}", std::process::id()));
+        fs::create_dir_all(&dir).unwrap();
+        let host = DesktopHost::new(Settings::default(), dir.join("c"));
+        for name in ["../../escape.png", "..\\..\\escape.png", "/etc/escape.png", "C:\\escape.png", "a/b/c.png"] {
+            let path =
+                host.save_file(SaveRequest { suggested_name: name.into(), bytes: vec![1], directory: Some(dir.clone()), mime: "image/png".into() }).unwrap();
+            assert_eq!(path.parent().unwrap(), dir, "{name} was saved to {}", path.display());
+        }
+        fs::remove_dir_all(dir).ok();
+    }
+
     #[test]
     fn never_overwrites() {
         let dir = std::env::temp_dir().join(format!("lens-host-test-{}", std::process::id()));

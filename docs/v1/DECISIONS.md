@@ -82,3 +82,18 @@
   exits; on a pin with its menu open the first Escape closes only the menu (RD-LENS-3); Settings floats and Ctrl+W
   closes it; `--status` and `--quit`. Tier 1 blocks the gates on any failure. LN-10 and RD-LENS-4 (P2) need to read
   what egui draws, which the harness cannot; they are in `BACKLOG.md` with the reason.
+- D12. Security, licences and notices (Round 5). `deny.toml` is Arcade Box's, with `allow-git` for Arcade Link only; the
+  licence list holds only licences the tree needs, plus `Ubuntu-font-1.0` for egui's bundled Ubuntu Light. Advisories
+  with a fix inside the range Lens already depends on were fixed with `cargo update -p … --precise …` (rustls 0.23.46,
+  rustls-webpki 0.103.17, webpki-roots and webpki-root-certs 1.0.12, tokio 1.54.1, rustix 1.1.6, async-executor 1.14.1,
+  clipboard-win 5.4.3), and `cargo check --workspace --all-targets` passes on Rust 1.88. Seven are accepted, each with
+  its reason in `deny.toml`: RUSTSEC-2024-0429 (glib 0.18) and RUSTSEC-2024-0370 (proc-macro-error) only through
+  `tray-icon`'s GTK backend, which no Lens build compiles (Lens takes `tray-icon` on Windows and macOS, `ksni` on
+  Linux); RUSTSEC-2024-0436 (paste, a build-time macro in the exr decoder rxing's `image` enables); RUSTSEC-2026-0192
+  (ttf-parser, which reads only the fonts compiled in); RUSTSEC-2026-0370/0371/0372 (zvariant, zbus_names,
+  zvariant_derive, merged into zbus 6 while `ashpd` and `ksni` use zbus 5). The notices list only the crates a shipped
+  build contains: `cargo tree --target` for Linux x86_64, Windows x64 and both macOS targets, not every crate in the
+  lock file. The AppImage bundles no library of its own (`build-appimage.sh` packs the binary, launcher, icon and
+  licences, with no linuxdeploy), so there is no native-library generator; `--check-appimage` enforces that, and
+  records the six components of the AppImage runtime. Every package now carries the licences and the notices.
+

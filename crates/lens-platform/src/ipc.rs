@@ -90,4 +90,16 @@ mod tests {
         assert_eq!(r.trim(), "denied");
         fs::remove_file(file).ok();
     }
+
+    /// The port and token are readable only by the user who started Lens.
+    #[cfg(unix)]
+    #[test]
+    fn the_endpoint_file_is_private() {
+        use std::os::unix::fs::PermissionsExt;
+        let file = std::env::temp_dir().join(format!("lens-ipc-private-{}", std::process::id()));
+        fs::remove_file(&file).ok();
+        serve(&file, |_| String::new()).unwrap();
+        assert_eq!(fs::metadata(&file).unwrap().permissions().mode() & 0o777, 0o600);
+        fs::remove_file(file).ok();
+    }
 }

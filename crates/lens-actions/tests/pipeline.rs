@@ -290,3 +290,142 @@ fn chain_type_errors_are_caught() {
     };
     assert!(dangerous.validate(s.engine.registry()).unwrap().needs_confirmation);
 }
+
+#[test]
+fn download_is_offered_only_for_http_and_https_addresses() {
+    let s = setup(Some("https://example.com/a.zip\nftp://example.com/b.zip\nwss://example.com/socket"), Settings::default());
+    let (_, report) = s.analyze(texty());
+    let p = s.palette(&report, &UsageStore::default(), &[]);
+    let download = |scheme: &str| {
+        let finding =
+            report.findings.iter().find(|f| matches!(&f.value, lens_core::Value::Url(u) if u.scheme == scheme)).unwrap_or_else(|| panic!("no {scheme} URL"));
+        p.all.iter().any(|e| e.finding == finding.id && e.target == Target::Action("core.url.download".into()))
+    };
+    assert!(download("https"));
+    assert!(!download("ftp"));
+    assert!(!download("wss"));
+}
+
+/// The commands Lens starts in a terminal without asking are built from a validated domain or IP address, never from
+/// the raw text around it.
+#[test]
+fn terminal_commands_for_hosts_carry_nothing_but_the_host() {
+    let s = setup(Some("see evil.com$(reboot) and `id`.example.org then 10.0.0.1;ls"), Settings::default());
+    let (sel, report) = s.analyze(texty());
+    let host = RecordingHost::all();
+    let params = serde_json::Map::new();
+    let cx = InvokeContext {
+        registry: s.engine.registry(),
+        findings: &report.findings,
+        host: &host,
+        settings: &s.settings,
+        selection: Some(&sel),
+        params: &params,
+        confirmed: false,
+        cancel: None,
+    };
+    let mut commands = Vec::new();
+    for (capability, actions) in
+        [(caps::DOMAIN, &["core.domain.ping", "core.domain.dns"][..]), (caps::IP_ADDRESS, &["core.ip.ping", "core.ip.ssh", "core.ip.traceroute"][..])]
+    {
+        for finding in report.findings.iter().filter(|f| f.capability == capability) {
+            for action in actions {
+                invoke(action, finding.id, &cx).unwrap();
+                commands.extend(host.take_calls());
+            }
+        }
+    }
+    assert!(commands.len() >= 4, "{commands:?}");
+    for call in &commands {
+        let HostCall::Terminal { command: Some(command), .. } = call else { panic!("{call:?}") };
+        assert!(command.chars().all(|c| c.is_ascii_alphanumeric() || " .:+-".contains(c)), "{command}");
+    }
+}
+
+#[test]
+fn copying_a_secret_asks_first_and_the_redacted_copy_does_not() {
+    let s = setup(Some("export GITHUB_TOKEN=ghp_aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789"), Settings::default());
+    let (sel, report) = s.analyze(texty());
+    let secret = report.first(&caps::SECRET).unwrap();
+    let host = RecordingHost::all();
+    let params = serde_json::Map::new();
+    let cx = |confirmed| InvokeContext {
+        registry: s.engine.registry(),
+        findings: &report.findings,
+        host: &host,
+        settings: &s.settings,
+        selection: Some(&sel),
+        params: &params,
+        confirmed,
+        cancel: None,
+    };
+    assert!(matches!(invoke("core.secret.copy", secret.id, &cx(false)).unwrap(), Invocation::NeedsConfirmation(_)));
+    assert!(host.calls().is_empty());
+    let Invocation::Done(_) = invoke("core.secret.copy-redacted", secret.id, &cx(false)).unwrap() else { panic!("the redacted copy needs no confirmation") };
+    let calls = host.take_calls();
+    assert!(matches!(&calls[..], [HostCall::ClipboardText(t)] if !t.contains("aBcDeFgHiJkLmNoPqRsTuVwXyZ0123456789")), "{calls:?}");
+}
+
+/// Reverse image search hands the pixels to the user's clipboard and opens the configured page; Lens sends nothing.
+#[test]
+fn reverse_image_search_is_off_until_configured_and_never_uploads() {
+    let img = || RgbaImage::from_pixel(40, 30, Rgba([200, 30, 30, 255]));
+    let offered = |s: &Setup, report: &AnalysisReport| {
+        s.palette(report, &UsageStore::default(), &[]).all.iter().any(|e| e.target == Target::Action("core.image.reverse-search".into()))
+    };
+    let off = setup(None, Settings::default());
+    let (_, report) = off.analyze(img());
+    assert!(!offered(&off, &report));
+
+    let mut settings = Settings::default();
+    settings.providers.reverse_image_search = Some("https://images.example/search".into());
+    let on = setup(None, settings);
+    let (sel, report) = on.analyze(img());
+    assert!(offered(&on, &report));
+    let region = report.first(&caps::REGION).unwrap();
+    let host = RecordingHost::all();
+    let params = serde_json::Map::new();
+    let cx = InvokeContext {
+        registry: on.engine.registry(),
+        findings: &report.findings,
+        host: &host,
+        settings: &on.settings,
+        selection: Some(&sel),
+        params: &params,
+        confirmed: false,
+        cancel: None,
+    };
+    invoke("core.image.reverse-search", region.id, &cx).unwrap();
+    assert_eq!(
+        host.take_calls(),
+        vec![HostCall::ClipboardImage { width: 40, height: 30 }, HostCall::OpenUri { uri: "https://images.example/search".into(), private: false }]
+    );
+}
+
+#[test]
+fn a_chain_with_a_dangerous_step_does_not_run_until_confirmed() {
+    let s = setup(Some("$ sudo pacman -S package"), Settings::default());
+    let (sel, report) = s.analyze(texty());
+    let chain = Chain {
+        id: "run".into(),
+        name: "Run it".into(),
+        steps: vec![ChainStep::Take { capability: caps::COMMAND }, ChainStep::Run { action: "core.command.run".into(), params: Default::default() }],
+    };
+    let host = RecordingHost::all();
+    let cancel = CancelToken::new();
+    let run = |confirmed| {
+        chain.run(ChainRunContext {
+            registry: s.engine.registry(),
+            findings: &report.findings,
+            host: &host,
+            settings: &s.settings,
+            selection: Some(&sel),
+            cancel: &cancel,
+            confirmed,
+        })
+    };
+    assert!(matches!(run(false), Err(lens_core::LensError::Blocked(_))));
+    assert!(host.calls().is_empty(), "nothing may run before confirmation");
+    run(true).unwrap();
+    assert_eq!(host.take_calls(), vec![HostCall::Terminal { cwd: None, command: Some("sudo pacman -S package".into()), execute: true }]);
+}

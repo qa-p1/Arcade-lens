@@ -185,6 +185,9 @@ pub fn build_palette(input: &PaletteInput) -> Palette {
 
     for chain in chains {
         let Ok(plan) = chain.validate(registry) else { continue };
+        if settings.privacy.guard_secrets && plan.effects.intersects(Effects::OUTBOUND) && findings.iter().any(|f| f.capability == caps::SECRET) {
+            continue;
+        }
         let graph = registry.graph();
         let Some(f) = findings
             .iter()

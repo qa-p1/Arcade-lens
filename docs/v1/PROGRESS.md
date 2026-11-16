@@ -1,5 +1,11 @@
 # Lens 1.0 progress (newest first)
 
+## 2026-11-16 - Link conformance before rc.2 (branch `local/lens-conformance`)
+- D17: `v1.0.0-rc.1` was cancelled before the Gates: `arcade-link conformance .` showed 4 FAILs (ID-3 icons, REPO-2
+  update bot, REL-1 steps without a timeout, LINK-2 prose). Fixed with scalable and symbolic icons in the AppImage,
+  `.github/dependabot.yml`, `timeout-minutes` on five CI steps and a reflow of `VENDORED`; now 0 failed.
+- Not run here (no builds on this disk): the Rust tests and the AppImage steps; they run in CI.
+
 ## 2026-11-16 - Round 5: clean uninstall; 1.0.0
 - D16: the AppImage check compares the profile before install with what a plain uninstall and one with
   `--remove-data` leave (Box's and Look's check). Version 1.0.0 for `v1.0.0-rc.1`. The check runs only in CI.

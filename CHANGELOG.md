@@ -8,6 +8,7 @@ All notable changes to Arcade Lens. The format follows [Keep a Changelog](https:
 
 ### Added
 
+- The AppImage carries the scalable and the symbolic `dev.arcade.Lens` icons, so desktops and trays that use them find them.
 - Colour codes written in text (`#RRGGBB`, `#RGB`, `rgb()` and `rgba()`) are recognized as colours (LN-9).
 
 ### Changed

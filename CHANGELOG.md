@@ -4,6 +4,8 @@ All notable changes to Arcade Lens. The format follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-11-16
+
 ### Added
 
 - Colour codes written in text (`#RRGGBB`, `#RGB`, `rgb()` and `rgba()`) are recognized as colours (LN-9).
@@ -21,6 +23,7 @@ All notable changes to Arcade Lens. The format follows [Keep a Changelog](https:
 
 ### Fixed
 
+- "Remove settings and data" when uninstalling leaves nothing of Lens's behind, and a plain uninstall keeps only Lens's settings and data; CI checks both on the AppImage.
 - A settings, chains, usage or window-position file Lens can't read is kept next to it as `<name>.unreadable-<time>` and Lens starts on the defaults, instead of refusing to start (settings) or replacing the file at the next save. Settings Lens doesn't know, from a newer Lens or added by hand, are kept when Lens saves, and an older Lens never writes over a file a newer one made.
 - "Analyze with Lens" (Arcade Link's `lens.analyze`) opens on Wayland. It stopped with "monitor geometry is not exposed on Wayland" before showing anything; on Hyprland it now covers the focused monitor.
 - `--status` and `--hide` no longer open the first-run install dialog (LN-1).
@@ -154,7 +157,8 @@ released: its release build failed the capture focus check, fixed here.
 - Use the shared per-user Windows installer integration and release tools from Link v0.3.0.
 - Add user guides, generated shortcut tables and CI checks with isolated profiles on Rust 1.88.
 
-[Unreleased]: https://github.com/qa-p1/Arcade-lens/compare/v0.4.2...HEAD
+[Unreleased]: https://github.com/qa-p1/Arcade-lens/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/qa-p1/Arcade-lens/compare/v0.4.2...v1.0.0
 [0.4.2]: https://github.com/qa-p1/Arcade-lens/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/qa-p1/Arcade-lens/compare/v0.3.4...v0.4.1
 [0.3.4]: https://github.com/qa-p1/Arcade-lens/compare/v0.3.3...v0.3.4

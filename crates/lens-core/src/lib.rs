@@ -21,6 +21,7 @@ pub mod host;
 pub mod palette;
 pub mod recognizer;
 pub mod registry;
+pub mod schema;
 pub mod selection;
 pub mod settings;
 pub mod usage;

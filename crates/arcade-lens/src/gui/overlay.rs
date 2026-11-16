@@ -1228,7 +1228,7 @@ fn chain_summary(c: &lens_core::chain::Chain) -> String {
     c.steps
         .iter()
         .map(|s| match s {
-            lens_core::chain::ChainStep::Take { capability } => format!("take {capability}"),
+            lens_core::chain::ChainStep::Take { capability, .. } => format!("take {capability}"),
             lens_core::chain::ChainStep::Run { action, .. } => action.clone(),
         })
         .collect::<Vec<_>>()

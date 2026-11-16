@@ -279,14 +279,22 @@ fn chain_type_errors_are_caught() {
     let bad = Chain {
         id: "bad".into(),
         name: "Bad".into(),
-        steps: vec![ChainStep::Take { capability: caps::URL }, ChainStep::Run { action: "core.image.resize".into(), params: Default::default() }],
+        steps: vec![
+            ChainStep::Take { capability: caps::URL, extra: Default::default() },
+            ChainStep::Run { action: "core.image.resize".into(), params: Default::default(), extra: Default::default() },
+        ],
+        extra: Default::default(),
     };
     let err = bad.validate(s.engine.registry()).unwrap_err();
     assert_eq!(err.step, 1);
     let dangerous = Chain {
         id: "d".into(),
         name: "Danger".into(),
-        steps: vec![ChainStep::Take { capability: caps::COMMAND }, ChainStep::Run { action: "core.command.run".into(), params: Default::default() }],
+        steps: vec![
+            ChainStep::Take { capability: caps::COMMAND, extra: Default::default() },
+            ChainStep::Run { action: "core.command.run".into(), params: Default::default(), extra: Default::default() },
+        ],
+        extra: Default::default(),
     };
     assert!(dangerous.validate(s.engine.registry()).unwrap().needs_confirmation);
 }
@@ -409,7 +417,11 @@ fn a_chain_with_a_dangerous_step_does_not_run_until_confirmed() {
     let chain = Chain {
         id: "run".into(),
         name: "Run it".into(),
-        steps: vec![ChainStep::Take { capability: caps::COMMAND }, ChainStep::Run { action: "core.command.run".into(), params: Default::default() }],
+        steps: vec![
+            ChainStep::Take { capability: caps::COMMAND, extra: Default::default() },
+            ChainStep::Run { action: "core.command.run".into(), params: Default::default(), extra: Default::default() },
+        ],
+        extra: Default::default(),
     };
     let host = RecordingHost::all();
     let cancel = CancelToken::new();
@@ -436,7 +448,11 @@ fn a_confirmed_outbound_chain_is_refused_when_the_selection_holds_a_secret() {
     let chain = Chain {
         id: "search".into(),
         name: "Search it".into(),
-        steps: vec![ChainStep::Take { capability: caps::TEXT }, ChainStep::Run { action: "core.text.search".into(), params: Default::default() }],
+        steps: vec![
+            ChainStep::Take { capability: caps::TEXT, extra: Default::default() },
+            ChainStep::Run { action: "core.text.search".into(), params: Default::default(), extra: Default::default() },
+        ],
+        extra: Default::default(),
     };
     let host = RecordingHost::all();
     let cancel = CancelToken::new();
@@ -466,7 +482,11 @@ fn a_confirmed_outbound_chain_is_refused_when_the_selection_holds_a_secret() {
     let local = Chain {
         id: "copy".into(),
         name: "Copy".into(),
-        steps: vec![ChainStep::Take { capability: caps::TEXT }, ChainStep::Run { action: "core.copy".into(), params: Default::default() }],
+        steps: vec![
+            ChainStep::Take { capability: caps::TEXT, extra: Default::default() },
+            ChainStep::Run { action: "core.copy".into(), params: Default::default(), extra: Default::default() },
+        ],
+        extra: Default::default(),
     };
     let p = s.palette(&report, &UsageStore::default(), std::slice::from_ref(&local));
     assert!(p.all.iter().any(|e| e.target == Target::Chain("copy".into())));

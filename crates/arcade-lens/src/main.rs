@@ -9,6 +9,7 @@
 
 mod app;
 mod config;
+mod datafile;
 mod gui;
 mod host;
 mod icon;

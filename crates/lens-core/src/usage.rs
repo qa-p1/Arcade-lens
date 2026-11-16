@@ -13,23 +13,43 @@ const HALF_LIFE_DAYS: f64 = 30.0;
 /// Maximum ranking boost from learned usage.
 pub const MAX_BOOST: f32 = 25.0;
 
-#[derive(Debug, Clone, Default, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct UsageStore {
+    /// File format version (FS-2, D15): no field means 1, written only above 1 so 0.4.x reads a v1 file as before.
+    #[serde(default = "crate::schema::v1", skip_serializing_if = "crate::schema::is_v1")]
+    schema: u32,
     #[serde(default)]
     entries: BTreeMap<String, BTreeMap<String, UsageStat>>,
+    /// Fields this build does not know, kept through a save.
+    #[serde(flatten)]
+    extra: serde_json::Map<String, serde_json::Value>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+impl Default for UsageStore {
+    fn default() -> Self {
+        Self { schema: crate::schema::CURRENT, entries: BTreeMap::new(), extra: serde_json::Map::new() }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 struct UsageStat {
     /// Decayed count as of `at`.
+    #[serde(default)]
     weight: f64,
     /// Unix seconds.
+    #[serde(default)]
     at: u64,
+    #[serde(flatten)]
+    extra: serde_json::Map<String, serde_json::Value>,
 }
 
 impl UsageStore {
     pub fn record(&mut self, capability: &str, action: &str, now: u64) {
-        let stat = self.entries.entry(capability.into()).or_default().entry(action.into()).or_insert(UsageStat { weight: 0.0, at: now });
+        let stat = self.entries.entry(capability.into()).or_default().entry(action.into()).or_insert(UsageStat {
+            weight: 0.0,
+            at: now,
+            extra: serde_json::Map::new(),
+        });
         stat.weight = decayed(stat, now) + 1.0;
         stat.at = now;
     }

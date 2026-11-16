@@ -42,7 +42,7 @@ pub fn standard_registry(ocr: Option<Arc<dyn OcrEngine>>) -> Result<Registry> {
 }
 
 fn run(action: &str, params: serde_json::Value) -> ChainStep {
-    ChainStep::Run { action: action.into(), params: params.as_object().cloned().unwrap_or_default() }
+    ChainStep::Run { action: action.into(), params: params.as_object().cloned().unwrap_or_default(), extra: Default::default() }
 }
 
 /// Starter chains from the product spec; users can edit or delete them.
@@ -52,28 +52,31 @@ pub fn default_chains() -> Vec<Chain> {
             id: "clean-copy".into(),
             name: "Clean Copy".into(),
             steps: vec![
-                ChainStep::Take { capability: caps::TEXT },
+                ChainStep::Take { capability: caps::TEXT, extra: Default::default() },
                 run("core.text.remove-line-breaks", serde_json::json!({})),
                 run("core.copy", serde_json::json!({})),
             ],
+            extra: Default::default(),
         },
         Chain {
             id: "web-image".into(),
             name: "Web Image".into(),
             steps: vec![
-                ChainStep::Take { capability: caps::REGION },
+                ChainStep::Take { capability: caps::REGION, extra: Default::default() },
                 run("core.image.resize", serde_json::json!({ "percent": 50 })),
                 run("core.save", serde_json::json!({ "format": "webp", "directory": "~/Downloads" })),
             ],
+            extra: Default::default(),
         },
         Chain {
             id: "extract-table".into(),
             name: "Extract Table".into(),
             steps: vec![
-                ChainStep::Take { capability: caps::TABLE },
+                ChainStep::Take { capability: caps::TABLE, extra: Default::default() },
                 run("core.table.to-csv", serde_json::json!({})),
                 run("core.save", serde_json::json!({ "format": "csv" })),
             ],
+            extra: Default::default(),
         },
     ]
 }

@@ -8,6 +8,10 @@ use serde::{Deserialize, Serialize};
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
+    /// File format version (FS-2, D15). No field means 1, the shape every release wrote; it is written only above 1,
+    /// because Lens 0.4.x has to read a v1 file as before. Above [`crate::schema::CURRENT`] the file is not written.
+    #[serde(default = "crate::schema::v1", skip_serializing_if = "crate::schema::is_v1")]
+    pub schema: u32,
     /// System, Light or Dark (Settings › General). Follows the system by default.
     pub appearance: Appearance,
     /// System notifications for things that finish or fail while Lens has no
@@ -40,11 +44,15 @@ pub struct Settings {
     pub enabled_plugins: Vec<String>,
     /// Working with the other Arcade apps (Settings → Connected apps).
     pub link: LinkSettings,
+    /// Keys this build does not know (a newer Lens's, or ones added by hand), kept through a save.
+    #[serde(flatten)]
+    pub extra: toml::Table,
 }
 
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            schema: crate::schema::CURRENT,
             appearance: Appearance::System,
             notifications: true,
             activation_shortcut: Some("Ctrl+Alt+Shift+L".into()),
@@ -65,6 +73,7 @@ impl Default for Settings {
             privacy: Privacy::default(),
             enabled_plugins: Vec::new(),
             link: LinkSettings::default(),
+            extra: toml::Table::new(),
         }
     }
 }
@@ -78,11 +87,14 @@ pub struct LinkSettings {
     pub enabled: bool,
     /// Canonical IDs (`arcade.box`, …) whose entries are hidden in Lens.
     pub disabled_peers: Vec<String>,
+    /// Keys this build does not know, kept through a save.
+    #[serde(flatten)]
+    pub extra: toml::Table,
 }
 
 impl Default for LinkSettings {
     fn default() -> Self {
-        Self { enabled: true, disabled_peers: Vec::new() }
+        Self { enabled: true, disabled_peers: Vec::new(), extra: toml::Table::new() }
     }
 }
 
@@ -153,6 +165,9 @@ pub struct Providers {
     pub whois: String,
     /// Reverse image search requires uploading pixels, so it has no default.
     pub reverse_image_search: Option<String>,
+    /// Keys this build does not know, kept through a save.
+    #[serde(flatten)]
+    pub extra: toml::Table,
 }
 
 impl Default for Providers {
@@ -164,6 +179,7 @@ impl Default for Providers {
             product_search: "https://duckduckgo.com/?q={query}+barcode".into(),
             whois: "https://who.is/whois/{query}".into(),
             reverse_image_search: None,
+            extra: toml::Table::new(),
         }
     }
 }
@@ -178,11 +194,14 @@ pub struct Privacy {
     /// Hide outbound actions (search, upload, send) for selections that
     /// contain something that looks like a secret.
     pub guard_secrets: bool,
+    /// Keys this build does not know, kept through a save.
+    #[serde(flatten)]
+    pub extra: toml::Table,
 }
 
 impl Default for Privacy {
     fn default() -> Self {
-        Self { history_enabled: false, learn_action_usage: true, guard_secrets: true }
+        Self { history_enabled: false, learn_action_usage: true, guard_secrets: true, extra: toml::Table::new() }
     }
 }
 

@@ -180,7 +180,7 @@ mod tests {
             screenshot_dir: Some(PathBuf::from("/private/screenshots")),
             providers: Default::default(),
             enabled_plugins: vec!["local-plugin".into()],
-            link: lens_core::settings::LinkSettings { enabled: false, disabled_peers: vec!["arcade.box".into()] },
+            link: lens_core::settings::LinkSettings { enabled: false, disabled_peers: vec!["arcade.box".into()], extra: Default::default() },
             activation_shortcut: Some("Ctrl+Alt+Shift+L".into()),
             ..Default::default()
         };

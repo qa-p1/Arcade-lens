@@ -10,6 +10,8 @@ use lens_core::chain::Chain;
 use lens_core::usage::UsageStore;
 use lens_core::Settings;
 
+use crate::datafile;
+
 #[derive(Clone, Debug, serde::Serialize, serde::Deserialize)]
 pub struct Paths {
     pub config: PathBuf,
@@ -121,35 +123,64 @@ pub fn notifications_enabled() -> bool {
     NOTIFICATIONS.load(std::sync::atomic::Ordering::Relaxed)
 }
 
+/// Settings from `settings.toml`. A missing file is the defaults. A file that can't be parsed is moved aside
+/// (`settings.toml.unreadable-<seconds>`) and Lens starts on the defaults; one made by a newer Lens is read as
+/// far as it can be and never written over (see [`crate::datafile`]).
 pub fn load_settings(p: &Paths) -> Result<Settings, String> {
-    let settings: Settings = match fs::read_to_string(p.settings()) {
-        Ok(s) => toml::from_str(&s).map_err(|e| format!("{}: {e}", p.settings().display()))?,
-        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Settings::default(),
-        Err(e) => return Err(e.to_string()),
-    };
+    let path = p.settings();
+    let settings = datafile::load_toml::<Settings>(&path).map_err(|e| format!("{}: {e}", path.display()))?.unwrap_or_default();
     NOTIFICATIONS.store(settings.notifications, std::sync::atomic::Ordering::Relaxed);
     Ok(settings)
 }
 
 pub fn save_settings(p: &Paths, s: &Settings) -> std::io::Result<()> {
-    write_atomic(&p.settings(), &toml::to_string_pretty(s).expect("settings serialize"))?;
+    datafile::guard_write(&p.settings(), datafile::Kind::Toml)?;
+    write_atomic(&p.settings(), &toml::to_string_pretty(s).map_err(std::io::Error::other)?)?;
     NOTIFICATIONS.store(s.notifications, std::sync::atomic::Ordering::Relaxed);
     Ok(())
 }
 
+/// `chains.json` is a bare list in version 1 (what 0.4.x reads), so a newer file that needs more is an object,
+/// `{"schema": N, "chains": [...]}`, which this build reads and never writes.
+fn decode_chains(doc: serde_json::Value, schema: u32) -> Result<Vec<Chain>, String> {
+    match doc {
+        serde_json::Value::Array(_) => serde_json::from_value(doc).map_err(|e| e.to_string()),
+        serde_json::Value::Object(mut map) if schema > lens_core::schema::CURRENT => match map.remove("chains") {
+            // As far as possible: a chain this build can't read is left out, and the file is never written.
+            Some(serde_json::Value::Array(list)) => Ok(list.into_iter().filter_map(|c| serde_json::from_value(c).ok()).collect()),
+            _ => Err("no list of chains".into()),
+        },
+        _ => Err("not a list of chains".into()),
+    }
+}
+
 pub fn load_chains(p: &Paths) -> Vec<Chain> {
-    fs::read_to_string(p.chains()).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_else(lens_actions::default_chains)
+    match datafile::load_json_with(&p.chains(), decode_chains) {
+        Ok(Some(chains)) => chains,
+        Ok(None) => lens_actions::default_chains(),
+        Err(e) => {
+            eprintln!("arcade-lens: can't read {}: {e}; using the starter chains", p.chains().display());
+            lens_actions::default_chains()
+        }
+    }
 }
 
 pub fn save_chains(p: &Paths, chains: &[Chain]) -> std::io::Result<()> {
+    datafile::guard_write(&p.chains(), datafile::Kind::Json)?;
     write_atomic(&p.chains(), &serde_json::to_string_pretty(chains).expect("chains serialize"))
 }
 
 pub fn load_usage(p: &Paths) -> UsageStore {
-    fs::read_to_string(p.usage()).ok().and_then(|s| serde_json::from_str(&s).ok()).unwrap_or_default()
+    datafile::load_json(&p.usage())
+        .unwrap_or_else(|e| {
+            eprintln!("arcade-lens: can't read {}: {e}; using empty counters", p.usage().display());
+            None
+        })
+        .unwrap_or_default()
 }
 
 pub fn save_usage(p: &Paths, u: &UsageStore) -> std::io::Result<()> {
+    datafile::guard_write(&p.usage(), datafile::Kind::Json)?;
     write_atomic(&p.usage(), &serde_json::to_string(u).expect("usage serialize"))
 }
 

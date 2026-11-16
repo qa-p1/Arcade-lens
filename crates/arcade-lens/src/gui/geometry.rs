@@ -55,15 +55,73 @@ fn origin_and_size(m: &MonitorInfo) -> (Pos2, Vec2) {
     (egui::pos2(m.rect.x as f32 / s, m.rect.y as f32 / s), egui::vec2(m.rect.width as f32 / s, m.rect.height as f32 / s))
 }
 
-fn load(data: &Path) -> Store {
-    std::fs::read(data.join(FILE)).ok().and_then(|b| serde_json::from_slice(&b).ok()).unwrap_or_default()
+/// `window-geometry.json` is a map of maps with no room for a `schema` field in version 1 (0.4.x would discard
+/// the whole file), so a `schema` key is only ever written by a newer Lens. This build reads such a file as far
+/// as it can and never writes it (D15).
+fn decode(doc: serde_json::Value, schema: u32) -> Result<Store, String> {
+    let serde_json::Value::Object(kinds) = doc else { return Err("not an object".into()) };
+    let newer = schema > lens_core::schema::CURRENT;
+    let mut store = Store::new();
+    for (kind, monitors) in kinds {
+        if kind == "schema" {
+            continue;
+        }
+        let rects = match monitors {
+            serde_json::Value::Object(rects) => rects,
+            _ if newer => continue,
+            _ => return Err(format!("`{kind}` is not a map of windows")),
+        };
+        for (monitor, rect) in rects {
+            match serde_json::from_value::<Saved>(rect) {
+                Ok(saved) => {
+                    store.entry(kind.clone()).or_default().insert(monitor, saved);
+                }
+                Err(_) if newer => {}
+                Err(e) => return Err(format!("`{kind}`: {e}")),
+            }
+        }
+    }
+    Ok(store)
 }
 
+fn load(data: &Path) -> Store {
+    let path = data.join(FILE);
+    crate::datafile::load_json_with(&path, decode)
+        .unwrap_or_else(|e| {
+            eprintln!("arcade-lens: can't read {}: {e}; using default window positions", path.display());
+            None
+        })
+        .unwrap_or_default()
+}
+
+/// 0.1f32 as 0.1, not 0.10000000149011612: the shortest text that reads back the same f32.
+fn number(x: f32) -> serde_json::Value {
+    x.to_string().parse::<f64>().ok().and_then(serde_json::Number::from_f64).map_or(serde_json::Value::Null, serde_json::Value::Number)
+}
+
+fn object(value: &mut serde_json::Value) -> &mut serde_json::Map<String, serde_json::Value> {
+    if !value.is_object() {
+        *value = serde_json::Value::Object(Default::default());
+    }
+    value.as_object_mut().expect("just made an object")
+}
+
+/// Stores `g` for window `kind` on `monitor`. Everything else in the file stays as it is, including fields this
+/// build doesn't know in the rectangle itself, other windows and other monitors.
 fn save(data: &Path, kind: &str, monitor: &str, g: Saved) {
-    let mut store = load(data);
-    store.entry(kind.to_string()).or_default().insert(monitor.to_string(), g);
-    if let Ok(json) = serde_json::to_vec_pretty(&store) {
-        let path: PathBuf = data.join(FILE);
+    let path: PathBuf = data.join(FILE);
+    if let Err(e) = crate::datafile::guard_write(&path, crate::datafile::Kind::Json) {
+        eprintln!("arcade-lens: {e}");
+        return;
+    }
+    let mut doc =
+        std::fs::read(&path).ok().and_then(|b| serde_json::from_slice::<serde_json::Value>(&b).ok()).filter(serde_json::Value::is_object).unwrap_or_default();
+    let windows = object(object(&mut doc).entry(kind.to_string()).or_insert(serde_json::Value::Null));
+    let rect = object(windows.entry(monitor.to_string()).or_insert(serde_json::Value::Null));
+    for (key, value) in [("x", g.x), ("y", g.y), ("w", g.w), ("h", g.h)] {
+        rect.insert(key.to_string(), number(value));
+    }
+    if let Ok(json) = serde_json::to_vec_pretty(&doc) {
         let _ = std::fs::create_dir_all(data);
         let tmp = path.with_extension("json.tmp");
         if std::fs::write(&tmp, json).is_ok() {

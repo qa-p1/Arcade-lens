@@ -116,6 +116,14 @@ def active():
         return None
 
 
+def exact_point_in(window):
+    """A point inside `window` the harness's pointer reaches exactly (see the drag below): x a multiple of 15, y of 135."""
+    (x, y), (w, h) = window["at"], window["size"]
+    px = next((v for v in range(x + w // 2, x + w) if v % 15 == 0), x + w // 2)
+    py = next((v for v in range(y, y + h) if v % 135 == 0 and v > y), y + h // 2)
+    return px, py
+
+
 def clipboard_types():
     r = subprocess.run(["wl-paste", "--list-types"], capture_output=True, text=True, timeout=10)
     return r.stdout.split() if r.returncode == 0 else []
@@ -145,8 +153,11 @@ try:
     except DesktopError:
         check("the overlay has keyboard focus when it opens", False, f"active {active()}")
 
-    x0, y0 = monitor["x"] + monitor["width"] // 4, monitor["y"] + monitor["height"] // 4
-    d.drag((x0, y0), (x0 + 300, y0 + 200))
+    # The harness's virtual pointer sends x/3840 and y/1080 to Hyprland, which reports the cursor truncated, so a point
+    # whose fraction is not exact in binary (505/3840) reads back one pixel short and the harness stops. These points
+    # are exact (x a multiple of 15, y of 135); Link's harness will accept a one-pixel difference (Link 1.0.12).
+    x0, y0 = monitor["x"] + 480, monitor["y"] + 270
+    d.drag((x0, y0), (x0 + 360, y0 + 270), steps=2)
     time.sleep(0.8)
     subprocess.run(["wl-copy", "--clear"], capture_output=True, timeout=10)
     d.send_shortcut(overlay["address"], "CTRL", "c")
@@ -171,7 +182,7 @@ try:
         check("ID-1: the pin's class is Lens's desktop id", pin.get("class") == CLASS)
         check("the pin floats above other windows (window rules)", pin.get("floating") is True and pin.get("pinned") is True,
               f"floating={pin.get('floating')} pinned={pin.get('pinned')}")
-        x, y = d.center_of(pin)
+        x, y = exact_point_in(pin)
         d.pointer_move(x, y)
         d.click(x, y, button="right")
         time.sleep(0.8)

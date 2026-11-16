@@ -21,6 +21,7 @@ All notable changes to Arcade Lens. The format follows [Keep a Changelog](https:
 
 ### Fixed
 
+- "Analyze with Lens" (Arcade Link's `lens.analyze`) opens on Wayland. It stopped with "monitor geometry is not exposed on Wayland" before showing anything; on Hyprland it now covers the focused monitor.
 - `--status` and `--hide` no longer open the first-run install dialog (LN-1).
 - The first-run install dialog opens on a fresh profile instead of failing with "The install dialog could not open": its fonts are installed before its first frame (LN-1).
 - Ctrl+C copies in the capture overlay, the result panel and the annotator on Wayland (RD-LENS-1).

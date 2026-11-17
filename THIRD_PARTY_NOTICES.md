@@ -1210,7 +1210,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### 10. Used by anyhow 1.0.104, Arcade Lens (Apache-2.0 option), Arcade Link v1.0.11 (vendored files), arcade-link 1.0.11, async-trait 0.1.92, itoa 1.0.18, libc 0.2.190, litrs 1.0.0, paste 1.0.15, pastey 0.2.3, proc-macro2 1.0.107, quote 1.0.47, semver 1.0.28, serde 1.0.229, serde_core 1.0.229, serde_derive 1.0.229, serde_json 1.0.151, serde_repr 0.1.21, syn 2.0.119, syn 3.0.6, thiserror 1.0.69, thiserror 2.0.21, thiserror-impl 1.0.69, thiserror-impl 2.0.21, unicode-ident 1.0.26, utf8-zero 0.8.1
+### 10. Used by anyhow 1.0.104, Arcade Lens (Apache-2.0 option), Arcade Link v1.0.11 (vendored files), arcade-link 1.0.13, async-trait 0.1.92, itoa 1.0.18, libc 0.2.190, litrs 1.0.0, paste 1.0.15, pastey 0.2.3, proc-macro2 1.0.107, quote 1.0.47, semver 1.0.28, serde 1.0.229, serde_core 1.0.229, serde_derive 1.0.229, serde_json 1.0.151, serde_repr 0.1.21, syn 2.0.119, syn 3.0.6, thiserror 1.0.69, thiserror 2.0.21, thiserror-impl 1.0.69, thiserror-impl 2.0.21, unicode-ident 1.0.26, utf8-zero 0.8.1
 
 ```text
                               Apache License
@@ -1696,7 +1696,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### 15. Used by Arcade Link v1.0.11 (vendored files), arcade-link 1.0.11
+### 15. Used by Arcade Link v1.0.11 (vendored files), arcade-link 1.0.13
 
 ```text
 MIT License

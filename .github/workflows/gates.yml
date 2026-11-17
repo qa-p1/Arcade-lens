@@ -21,12 +21,12 @@ concurrency:
 
 jobs:
   gates:
-    uses: qa-p1/Arcade-Link/.github/workflows/app-gates.yml@v1.0.12
+    uses: qa-p1/Arcade-Link/.github/workflows/app-gates.yml@v1.0.13
     with:
       app: arcade.lens
       name: lens
       previous: ${{ inputs.previous }}
-      link-ref: v1.0.12
+      link-ref: v1.0.13
       linux-packages: libxkbcommon-x11-0 python3-dbus
       # The packaged install/repair/uninstall smoke, the upgrade with a user's data from the previous release, and
       # the tray's lifecycle.
@@ -44,16 +44,16 @@ jobs:
   # Tier 1 (headless Hyprland) blocks on any failure; Tier 2 (sway, KWin, Mutter, X11) on a crash or data loss.
   desktop:
     needs: gates
-    uses: qa-p1/Arcade-Link/.github/workflows/desktop-e2e.yml@v1.0.12
+    uses: qa-p1/Arcade-Link/.github/workflows/desktop-e2e.yml@v1.0.13
     with:
       name: lens
       test: tests/desktop/lens_desktop.py
       args: '"$APP"'
       artifact: gate-appimage
-      link-ref: v1.0.12
+      link-ref: v1.0.13
   desktop-tier2:
     needs: gates
-    uses: qa-p1/Arcade-Link/.github/workflows/desktop-tier2.yml@v1.0.12
+    uses: qa-p1/Arcade-Link/.github/workflows/desktop-tier2.yml@v1.0.13
     with:
       artifact: gate-appimage
-      link-ref: v1.0.12
+      link-ref: v1.0.13

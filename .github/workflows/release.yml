@@ -46,14 +46,15 @@ jobs:
     needs: [prepare, ci]
     permissions:
       contents: write
-    uses: qa-p1/Arcade-Link/.github/workflows/app-publish.yml@v1.0.12
+    uses: qa-p1/Arcade-Link/.github/workflows/app-publish.yml@v1.0.13
     with:
       app: arcade.lens
       version: ${{ needs.prepare.outputs.version }}
       tag: ${{ needs.prepare.outputs.tag }}
       channel: test
-      # linux-appimage, windows-installer (Inno and portable), macos-dmg; release-manifest holds only the metadata
-      # Link's publish writes again.
-      artifacts: "*-*"
+      # linux-appimage, windows-installer (Inno and portable), macos-dmg, by name: "*-*" also matched desktop-lens
+      # (Tier 1's logs), and its empty keyring.log failed rc.2's publish ("HTTP 400: Bad Content-Length").
+      # release-manifest holds only the metadata Link's publish writes again.
+      artifacts: "{linux-appimage,windows-installer,macos-dmg}"
       windows-installer: inno
-      link-ref: v1.0.12
+      link-ref: v1.0.13

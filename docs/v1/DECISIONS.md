@@ -144,3 +144,15 @@
   `timeout-minutes`; each has one (10, 15 or 20), commands unchanged. LINK-2: a false positive on prose, because the
   line with the Link URL also held the tag; `VENDORED` and the text `scripts/sync-design.py` writes now put "tag
   `v1.x.y` (commit" on its own line, which the notices parser (`\s+`) still reads. The check now shows 0 failed.
+
+## D18 - rc.2's publish, and Link 1.0.13
+
+rc.2's Release built and tested every platform, then its publish failed: `gh release create` was refused on
+`keyring.log` ("HTTP 400: Bad Content-Length"), and Link's publish removed the half-made release. The publish took
+every artifact matching `"*-*"`, which also matched `desktop-lens`, Tier 1's logs (an empty `keyring.log` among them).
+`release.yml` and `nightly.yml` now name the three installer artifacts.
+
+Look's rc.2 gates found a Link bug that Lens shares: the unpacked copy (U1) inherited the launcher's references to
+the AppImage's mount, and the GTK hook's `gsettings` crashed on the released mount and hung, so a start or Restart
+never opened (Look D22). Lens moves to Link 1.0.13 before rc.3.
+

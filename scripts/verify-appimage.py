@@ -75,6 +75,10 @@ def main():
             return result.stdout
 
         version = run(download, "--version").strip().split()[-1]
+        # An unknown option is a usage error: exit 2 with a hint on stderr (Link conformance CLI-2).
+        unknown = subprocess.run([str(download), "--arcade-unknown-option"], env=env, text=True, encoding="utf-8",
+                                 stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=60)
+        assert unknown.returncode == 2 and "unknown option" in unknown.stderr, (unknown.returncode, unknown.stderr)
         before = inventory(root)
         run(download, "--install", "--silent", "--no-launch")
         receipt_path = root / "arcade/installs" / (app_id + ".json")

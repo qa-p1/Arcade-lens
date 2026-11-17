@@ -183,7 +183,12 @@ fn run(args: &[String]) -> Result<(), String> {
             println!("Arcade Lens {}", crate::link::VERSION);
             Ok(())
         }
-        Some(other) => Err(format!("unknown option {other:?}; see arcade-lens --help")),
+        Some(_) => {
+            // A usage error exits 2 with a hint on stderr, like other command-line tools (Link conformance CLI-2);
+            // it is not an app failure, so no notification.
+            eprintln!("arcade-lens: unknown option {:?}; see arcade-lens --help", args[0]);
+            std::process::exit(2);
+        }
     }
 }
 

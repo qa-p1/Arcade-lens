@@ -1,5 +1,19 @@
 # Lens 1.0 progress (newest first)
 
+## 2026-11-17 (cloud session) - 1.0.0 promoted
+
+`v1.0.0-rc.4` (3dad560, Link 1.0.13) passed [Gates](https://github.com/qa-p1/Arcade-lens/actions/runs/44075745595)
+12/12 on its published files, both desktop suites included, and
+[Promote](https://github.com/qa-p1/Arcade-lens/actions/runs/44078609800) made it
+[1.0.0](https://github.com/qa-p1/Arcade-lens/releases/tag/v1.0.0), now the latest release. The AppImage, dmg, setup.exe,
+portable exe and SHA256SUMS have the same SHA-256 digests as rc.4; `manifest.json` and `arcade-release.json` differ only
+in the channel (`test` to `stable`) and the tag, and `manifest.json.sig` is new.
+
+rc.3's two Gates failures are fixed. CLI-2: an unknown option now exits 2 with a hint on stderr
+([#37](https://github.com/qa-p1/Arcade-lens/pull/37)), checked by `verify-appimage.py`. Delta: a rebuild changes Lens's
+AppImage throughout, so Tools' own rule downloads the whole file; the gate now accepts that and still checks the digest,
+a tampered file and the signature (Arcade-tools #54). From v0.4.2 it fetched the whole 15.3 MB in one request.
+
 ## 2026-11-16 - Link conformance before rc.2 (branch `local/lens-conformance`)
 - D17: `v1.0.0-rc.1` was cancelled before the Gates: `arcade-link conformance .` showed 4 FAILs (ID-3 icons, REPO-2
   update bot, REL-1 steps without a timeout, LINK-2 prose). Fixed with scalable and symbolic icons in the AppImage,

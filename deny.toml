@@ -13,6 +13,8 @@ ignore = [
   { id = "RUSTSEC-2024-0370", reason = "proc-macro-error: build-time macro of glib-macros 0.18, which only the GTK tray backend above pulls in; no Lens build compiles it" },
   { id = "RUSTSEC-2024-0436", reason = "paste: build-time macro of pulp, the SIMD helper of the exr decoder that rxing's image dependency enables" },
   { id = "RUSTSEC-2026-0192", reason = "ttf-parser: unmaintained (no known vulnerability); egui's ab_glyph parses only the fonts compiled into Lens (Inter and egui's own), never a font file from disk, and has no maintained replacement yet" },
+  { id = "RUSTSEC-2026-0543", reason = "chrono: unmaintained (no known vulnerability); rxing, the barcode reader, has no release without it, and Lens's own date handling uses it too, moving when rxing does" },
+  { id = "RUSTSEC-2026-0555", reason = "chrono-tz: unmaintained (no known vulnerability); rxing's default client_support feature pulls it in, and it moves with chrono above" },
   { id = "RUSTSEC-2026-0370", reason = "zvariant: merged into zbus 6; Lens's ashpd and ksni are on zbus 5" },
   { id = "RUSTSEC-2026-0371", reason = "zbus_names: merged into zbus 6; Lens's ashpd and ksni are on zbus 5" },
   { id = "RUSTSEC-2026-0372", reason = "zvariant_derive: merged into zbus 6; Lens's ashpd and ksni are on zbus 5" },

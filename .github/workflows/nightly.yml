@@ -19,12 +19,13 @@ jobs:
         run: echo "version=$(python3 scripts/check-version.py)" >> "$GITHUB_OUTPUT"
   nightly:
     needs: version
-    uses: qa-p1/Arcade-Link/.github/workflows/app-nightly.yml@v1.0.12
+    uses: qa-p1/Arcade-Link/.github/workflows/app-nightly.yml@v1.0.13
     with:
       app: arcade.lens
       version: ${{ needs.version.outputs.version }}
-      artifacts: "*-*"
+      # The installers by name, as in release.yml: a pattern also matched desktop-lens (Tier 1's logs).
+      artifacts: "{linux-appimage,windows-installer,macos-dmg}"
       windows-installer: inno
-      link-ref: v1.0.12
+      link-ref: v1.0.13
     secrets:
       ARCADE_UPDATE_SIGNING_KEY: ${{ secrets.ARCADE_UPDATE_SIGNING_KEY }}

@@ -24,7 +24,7 @@ table says which.
 
 ## Fonts
 
-- Inter 4 (typeface, in Arcade Link 1.0.11) (OFL-1.1) — https://rsms.me/inter/
+- Inter 4 (typeface, in Arcade Link 1.0.13) (OFL-1.1) — https://rsms.me/inter/
 - Hack (typeface, in egui) (MIT, Bitstream Vera and DejaVu licences) — https://github.com/source-foundry/Hack
 - Ubuntu Light (typeface, in egui) (Ubuntu-font-1.0) — https://design.ubuntu.com/font
 - Noto Emoji (typeface, in egui) (OFL-1.1) — https://fonts.google.com/noto/specimen/Noto+Emoji
@@ -32,8 +32,8 @@ table says which.
 
 ## Arcade Link
 
-- Arcade Link v1.0.11 (vendored files) (MIT OR Apache-2.0) — https://github.com/qa-p1/Arcade-Link
-  Copied unchanged from tag v1.0.11, commit b00a1ca3c5659f8318c468be89c39c6e5ed2b30f: the Arcade design kit (glyphs, icons, the Inter licence) (22 files); shared installer text (1 file); release, shortcut and Windows installer tooling (12 files); schemas, test vectors and fixtures (15 files). The list and checksums are in `VENDORED`.
+- Arcade Link v1.0.13 (vendored files) (MIT OR Apache-2.0) — https://github.com/qa-p1/Arcade-Link
+  Copied unchanged from tag v1.0.13, commit a24146fd87ff77ed362f518a414eaf266512f839: the Arcade design kit (glyphs, icons, the Inter licence) (22 files); shared installer text (1 file); release, shortcut and Windows installer tooling (12 files); schemas, test vectors and fixtures (15 files). The list and checksums are in `VENDORED`.
   The Arcade Link crate that Lens compiles in is in the Rust crates table.
 
 ## Packaging
@@ -64,7 +64,7 @@ in front of the image, which starts at the offset `--appimage-offset` prints.
 | anyhow | 1.0.104 | MIT OR Apache-2.0 | all | https://github.com/dtolnay/anyhow |
 | approx | 0.5.1 | Apache-2.0 | all | https://github.com/brendanzab/approx |
 | arboard | 3.6.1 | MIT OR Apache-2.0 | all | https://github.com/1Password/arboard |
-| arcade-link | 1.0.11 | MIT OR Apache-2.0 | all | https://github.com/qa-p1/Arcade-link |
+| arcade-link | 1.0.13 | MIT OR Apache-2.0 | all | https://github.com/qa-p1/Arcade-link |
 | arg_enum_proc_macro | 0.3.4 | MIT | all | https://github.com/lu-zero/arg_enum_proc_macro |
 | arrayref | 0.3.9 | BSD-2-Clause | all | https://github.com/droundy/arrayref |
 | arrayvec | 0.7.8 | MIT OR Apache-2.0 | all | https://github.com/bluss/arrayvec |
@@ -1210,7 +1210,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### 10. Used by anyhow 1.0.104, Arcade Lens (Apache-2.0 option), Arcade Link v1.0.11 (vendored files), arcade-link 1.0.11, async-trait 0.1.92, itoa 1.0.18, libc 0.2.190, litrs 1.0.0, paste 1.0.15, pastey 0.2.3, proc-macro2 1.0.107, quote 1.0.47, semver 1.0.28, serde 1.0.229, serde_core 1.0.229, serde_derive 1.0.229, serde_json 1.0.151, serde_repr 0.1.21, syn 2.0.119, syn 3.0.6, thiserror 1.0.69, thiserror 2.0.21, thiserror-impl 1.0.69, thiserror-impl 2.0.21, unicode-ident 1.0.26, utf8-zero 0.8.1
+### 10. Used by anyhow 1.0.104, Arcade Lens (Apache-2.0 option), Arcade Link v1.0.13 (vendored files), arcade-link 1.0.13, async-trait 0.1.92, itoa 1.0.18, libc 0.2.190, litrs 1.0.0, paste 1.0.15, pastey 0.2.3, proc-macro2 1.0.107, quote 1.0.47, semver 1.0.28, serde 1.0.229, serde_core 1.0.229, serde_derive 1.0.229, serde_json 1.0.151, serde_repr 0.1.21, syn 2.0.119, syn 3.0.6, thiserror 1.0.69, thiserror 2.0.21, thiserror-impl 1.0.69, thiserror-impl 2.0.21, unicode-ident 1.0.26, utf8-zero 0.8.1
 
 ```text
                               Apache License
@@ -1696,7 +1696,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### 15. Used by Arcade Link v1.0.11 (vendored files), arcade-link 1.0.11
+### 15. Used by Arcade Link v1.0.13 (vendored files), arcade-link 1.0.13
 
 ```text
 MIT License
@@ -8583,7 +8583,7 @@ TORTIOUS ACTION, ARISING OUT OF OR IN CONNECTION WITH THE USE OR PERFORMANCE OF
 THIS SOFTWARE.
 ```
 
-### 138. Used by Inter 4 (typeface, in Arcade Link 1.0.11)
+### 138. Used by Inter 4 (typeface, in Arcade Link 1.0.13)
 
 ```text
 Copyright (c) 2016 The Inter Project Authors (https://github.com/rsms/inter)

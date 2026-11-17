@@ -24,6 +24,7 @@ All notable changes to Arcade Lens. The format follows [Keep a Changelog](https:
 
 ### Fixed
 
+- Linux: Restart, and any start from the installed AppImage, could hang without opening Lens when the desktop did not report its colour scheme. The unpacked copy inherited settings that pointed into the AppImage's mount, which closes as the copy starts (Arcade Link 1.0.13).
 - "Remove settings and data" when uninstalling leaves nothing of Lens's behind, and a plain uninstall keeps only Lens's settings and data; CI checks both on the AppImage.
 - A settings, chains, usage or window-position file Lens can't read is kept next to it as `<name>.unreadable-<time>` and Lens starts on the defaults, instead of refusing to start (settings) or replacing the file at the next save. Settings Lens doesn't know, from a newer Lens or added by hand, are kept when Lens saves, and an older Lens never writes over a file a newer one made.
 - "Analyze with Lens" (Arcade Link's `lens.analyze`) opens on Wayland. It stopped with "monitor geometry is not exposed on Wayland" before showing anything; on Hyprland it now covers the focused monitor.

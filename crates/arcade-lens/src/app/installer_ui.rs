@@ -6,8 +6,7 @@ use std::sync::{mpsc, Arc, Mutex};
 
 use super::installer::{self, DialogState, Options};
 use crate::config::Paths as AppPaths;
-use arcade_link::design::egui::components::{ButtonKind, Toast, Tone};
-use arcade_link::design::size;
+use arcade_link::design::egui::components::{ButtonKind, Kit, Toast, Tone};
 use arcade_link::install::{self, strings, Detection, Environment, Runtime};
 use arcade_link::receipt::ManagedBy;
 use eframe::egui;
@@ -112,6 +111,7 @@ fn helper(prompt: Prompt) -> Result<Outcome, String> {
 
 pub fn serve_dialog() -> Result<(), String> {
     use std::io::{Read, Write};
+    crate::gui::theme::prefetch_system();
     let mut bytes = Vec::new();
     std::io::stdin().take(4 * 1024 * 1024).read_to_end(&mut bytes).map_err(|e| e.to_string())?;
     let prompt: Prompt = serde_json::from_slice(&bytes).map_err(|e| e.to_string())?;
@@ -153,7 +153,14 @@ struct Dialog {
     toast: Option<Toast>,
     /// The Appearance setting last applied, and when it was last read.
     appearance: Option<(lens_core::settings::Appearance, std::time::Instant)>,
+    /// The window height last asked for, so the window follows its content.
+    fitted: Option<f32>,
 }
+
+/// The dialog's width. Its height is its content's (`Dialog::fit`).
+const WIDTH: f32 = 560.0;
+/// Space around the content: 36 px at the sides, as on Arcade pages, and 32 above and below.
+const MARGIN: egui::Margin = egui::Margin { left: 36, right: 36, top: 32, bottom: 32 };
 
 fn format(s: &str, version: &str, from: &str) -> String {
     strings::format(s, crate::link::NAME, version, from, crate::link::VERSION)
@@ -204,13 +211,17 @@ fn run(paths: AppPaths, mode: Mode) -> Result<Outcome, String> {
     #[cfg(not(target_os = "linux"))]
     let legacy = Vec::new();
     let title = if matches!(mode, Mode::Uninstall { .. }) { "Uninstall — Arcade Lens" } else { "Install — Arcade Lens" };
+    // Opens at its content's height, measured off screen, so eframe centres
+    // the window it will keep (a page-sized window left a large empty area
+    // below the buttons).
+    let height = Dialog::new(paths.clone(), mode.clone(), legacy.clone(), Arc::new(Mutex::new(None)), None).measure();
     let options = eframe::NativeOptions {
         centered: true,
         viewport: egui::ViewportBuilder::default()
             .with_title(title)
             .with_app_id(crate::link::OS_ID)
-            .with_inner_size([size::WINDOW_MIN_WIDTH, size::WINDOW_MIN_HEIGHT])
-            .with_min_inner_size([size::WINDOW_MIN_WIDTH, size::WINDOW_MIN_HEIGHT])
+            .with_inner_size([WIDTH, height])
+            .with_resizable(false)
             .with_icon(crate::icon::window_icon()),
         ..Default::default()
     };
@@ -224,8 +235,9 @@ fn run(paths: AppPaths, mode: Mode) -> Result<Outcome, String> {
             let appearance = crate::config::load_settings(&paths).unwrap_or_default().appearance;
             crate::gui::theme::apply_style(&cc.egui_ctx, appearance.as_str());
             let appearance = Some((appearance, std::time::Instant::now()));
-            let (tx, rx) = mpsc::channel();
-            Ok(Box::new(Dialog { paths, mode, result, tx, rx, busy: false, error: None, completed: None, legacy, toast: None, appearance }))
+            let mut dialog = Dialog::new(paths, mode, legacy, result, appearance);
+            dialog.fitted = Some(height);
+            Ok(Box::new(dialog))
         }),
     )
     .map_err(|e| e.to_string())?;
@@ -234,6 +246,47 @@ fn run(paths: AppPaths, mode: Mode) -> Result<Outcome, String> {
 }
 
 impl Dialog {
+    fn new(
+        paths: AppPaths,
+        mode: Mode,
+        legacy: Vec<PathBuf>,
+        result: Arc<Mutex<Option<Outcome>>>,
+        appearance: Option<(lens_core::settings::Appearance, std::time::Instant)>,
+    ) -> Self {
+        let (tx, rx) = mpsc::channel();
+        Self { paths, mode, result, tx, rx, busy: false, error: None, completed: None, legacy, toast: None, appearance, fitted: None }
+    }
+
+    /// The window height that fits this dialog as it opens: its content laid
+    /// out off screen with the window's fonts, at the window's width.
+    fn measure(&mut self) -> f32 {
+        let ctx = egui::Context::default();
+        // Sizes are the same in both themes; "light" reads no desktop setting.
+        crate::gui::theme::apply_style(&ctx, "light");
+        let input = || egui::RawInput { screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(WIDTH, 4000.0))), ..Default::default() };
+        let mut height = 0.0;
+        // The first pass binds the fonts; the second lays out as the window will.
+        for _ in 0..2 {
+            let _ = ctx.run(input(), |ctx| height = self.draw(ctx));
+        }
+        height
+    }
+
+    /// Follows the content's height when it changes (a notice or an error
+    /// appears), keeping the window's centre where it was.
+    fn fit(&mut self, ctx: &egui::Context, height: f32) {
+        if self.fitted.is_some_and(|fitted| (fitted - height).abs() < 1.0) {
+            return;
+        }
+        let (inner, outer) = ctx.input(|i| (i.viewport().inner_rect, i.viewport().outer_rect));
+        ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(egui::vec2(WIDTH, height)));
+        if let (Some(inner), Some(outer)) = (inner, outer) {
+            let top = outer.top() - (height - inner.height()) / 2.0;
+            ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(egui::pos2(outer.left(), top.max(0.0))));
+        }
+        self.fitted = Some(height);
+    }
+
     fn finish(&self, ctx: &egui::Context, outcome: Outcome) {
         *self.result.lock().unwrap_or_else(|e| e.into_inner()) = Some(outcome);
         ctx.send_viewport_cmd(egui::ViewportCommand::Close);
@@ -317,9 +370,41 @@ impl eframe::App for Dialog {
         }
         crate::gui::theme::sync(ctx);
         ctx.request_repaint_after(std::time::Duration::from_secs(1));
+        let height = self.draw(ctx);
+        self.fit(ctx, height);
+        if let Some(toast) = &self.toast {
+            if !toast.show(ctx, &crate::gui::theme::kit()) {
+                self.toast = None;
+            }
+        }
+    }
+}
+
+/// The dialog's surface: the page colour, [`MARGIN`] around the content and,
+/// should the content ever outgrow the window, a scroll bar. Returns what the
+/// content returns and the window height that fits it.
+fn page<R>(ctx: &egui::Context, kit: &Kit, contents: impl FnOnce(&mut egui::Ui) -> R) -> (R, f32) {
+    let frame = egui::Frame::new().fill(arcade_link::design::egui::colour(kit.palette.bg)).inner_margin(MARGIN);
+    egui::CentralPanel::default()
+        .frame(frame)
+        .show(ctx, |ui| {
+            egui::ScrollArea::vertical()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    let r = ui.vertical(contents);
+                    (r.inner, (r.response.rect.height() + MARGIN.sum().y).ceil())
+                })
+                .inner
+        })
+        .inner
+}
+
+impl Dialog {
+    /// Draws the dialog and returns the window height that fits it.
+    fn draw(&mut self, ctx: &egui::Context) -> f32 {
         let kit = crate::gui::theme::kit();
         let glyph = crate::gui::glyphs::texture(ctx, crate::link::ME, 28.0);
-        kit.page(ctx, |ui| {
+        let ((), height) = page(ctx, &kit, |ui| {
             kit.glyph_tile(ui, glyph, "search");
             ui.add_space(16.0);
             if let Some(done) = &self.completed {
@@ -410,11 +495,7 @@ impl eframe::App for Dialog {
                 });
             }
         });
-        if let Some(toast) = &self.toast {
-            if !toast.show(ctx, &kit) {
-                self.toast = None;
-            }
-        }
+        height
     }
 }
 
@@ -431,5 +512,62 @@ mod tests {
         let (title, body, _) = text(&DialogState::OpenInstalled { version: "99.0.0".into() });
         assert_eq!(title, "A newer Arcade Lens is already installed.");
         assert!(body.unwrap().contains(&format!("this file is the older {}", crate::link::VERSION)));
+    }
+
+    fn environment(root: &std::path::Path) -> Environment {
+        Environment {
+            home: root.into(),
+            data: root.join("data"),
+            config: root.join("config"),
+            applications: root.join("applications"),
+            bin: root.join("bin"),
+            local_app_data: root.join("local"),
+            locations: arcade_link::Locations { registry: root.join("registry"), runtime: root.join("runtime"), handoff: root.join("handoff") },
+            path: None,
+            windows_environment_key: String::new(),
+        }
+    }
+
+    fn install_dialog(root: &std::path::Path) -> Dialog {
+        let download = root.join("Arcade-Lens.AppImage");
+        let mode = Mode::Install {
+            environment: Box::new(environment(root)),
+            runtime: Runtime { executable: download.clone(), appimage: Some(download.clone()), appdir: None, dev_build: false },
+            detection: Box::new(Detection {
+                running_from: download,
+                is_app_image: true,
+                receipt: None,
+                installed_path: None,
+                state: install::State::NotInstalled,
+            }),
+            state: DialogState::Install,
+            options: Options { channel: "stable".into(), start_at_login: true, remove_download: false, install_cli: true },
+            managed: false,
+        };
+        let paths = AppPaths { config: root.join("lens-config"), data: root.join("lens-data") };
+        Dialog::new(paths, mode, Vec::new(), Arc::new(Mutex::new(None)), None)
+    }
+
+    #[test]
+    fn the_install_dialog_is_as_tall_as_its_content() {
+        // It opened page-sized (520 px) with a large empty area below the buttons.
+        let root = std::env::temp_dir().join(format!("lens-dialog-size-{}", std::process::id()));
+        let mut dialog = install_dialog(&root);
+        let height = dialog.measure();
+        // Mark, title, body, two checkboxes and the buttons, with 32 px above and below.
+        assert!((200.0..340.0).contains(&height), "install dialog height {height}");
+        // An error below the buttons makes it taller, by about the notice.
+        dialog.error = Some("permission denied".into());
+        let with_error = dialog.measure();
+        assert!(with_error > height + 20.0 && with_error < height + 120.0, "{height} → {with_error}");
+        let mut uninstall = Dialog::new(
+            dialog.paths.clone(),
+            Mode::Uninstall { environment: Box::new(environment(&root)), remove_data: false },
+            Vec::new(),
+            Arc::new(Mutex::new(None)),
+            None,
+        );
+        let height = uninstall.measure();
+        assert!((160.0..300.0).contains(&height), "uninstall dialog height {height}");
     }
 }

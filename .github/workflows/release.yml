@@ -46,7 +46,7 @@ jobs:
     needs: [prepare, ci]
     permissions:
       contents: write
-    uses: qa-p1/Arcade-Link/.github/workflows/app-publish.yml@v1.0.13
+    uses: qa-p1/Arcade-Link/.github/workflows/app-publish.yml@v1.0.15
     with:
       app: arcade.lens
       version: ${{ needs.prepare.outputs.version }}
@@ -57,4 +57,4 @@ jobs:
       # release-manifest holds only the metadata Link's publish writes again.
       artifacts: "{linux-appimage,windows-installer,macos-dmg}"
       windows-installer: inno
-      link-ref: v1.0.13
+      link-ref: v1.0.15

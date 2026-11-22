@@ -1,5 +1,12 @@
 # Lens 1.0 progress (newest first)
 
+## 2026-11-22 (cloud session) - install dialog size, System theme on X11, Link 1.0.15
+- D19: the install (and uninstall) dialog opens at its content's height, centred, instead of a page-sized window with a
+  large empty area below the buttons. On Linux, "System" follows the desktop portal or, without one, GNOME's and GTK's
+  settings (Link 1.0.15), so Lens is light next to light GTK apps on openbox instead of dark.
+- Link 1.0.13 to 1.0.15 (pinned to commit `0521aa7` until `v1.0.15` is tagged; the workflows already name `@v1.0.15`).
+  Checked on Xvfb with openbox, no portal and GNOME's default settings: the dialog fits its content and is light.
+
 ## 2026-11-17 (cloud session) - 1.0.0 promoted
 
 `v1.0.0-rc.4` (3dad560, Link 1.0.13) passed [Gates](https://github.com/qa-p1/Arcade-lens/actions/runs/44075745595)

@@ -391,6 +391,7 @@ impl LensApp {
             ctx.send_viewport_cmd(ViewportCommand::Fullscreen(true));
         }
         ctx.send_viewport_cmd(ViewportCommand::Focus);
+        theme::refresh_system(ctx);
         self.state.lock().unwrap().overlay = Some(ov);
         self.root_visible = true;
         self.waking = false;
@@ -679,6 +680,7 @@ impl LensApp {
         }
         if st.settings.is_none() {
             st.settings = Some(settings_view::SettingsView::new(st.env.rt.clone()));
+            theme::refresh_system(ctx);
         } else {
             ctx.send_viewport_cmd_to(settings_view::SettingsView::viewport_id(), ViewportCommand::Focus);
         }
@@ -714,6 +716,7 @@ impl LensApp {
         }
         if st.history.is_none() {
             st.history = Some(history::HistoryView::new(self.paths.history()));
+            theme::refresh_system(ctx);
         } else {
             ctx.send_viewport_cmd_to(history::HistoryView::viewport_id(), ViewportCommand::Focus);
         }
@@ -1122,6 +1125,7 @@ macro_rules! lens_debug {
 /// tray icon and IPC, then `initial` if given.
 pub fn run(initial: Option<Trigger>) -> Result<(), String> {
     let background = initial.is_none();
+    theme::prefetch_system();
     // Before anything opens a file: move the pre-0.4 folders.
     let migration = Paths::migrate();
     let paths = Paths::discover();
@@ -1282,6 +1286,7 @@ fn pick_analyze_monitor(
 /// Runs one window as this process's root window (Wayland), until it closes.
 pub fn run_solo(paths: Paths, solo: wayland::Solo) -> Result<(), String> {
     use wayland::Solo;
+    theme::prefetch_system();
     // Settings, the OCR engine and plugins load while the screen is captured.
     let started = std::time::Instant::now();
     let loading = std::thread::spawn(move || Runtime::load(paths));

@@ -23,7 +23,111 @@ thread_local! {
 /// Records the theme egui resolved for this frame. Call once per frame before
 /// painting; the settings window and every overlay share the same context.
 pub fn sync(ctx: &egui::Context) {
+    #[cfg(target_os = "linux")]
+    follow_desktop(ctx, desktop::known());
     DARK.set(ctx.style().visuals.dark_mode);
+}
+
+/// Linux: reads the desktop's light or dark preference again on a worker, for
+/// "System". Call when a window opens; `ctx` repaints if the answer changed.
+/// Elsewhere egui gets the system theme from the window system by itself.
+pub fn refresh_system(ctx: &egui::Context) {
+    #[cfg(target_os = "linux")]
+    desktop::refresh(Some(ctx));
+    #[cfg(not(target_os = "linux"))]
+    let _ = ctx;
+}
+
+/// Linux: starts reading the desktop's preference before any window exists,
+/// so the first frame already has it.
+pub fn prefetch_system() {
+    #[cfg(target_os = "linux")]
+    desktop::refresh(None);
+}
+
+/// "System" on Linux: winit reports no system theme there (egui's fallback,
+/// dark, decided), so the desktop's preference becomes egui's fallback theme.
+/// Windows and macOS report one, which egui keeps using.
+#[cfg(target_os = "linux")]
+fn follow_desktop(ctx: &egui::Context, dark: Option<bool>) {
+    let Some(dark) = dark else { return };
+    let theme = if dark { egui::Theme::Dark } else { egui::Theme::Light };
+    if ctx.options(|o| o.fallback_theme) != theme {
+        ctx.options_mut(|o| o.fallback_theme = theme);
+    }
+}
+
+/// The Linux desktop's preference: the XDG Settings portal when it states one,
+/// otherwise GNOME's and GTK's settings (Arcade Link), as GTK and WebKit apps
+/// (Arcade Tools) read them. Read on a worker: both may block.
+#[cfg(target_os = "linux")]
+mod desktop {
+    use std::sync::atomic::{AtomicU8, Ordering};
+    use std::sync::{Condvar, Mutex, MutexGuard};
+    use std::time::Duration;
+
+    use eframe::egui;
+
+    const UNKNOWN: u8 = 0;
+    const LIGHT: u8 = 1;
+    const DARK: u8 = 2;
+    static ANSWER: AtomicU8 = AtomicU8::new(UNKNOWN);
+
+    struct Reading {
+        running: bool,
+        repaint: Vec<egui::Context>,
+    }
+    static READING: Mutex<Reading> = Mutex::new(Reading { running: false, repaint: Vec::new() });
+    static DONE: Condvar = Condvar::new();
+
+    fn reading() -> MutexGuard<'static, Reading> {
+        READING.lock().unwrap_or_else(|e| e.into_inner())
+    }
+
+    pub fn known() -> Option<bool> {
+        match ANSWER.load(Ordering::Relaxed) {
+            LIGHT => Some(false),
+            DARK => Some(true),
+            _ => None,
+        }
+    }
+
+    /// Reads the preference again unless a read is running.
+    pub fn refresh(ctx: Option<&egui::Context>) {
+        let mut r = reading();
+        if let Some(ctx) = ctx {
+            r.repaint.push(ctx.clone());
+        }
+        if r.running {
+            return;
+        }
+        r.running = true;
+        drop(r);
+        let read = std::thread::Builder::new().name("lens-desktop-theme".into()).spawn(|| {
+            let dark = lens_platform::portal_prefers_dark().unwrap_or_else(arcade_link::design::linux_prefers_dark_without_portal);
+            let before = ANSWER.swap(if dark { DARK } else { LIGHT }, Ordering::Relaxed);
+            let mut r = reading();
+            r.running = false;
+            let repaint = std::mem::take(&mut r.repaint);
+            drop(r);
+            DONE.notify_all();
+            if before != ANSWER.load(Ordering::Relaxed) {
+                repaint.iter().for_each(egui::Context::request_repaint);
+            }
+        });
+        if read.is_err() {
+            reading().running = false;
+        }
+    }
+
+    /// The preference, waiting up to `wait` for the first read to finish.
+    pub fn first(wait: Duration) -> Option<bool> {
+        let r = reading();
+        if known().is_none() && r.running {
+            drop(DONE.wait_timeout_while(r, wait, |r| r.running).unwrap_or_else(|e| e.into_inner()));
+        }
+        known()
+    }
 }
 
 pub fn current() -> Theme {
@@ -131,6 +235,13 @@ pub fn apply_style(ctx: &egui::Context, appearance: &str) {
         ctx.data_mut(|d| d.insert_temp(installed, true));
     }
     design::apply_egui(ctx, appearance, APP_ID);
+    #[cfg(target_os = "linux")]
+    if !matches!(appearance, "light" | "dark") {
+        // A window opening, or Appearance set to System: read the desktop
+        // again, and wait briefly the first time so no frame shows the wrong theme.
+        desktop::refresh(Some(ctx));
+        follow_desktop(ctx, desktop::first(std::time::Duration::from_millis(400)));
+    }
     sync(ctx);
 }
 
@@ -492,6 +603,32 @@ mod tests {
         apply_style(&ctx, "dark");
         let _ = ctx.run(egui::RawInput::default(), sync);
         assert_eq!(current(), Theme::Dark);
+    }
+
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn system_follows_the_linux_desktop_when_the_window_system_reports_no_theme() {
+        // openbox without a portal: winit reports nothing and egui fell back to
+        // dark next to light GTK apps. The desktop's answer is the fallback now.
+        let run = |ctx: &egui::Context, system: Option<egui::Theme>| {
+            let _ = ctx.run(egui::RawInput { system_theme: system, ..Default::default() }, sync);
+            current()
+        };
+        let ctx = egui::Context::default();
+        design::apply_egui(&ctx, "system", APP_ID);
+        follow_desktop(&ctx, Some(false));
+        assert_eq!(run(&ctx, None), Theme::Light);
+        assert_eq!(Theme::resolve("system", false), Theme::Light);
+        follow_desktop(&ctx, Some(true));
+        assert_eq!(run(&ctx, None), Theme::Dark);
+        // Unknown yet: egui's own fallback stays.
+        follow_desktop(&ctx, None);
+        assert_eq!(run(&ctx, None), Theme::Dark);
+        // A theme the window system reports still wins, and so does a chosen Appearance.
+        follow_desktop(&ctx, Some(false));
+        assert_eq!(run(&ctx, Some(egui::Theme::Dark)), Theme::Dark);
+        design::apply_egui(&ctx, "dark", APP_ID);
+        assert_eq!(run(&ctx, None), Theme::Dark);
     }
 
     #[test]

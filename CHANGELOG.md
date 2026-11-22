@@ -4,6 +4,17 @@ All notable changes to Arcade Lens. The format follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-11-22
+
+### Changed
+
+- Lens moves from Arcade Link 1.0.13 to 1.0.15. "Download Tesseract" in Settings runs curl and the downloaded engine's checks with your own environment rather than the AppImage's.
+
+### Fixed
+
+- The install dialog of a downloaded AppImage (and the uninstall dialog) was a page-sized window with a large empty area below its buttons. It is now as tall as what it shows, opens centred, and grows if a notice or an error appears.
+- Linux: with Appearance set to System, Lens was dark on desktops that don't tell apps their colour scheme (openbox and other X11 sessions without the desktop portal), while GTK apps such as Arcade Tools were light. Lens now asks the desktop portal and, without an answer, reads GNOME's and GTK's settings as GTK does, so it is light there unless the desktop prefers dark. It reads them again each time a window opens. Windows and macOS are unchanged.
+
 ## [1.0.0] - 2026-11-16
 
 ### Added
@@ -159,7 +170,8 @@ released: its release build failed the capture focus check, fixed here.
 - Use the shared per-user Windows installer integration and release tools from Link v0.3.0.
 - Add user guides, generated shortcut tables and CI checks with isolated profiles on Rust 1.88.
 
-[Unreleased]: https://github.com/qa-p1/Arcade-lens/compare/v1.0.0...HEAD
+[Unreleased]: https://github.com/qa-p1/Arcade-lens/compare/v1.0.1...HEAD
+[1.0.1]: https://github.com/qa-p1/Arcade-lens/compare/v1.0.0...v1.0.1
 [1.0.0]: https://github.com/qa-p1/Arcade-lens/compare/v0.4.2...v1.0.0
 [0.4.2]: https://github.com/qa-p1/Arcade-lens/compare/v0.4.1...v0.4.2
 [0.4.1]: https://github.com/qa-p1/Arcade-lens/compare/v0.3.4...v0.4.1

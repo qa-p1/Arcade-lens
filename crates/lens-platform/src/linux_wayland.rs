@@ -40,6 +40,21 @@ pub fn capture_all() -> Result<Vec<(MonitorInfo, RgbaImage)>, PlatformError> {
     Ok(vec![(monitor, img)])
 }
 
+/// The Settings portal's `color-scheme` (X11 sessions have the portal too when one runs).
+pub fn portal_prefers_dark() -> Option<bool> {
+    use ashpd::desktop::settings::{ColorScheme, Settings};
+    let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().ok()?;
+    let scheme = rt.block_on(async {
+        let read = async { Settings::new().await?.color_scheme().await };
+        tokio::time::timeout(std::time::Duration::from_secs(1), read).await
+    });
+    match scheme {
+        Ok(Ok(ColorScheme::PreferDark)) => Some(true),
+        Ok(Ok(ColorScheme::PreferLight)) => Some(false),
+        _ => None,
+    }
+}
+
 fn percent_decode(s: &str) -> String {
     let b = s.as_bytes();
     let mut out = Vec::with_capacity(b.len());

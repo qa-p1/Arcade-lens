@@ -156,3 +156,25 @@ Look's rc.2 gates found a Link bug that Lens shares: the unpacked copy (U1) inhe
 the AppImage's mount, and the GTK hook's `gsettings` crashed on the released mount and hung, so a start or Restart
 never opened (Look D22). Lens moves to Link 1.0.13 before rc.3.
 
+
+## D19 - The desktop's colour scheme on Linux, a content-sized install dialog, and Link 1.0.15
+
+A real-user run on openbox (X11, no compositor, no desktop portal, GNOME settings at their defaults) showed two things.
+Lens followed "System" to dark next to a light Arcade Tools: winit reports no system theme anywhere on Linux, so egui
+used its fallback, dark. On Linux, Lens now reads the desktop's preference on a worker thread when a process starts and
+each time a window opens (Settings, History, a capture): the XDG Settings portal's `color-scheme` when it states one,
+otherwise Link 1.0.15's `design::linux_prefers_dark_without_portal` (GNOME's `color-scheme`, then the GTK theme name, as
+GTK and WebKit read them). The answer becomes egui's fallback theme, so a theme the window system does report (Windows,
+macOS) still wins, and a chosen Light or Dark is untouched. A window's first frame waits up to 0.4 s for the first
+answer. This also changes portal desktops: before, they were dark too whatever the portal said; a portal that states
+light or dark is now followed, and one that states no preference (GNOME's `default`) falls back to the same settings.
+
+The install dialog was a 720 × 520 window, the size of an app page, with a large empty area below its buttons. It is
+560 px wide, laid out once off screen to open at its content's height (so eframe centres the final window), not
+resizable, and follows its content when a notice or an error appears, keeping its centre.
+
+Link 1.0.15 also runs `engines::download_tesseract` with the user's environment. Lens calls it ("Download Tesseract" in
+Settings); Lens's AppImage bundles no libraries, so it did not fail as Tools' did, but it no longer passes the AppImage's
+variables to curl. Link 1.0.12 and 1.0.14 change only Link's CI and harness. Until `v1.0.15` is tagged, Cargo.toml pins
+Link's commit `0521aa7`; CI's tray step checks out whichever the pin names. `VENDORED`'s source (tag and commit) and
+`THIRD_PARTY_NOTICES.md` move to the tag with the pin: the vendored files are identical in 1.0.13 and 1.0.15.

@@ -83,6 +83,13 @@ pub fn display_server() -> DisplayServer {
     DisplayServer::Unknown
 }
 
+/// Linux: the XDG Settings portal's colour scheme, `Some(true)` for dark and `Some(false)` for light. `None` when no
+/// portal answers within a second or it states no preference (GNOME's `default`). Blocking: call it off the UI thread.
+#[cfg(target_os = "linux")]
+pub fn portal_prefers_dark() -> Option<bool> {
+    linux_wayland::portal_prefers_dark()
+}
+
 /// One monitor's frozen pixels, in physical resolution.
 pub struct Capture {
     pub monitor: MonitorInfo,

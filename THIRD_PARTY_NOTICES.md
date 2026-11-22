@@ -160,7 +160,7 @@ in front of the image, which starts at the offset `--appimage-offset` prints.
 | foreign-types | 0.5.0 | MIT/Apache-2.0 | macOS | https://github.com/sfackler/foreign-types |
 | foreign-types-macros | 0.2.4 | MIT/Apache-2.0 | macOS | https://github.com/sfackler/foreign-types |
 | foreign-types-shared | 0.3.1 | MIT/Apache-2.0 | macOS | https://github.com/sfackler/foreign-types |
-| form_urlencoded | 1.2.2 | MIT OR Apache-2.0 | all | https://github.com/servo/rust-url |
+| form_urlencoded | 1.2.3 | MIT OR Apache-2.0 | all | https://github.com/servo/rust-url |
 | fsevent-sys | 4.1.0 | MIT | macOS | https://github.com/octplane/fsevent-rust/tree/master/fsevent-sys |
 | futures-core | 0.3.34 | MIT OR Apache-2.0 | Linux | https://github.com/rust-lang/futures-rs |
 | futures-io | 0.3.34 | MIT OR Apache-2.0 | Linux | https://github.com/rust-lang/futures-rs |
@@ -400,7 +400,7 @@ in front of the image, which starts at the offset `--appimage-offset` prints.
 | ureq | 3.4.2 | MIT OR Apache-2.0 | all | https://github.com/algesten/ureq |
 | ureq-proto | 0.6.4 | MIT OR Apache-2.0 | all | https://github.com/algesten/ureq-proto |
 | uriparse | 0.6.4 | MIT | all | https://github.com/sgodwincs/uriparse-rs |
-| url | 2.5.8 | MIT OR Apache-2.0 | all | https://github.com/servo/rust-url |
+| url | 2.5.9 | MIT OR Apache-2.0 | all | https://github.com/servo/rust-url |
 | urlencoding | 2.1.3 | MIT | all | https://github.com/kornelski/rust_urlencoding |
 | usvg | 0.45.1 | Apache-2.0 OR MIT | all | https://github.com/linebender/resvg |
 | utf8-zero | 0.8.1 | MIT OR Apache-2.0 | all | https://github.com/algesten/utf8-zero |
@@ -914,7 +914,7 @@ IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 DEALINGS IN THE SOFTWARE.
 ```
 
-### 5. Used by ahash 0.8.12, arrayvec 0.7.8, async-recursion 1.2.0, base64 0.22.1, base64 0.23.1, bitflags 1.3.2, bitflags 2.13.2, bitstream-io 2.6.0, cfg-if 1.0.5, cgl 0.3.2, core-foundation 0.10.1, core-foundation 0.9.4, core-foundation-sys 0.8.7, core-graphics 0.23.2, core-graphics-types 0.1.3, core_detect 1.0.0, crossbeam-channel 0.5.17, crossbeam-deque 0.8.8, crossbeam-epoch 0.9.21, crossbeam-utils 0.8.23, data-url 0.3.2, displaydoc 0.2.7, either 1.18.0, equivalent 1.0.2, errno 0.3.14, event-listener 5.4.2, event-listener-strategy 0.5.4, fastrand 2.5.0, flate2 1.1.10, fnv 1.0.7, form_urlencoded 1.2.2, futures-lite 2.6.1, gethostname 1.1.0, gif 0.13.3, global-hotkey 0.8.0, glow 0.16.0, hashbrown 0.17.1, httparse 1.10.1, idna 1.1.0, idna_adapter 1.2.2, indexmap 2.14.2, itertools 0.12.1, keyboard-types 0.7.0, lazy_static 1.5.1, linux-raw-sys 0.12.1, linux-raw-sys 0.4.15, lock_api 0.4.14, log 0.4.34, matrixmultiply 0.3.11, muda 0.19.3, num 0.4.3, num-bigint 0.4.8, num-complex 0.4.6, num-derive 0.4.2, num-integer 0.1.47, num-iter 0.1.46, num-rational 0.4.2, num-traits 0.2.19, once_cell 1.21.4, ordered-stream 0.2.0, parking 2.2.1, parking_lot 0.12.5, parking_lot_core 0.9.12, percent-encoding 2.3.2, png 0.17.16, png 0.18.1, polling 3.11.0, rawpointer 0.2.1, rayon 1.12.0, rayon-core 1.13.0, regex 1.13.1, regex-automata 0.4.18, regex-syntax 0.8.11, roxmltree 0.20.0, rustix 0.38.44, rustix 1.1.6, rustls 0.23.46, scoped-tls 1.0.1, scopeguard 1.2.0, security-framework 3.7.0, security-framework-sys 2.17.0, signal-hook-registry 1.4.8, simplecss 0.2.2, smallvec 1.16.2, smol_str 0.2.2, socket2 0.6.5, stable_deref_trait 1.2.1, svgtypes 0.15.3, tempfile 3.27.0, toml_datetime 0.6.3, tray-icon 0.24.2, ttf-parser 0.25.1, unicode-segmentation 1.13.3, url 2.5.8, uuid 1.26.1, weezl 0.1.12
+### 5. Used by ahash 0.8.12, arrayvec 0.7.8, async-recursion 1.2.0, base64 0.22.1, base64 0.23.1, bitflags 1.3.2, bitflags 2.13.2, bitstream-io 2.6.0, cfg-if 1.0.5, cgl 0.3.2, core-foundation 0.10.1, core-foundation 0.9.4, core-foundation-sys 0.8.7, core-graphics 0.23.2, core-graphics-types 0.1.3, core_detect 1.0.0, crossbeam-channel 0.5.17, crossbeam-deque 0.8.8, crossbeam-epoch 0.9.21, crossbeam-utils 0.8.23, data-url 0.3.2, displaydoc 0.2.7, either 1.18.0, equivalent 1.0.2, errno 0.3.14, event-listener 5.4.2, event-listener-strategy 0.5.4, fastrand 2.5.0, flate2 1.1.10, fnv 1.0.7, form_urlencoded 1.2.3, futures-lite 2.6.1, gethostname 1.1.0, gif 0.13.3, global-hotkey 0.8.0, glow 0.16.0, hashbrown 0.17.1, httparse 1.10.1, idna 1.1.0, idna_adapter 1.2.2, indexmap 2.14.2, itertools 0.12.1, keyboard-types 0.7.0, lazy_static 1.5.1, linux-raw-sys 0.12.1, linux-raw-sys 0.4.15, lock_api 0.4.14, log 0.4.34, matrixmultiply 0.3.11, muda 0.19.3, num 0.4.3, num-bigint 0.4.8, num-complex 0.4.6, num-derive 0.4.2, num-integer 0.1.47, num-iter 0.1.46, num-rational 0.4.2, num-traits 0.2.19, once_cell 1.21.4, ordered-stream 0.2.0, parking 2.2.1, parking_lot 0.12.5, parking_lot_core 0.9.12, percent-encoding 2.3.2, png 0.17.16, png 0.18.1, polling 3.11.0, rawpointer 0.2.1, rayon 1.12.0, rayon-core 1.13.0, regex 1.13.1, regex-automata 0.4.18, regex-syntax 0.8.11, roxmltree 0.20.0, rustix 0.38.44, rustix 1.1.6, rustls 0.23.46, scoped-tls 1.0.1, scopeguard 1.2.0, security-framework 3.7.0, security-framework-sys 2.17.0, signal-hook-registry 1.4.8, simplecss 0.2.2, smallvec 1.16.2, smol_str 0.2.2, socket2 0.6.5, stable_deref_trait 1.2.1, svgtypes 0.15.3, tempfile 3.27.0, toml_datetime 0.6.3, tray-icon 0.24.2, ttf-parser 0.25.1, unicode-segmentation 1.13.3, url 2.5.9, uuid 1.26.1, weezl 0.1.12
 
 ```text
                               Apache License
@@ -4832,7 +4832,7 @@ Permission is granted to anyone to use this software for any purpose, including 
 3. This notice may not be removed or altered from any source distribution.
 ```
 
-### 61. Used by data-url 0.3.2, idna 1.1.0, percent-encoding 2.3.2, url 2.5.8
+### 61. Used by data-url 0.3.2, idna 1.1.0, percent-encoding 2.3.2, url 2.5.9
 
 ```text
 Copyright (c) 2013-2025 The rust-url developers
@@ -6706,7 +6706,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
-### 107. Used by form_urlencoded 1.2.2
+### 107. Used by form_urlencoded 1.2.3
 
 ```text
 Copyright (c) 2013-2016 The rust-url developers

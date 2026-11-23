@@ -1,3 +1,19 @@
+## 2026-11-23: 1.1.0 released
+
+Current release: [1.1.0](https://github.com/qa-p1/Arcade-lens/releases/tag/v1.1.0), promoted from `v1.1.0-rc.1` after
+Gates passed 12/12 on its published files (upgrade from 1.0.1, Tools' delta update with signature and tampered-chunk
+checks, memory and performance budgets, the Windows installer and macOS dmg smokes, and both desktop suites). Before it:
+1.0.1 (2026-11-22) and 1.0.0 (2026-11-17).
+
+1.1.0 moved Lens onto Arcade Link 1.1: each recognizer is its own action for other apps, file manager menus and the
+browser extension; the actions Lens offers on a finding come from Link's shared offers list; plugins no longer see
+secrets unless they declare `read-secrets`; config and data folders are private to the account; a small pin's
+right-click menu is no longer cut off.
+
+Not verified yet: the pin menu fix on a real compositor (RD-LENS-4, the owner's visual check), Lens's menu entries on
+a real Windows or macOS desktop, and the browser surfaces, which wait for the Arcade browser extension. Open: LN-10 (the
+colour-pick loupe label shows the dimmed overlay colour).
+
 ## 2026-11-06: shortcut recorder follow-up for 0.4.2
 
 Settings handled global shortcuts before rendering the recorder, consuming

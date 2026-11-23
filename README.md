@@ -86,6 +86,17 @@ When Arcade Tools is running, its tray icon hosts Lens's menu, including **Captu
 
 See [how Lens works with other Arcade apps](docs/user/with-other-apps.md) and the [Arcade Link reference](docs/dev/link.md).
 
+## Use it from anywhere
+
+With [Arcade Tools](https://github.com/qa-p1/Arcade-tools) 1.1 or later installed, its Arcade helper puts Lens's
+recognizers in your file manager's right-click menu for images (Files, Dolphin, Caja, Nemo, Thunar and "Open With" on
+Linux, File Explorer on Windows, Finder's Quick Actions on macOS), one entry each: **Read text**, **Scan QR codes and
+barcodes**, **Pick colours**, **Find links**, **Find emails and phone numbers**, **Find dates and times**, **Find
+addresses**, **Read a table** and the rest. Each returns only what it was asked for. The Arcade browser extension will
+offer them on images and, for the ones that read text, on selected text when it ships. See Tools'
+[Everywhere guide](https://github.com/qa-p1/Arcade-tools/blob/main/docs/user/everywhere.md) for pinning, defaults and
+where results go.
+
 ## Usage
 
 Press **Ctrl+Alt+Shift+L** (⌃⌥⇧L on macOS) and drag a rectangle. Press **Enter** to run the highlighted action, or **Space** / **Tab** to browse all actions. Arrow keys move the selection, Shift+arrows resize it, Ctrl+C copies it as an image, **M** enters measure mode and Escape closes. Change the shortcut in **Settings › Shortcuts**; the single-letter action keys in **Settings › Actions**.

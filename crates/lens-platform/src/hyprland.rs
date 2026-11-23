@@ -90,7 +90,7 @@ fn keysym(code: Code) -> Option<String> {
 fn combo(shortcut: &str) -> Result<(Vec<&'static str>, String), String> {
     let hk = crate::shortcut::parse(shortcut)?;
     let mut mods = Vec::new();
-    for (m, name) in [(Modifiers::SUPER, "SUPER"), (Modifiers::CONTROL, "CTRL"), (Modifiers::ALT, "ALT"), (Modifiers::SHIFT, "SHIFT")] {
+    for (m, name) in [(Modifiers::META, "SUPER"), (Modifiers::CONTROL, "CTRL"), (Modifiers::ALT, "ALT"), (Modifiers::SHIFT, "SHIFT")] {
         if hk.mods.contains(m) {
             mods.push(name);
         }

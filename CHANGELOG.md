@@ -4,6 +4,24 @@ All notable changes to Arcade Lens. The format follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
+### Added
+
+- Other Arcade apps, your file manager's menu and the browser extension can use what Lens finds, one action each: "Read text", "Scan QR codes and barcodes", "Pick colours", "Find links", "Find emails and phone numbers", "Find dates and times", "Find addresses", "Read a table" and the rest. Each works on an image (Lens reads its text first when it needs to) and, where it reads text, on selected text, and returns only what it was asked for. On Linux, "Read text" says it needs Tesseract instead of failing.
+
+### Security
+
+- A plugin that reads text no longer sees secrets in it: they are redacted from what it is handed, and secret findings are not handed over at all, unless the plugin declares the new `read-secrets` permission (a secret scanner, for example), which Settings › Plugins shows.
+- Lens's settings, chains, usage counters, history and logs are private to your account: Lens makes its config and data folders `0700` when it starts and writes its files `0600`.
+
+### Fixed
+
+- A small pin's right-click menu was cut off by the pin's window. The pin now grows while its menu is open (the picture keeps its size) and returns to its size when the menu closes.
+
+### Changed
+
+- Lens moves to Arcade Link 1.1.0. The actions of other apps Lens offers on a finding come from Link's shared list of what each installed app can do (best matches first, up to six per app), not from a list built into Lens, so a new Arcade app's actions appear without a Lens update.
+- Dependencies: toml 1, tiny-skia 0.12 with resvg 0.50, global-hotkey 0.10, x11rb 0.14 and compatible updates. eframe stays on 0.33: Lens draws with Arcade Link's design kit, which is on egui 0.33, so egui moves together with Link and Find. The Rust toolchain stays on 1.88 (notify-types and uuid are held at versions that build on it).
+
 ## [1.0.1] - 2026-11-22
 
 ### Changed

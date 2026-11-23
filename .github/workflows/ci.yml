@@ -150,13 +150,13 @@ jobs:
   # Tier 1: Lens's windows on headless Hyprland (Link's desktop harness), from the AppImage built above.
   desktop:
     needs: linux
-    uses: qa-p1/Arcade-Link/.github/workflows/desktop-e2e.yml@v1.0.15
+    uses: qa-p1/Arcade-Link/.github/workflows/desktop-e2e.yml@v1.1.0
     with:
       name: lens
       test: tests/desktop/lens_desktop.py
       args: '"$APP"'
       artifact: linux-appimage
-      link-ref: v1.0.15
+      link-ref: v1.1.0
 
   windows:
     needs: [test, version]

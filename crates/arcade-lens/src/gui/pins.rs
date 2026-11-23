@@ -33,6 +33,8 @@ pub struct Pin {
     readout: Option<(String, Instant)>,
     /// The pointer is on the mini toolbar (keeps it shown at the edge).
     toolbar_hot: bool,
+    /// The window is grown so the open context menu fits (RD-LENS-4).
+    menu_grown: bool,
 }
 
 pub enum PinRequest {
@@ -61,6 +63,7 @@ impl Pin {
             scale,
             readout: None,
             toolbar_hot: false,
+            menu_grown: false,
         }
     }
 
@@ -118,7 +121,8 @@ impl Pin {
                 ctx.load_texture(format!("pin-{}", self.id), ci, egui::TextureOptions::LINEAR)
             })
             .clone();
-        let rect = ui.max_rect().shrink(MARGIN);
+        // The image keeps its own size; the window may be larger while the menu is open.
+        let rect = egui::Rect::from_min_size(ui.max_rect().min + Vec2::splat(MARGIN), self.window_size() - Vec2::splat(MARGIN * 2.0));
         let corner = CornerRadius::same(radius::MD as u8);
         // The window is transparent around the image; the shadow lives there.
         ui.painter().add(pin_shadow().as_shape(rect, corner));
@@ -190,7 +194,7 @@ impl Pin {
         }
         self.paint_readout(ui, rect);
 
-        resp.context_menu(|ui| {
+        let menu = resp.context_menu(|ui| {
             if ui.button("Copy").clicked() {
                 out.push(PinRequest::Copy(self.image.clone()));
                 self.readout("Copied".into());
@@ -231,6 +235,14 @@ impl Pin {
                 ui.close();
             }
         });
+        // egui draws menus inside the window, so a small pin grows while its menu is open, then shrinks back.
+        let open = menu.is_some();
+        if open != self.menu_grown {
+            if let Some(size) = window_for_menu(self.window_size(), open) {
+                ctx.send_viewport_cmd(ViewportCommand::InnerSize(size));
+            }
+            self.menu_grown = open;
+        }
         out
     }
 
@@ -274,6 +286,16 @@ impl Pin {
 
 /// Transparent space around the image for the pin's shadow, in points.
 const MARGIN: f32 = 10.0;
+
+/// Room the context menu and its Opacity submenu need, in points.
+const MENU_ROOM: Vec2 = Vec2::new(360.0, 340.0);
+
+/// The pin window's size for the menu being open (big enough for the menu) or closed (the pin's own size), or
+/// `None` when a pin is already big enough and nothing changes.
+fn window_for_menu(natural: Vec2, open: bool) -> Option<Vec2> {
+    let roomy = natural.max(MENU_ROOM);
+    (roomy != natural).then_some(if open { roomy } else { natural })
+}
 
 const OPACITY_STEPS: [f32; 4] = [1.0, 0.75, 0.5, 0.25];
 
@@ -375,6 +397,24 @@ impl Recording {
             });
         });
         stop
+    }
+}
+
+#[cfg(test)]
+mod menu_tests {
+    use super::*;
+
+    /// RD-LENS-4: a small pin grows for its menu and returns to its size; a large one never changes.
+    #[test]
+    fn a_small_pin_grows_while_its_menu_is_open() {
+        let small = Vec2::new(120.0, 80.0);
+        assert_eq!(window_for_menu(small, true), Some(Vec2::new(360.0, 340.0)));
+        assert_eq!(window_for_menu(small, false), Some(small));
+        let wide = Vec2::new(800.0, 100.0);
+        assert_eq!(window_for_menu(wide, true), Some(Vec2::new(800.0, 340.0)));
+        let large = Vec2::new(800.0, 600.0);
+        assert_eq!(window_for_menu(large, true), None);
+        assert_eq!(window_for_menu(large, false), None);
     }
 }
 

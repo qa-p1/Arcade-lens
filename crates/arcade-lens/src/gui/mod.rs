@@ -1129,6 +1129,9 @@ pub fn run(initial: Option<Trigger>) -> Result<(), String> {
     // Before anything opens a file: move the pre-0.4 folders.
     let migration = Paths::migrate();
     let paths = Paths::discover();
+    if let Err(e) = paths.secure() {
+        eprintln!("arcade-lens: couldn't make its folders private: {e}");
+    }
     // The log folder the manifest advertises: without a terminal, warnings
     // and errors go there instead of nowhere.
     if let Err(e) = arcade_link::logs::capture_stderr(&paths.data.join("logs"), "arcade-lens") {

@@ -131,7 +131,23 @@ fn feature(name: &str) -> Option<HostFeatures> {
     })
 }
 
-const DATA_PERMISSIONS: &[&str] = &["read-text", "read-pixels"];
+/// `read-secrets` lets a plugin that reads text see secrets in it (a secret scanner, a password-manager helper);
+/// without it, secrets are redacted from the text it is handed and secret findings are never handed over.
+const DATA_PERMISSIONS: &[&str] = &["read-text", "read-pixels", "read-secrets"];
+
+/// The text a plugin may see of `value`: none without `read-text`; a secret finding only with `read-secrets`; other
+/// text with any secret in it redacted unless the plugin has `read-secrets`.
+fn readable_text(manifest: &Manifest, value: &Value) -> Option<String> {
+    if !manifest.can("read-text") {
+        return None;
+    }
+    let secrets = manifest.can("read-secrets");
+    if matches!(value, Value::Secret(_)) && !secrets {
+        return None;
+    }
+    let text = value.as_text()?.into_owned();
+    Some(if secrets { text } else { lens_recognizers::text::secret::redact(&text) })
+}
 
 impl Manifest {
     pub fn load(dir: &Path) -> std::result::Result<Manifest, String> {
@@ -325,10 +341,8 @@ fn png_base64(img: &image::RgbaImage) -> Option<String> {
 /// The input object sent to a plugin, limited by its data permissions.
 fn input_json(manifest: &Manifest, capability: &Capability, value: &Value) -> serde_json::Value {
     let mut obj = serde_json::json!({ "capability": capability.as_str() });
-    if manifest.can("read-text") {
-        if let Some(t) = value.as_text() {
-            obj["text"] = serde_json::Value::String(t.into_owned());
-        }
+    if let Some(t) = readable_text(manifest, value) {
+        obj["text"] = serde_json::Value::String(t);
     }
     if manifest.can("read-pixels") {
         if let Some(img) = value.as_image() {
@@ -378,7 +392,7 @@ impl Recognizer for ProxyRecognizer {
 
     fn should_run(&self, input: &Finding, _cx: &RecognizeContext) -> bool {
         let m = &self.proc.manifest;
-        (m.can("read-text") && input.value.as_text().is_some()) || (m.can("read-pixels") && input.value.as_image().is_some())
+        readable_text(m, &input.value).is_some() || (m.can("read-pixels") && input.value.as_image().is_some())
     }
 
     fn recognize(&self, input: &Finding, cx: &RecognizeContext) -> Result<Vec<Detection>> {
@@ -419,9 +433,7 @@ impl Action for ProxyAction {
 
     fn preview(&self, input: &Item, _s: &lens_core::Settings) -> Option<String> {
         // Whatever the plugin may upload is shown, and checked by the secret guard.
-        (self.descriptor.effects.intersects(Effects::OUTBOUND) && self.proc.manifest.can("read-text"))
-            .then(|| input.value.as_text().map(|t| t.into_owned()))
-            .flatten()
+        self.descriptor.effects.intersects(Effects::OUTBOUND).then(|| readable_text(&self.proc.manifest, &input.value)).flatten()
     }
 
     fn execute(&self, input: &Item, cx: &ActionContext) -> Result<ActionOutcome> {
@@ -560,6 +572,40 @@ mod tests {
         assert!(Manifest::load(&dir).unwrap_err().contains("teleport"));
         std::fs::write(dir.join("plugin.toml"), "[plugin]\nid='x.y'\nname='X'\nversion='1'\napi_version=99\nexecutable='run'\n").unwrap();
         assert!(Manifest::load(&dir).unwrap_err().contains("API v99"));
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    #[test]
+    fn plugins_see_secrets_only_with_read_secrets() {
+        let dir = std::env::temp_dir().join(format!("lens-plugin-secrets-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let load = |permissions: &str| {
+            std::fs::write(
+                dir.join("plugin.toml"),
+                format!("[plugin]\nid='x.y'\nname='X'\nversion='1'\napi_version=1\nexecutable='run'\npermissions=[{permissions}]\n"),
+            )
+            .unwrap();
+            Manifest::load(&dir).unwrap()
+        };
+        let token = "ghp_0123456789abcdefghijklmnopqrstuvwxyzAB";
+        let text = Value::text(format!("deploy with {token} today"));
+        let secret = Value::Secret(lens_core::value::SecretValue {
+            kind: "GitHub token".into(),
+            masked: "ghp_…yzAB".into(),
+            raw: lens_core::value::Sensitive::new(token),
+        });
+
+        let reader = load("'read-text'");
+        let seen = readable_text(&reader, &text).unwrap();
+        assert!(!seen.contains(token) && seen.contains("redacted"), "{seen}");
+        assert_eq!(readable_text(&reader, &secret), None);
+
+        let scanner = load("'read-text','read-secrets'");
+        assert!(readable_text(&scanner, &text).unwrap().contains(token));
+        assert_eq!(readable_text(&scanner, &secret).as_deref(), Some(token));
+
+        // read-secrets alone reads nothing.
+        assert_eq!(readable_text(&load("'read-secrets'"), &text), None);
         let _ = std::fs::remove_dir_all(dir);
     }
 }

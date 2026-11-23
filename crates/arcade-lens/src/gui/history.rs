@@ -101,11 +101,13 @@ fn save_unless_cleared(dir: &Path, image: &RgbaImage, findings: &[Finding], queu
     if *generation != queued {
         return Ok(None);
     }
-    fs::create_dir_all(dir)?;
+    crate::config::private_dir(dir)?;
     let stamp = chrono::Local::now().format("%Y%m%d-%H%M%S%3f").to_string();
-    thumb.save(dir.join(format!("{stamp}.png"))).map_err(std::io::Error::other)?;
+    let mut png = std::io::Cursor::new(Vec::new());
+    thumb.write_to(&mut png, image::ImageFormat::Png).map_err(std::io::Error::other)?;
+    crate::config::write_private(&dir.join(format!("{stamp}.png")), png.get_ref())?;
     let path = dir.join(format!("{stamp}.json"));
-    fs::write(&path, serde_json::to_string_pretty(&serde_json::json!({ "time": stamp, "findings": summary }))?)?;
+    crate::config::write_private(&path, serde_json::to_string_pretty(&serde_json::json!({ "time": stamp, "findings": summary }))?.as_bytes())?;
     // Keep the newest MAX_ENTRIES.
     let mut entries: Vec<PathBuf> = fs::read_dir(dir)?.flatten().map(|e| e.path()).filter(|p| p.extension().is_some_and(|x| x == "json")).collect();
     entries.sort();

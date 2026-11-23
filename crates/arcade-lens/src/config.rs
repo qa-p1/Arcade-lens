@@ -106,12 +106,51 @@ impl Paths {
     }
 }
 
+impl Paths {
+    /// Makes Lens's config and data folders private to the user (0700 on Unix), creating them if needed, so its
+    /// settings, chains, history, usage and logs are never readable by other accounts (SEC-2). Run at start.
+    pub fn secure(&self) -> std::io::Result<()> {
+        private_dir(&self.config)?;
+        private_dir(&self.data)
+    }
+}
+
+/// `dir` and any missing parents, with `dir` itself private to the user (0700 on Unix).
+pub fn private_dir(dir: &Path) -> std::io::Result<()> {
+    fs::create_dir_all(dir)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        if fs::metadata(dir)?.permissions().mode() & 0o077 != 0 {
+            fs::set_permissions(dir, fs::Permissions::from_mode(0o700))?;
+        }
+    }
+    Ok(())
+}
+
+/// Writes `contents` to `path` readable and writable by the user only (0600 on Unix).
+pub fn write_private(path: &Path, contents: &[u8]) -> std::io::Result<()> {
+    use std::io::Write;
+    let mut options = fs::OpenOptions::new();
+    options.write(true).create(true).truncate(true);
+    #[cfg(unix)]
+    std::os::unix::fs::OpenOptionsExt::mode(&mut options, 0o600);
+    let mut file = options.open(path)?;
+    #[cfg(unix)]
+    {
+        use std::os::unix::fs::PermissionsExt;
+        file.set_permissions(fs::Permissions::from_mode(0o600))?;
+    }
+    file.write_all(contents)?;
+    file.sync_all()
+}
+
 fn write_atomic(path: &Path, contents: &str) -> std::io::Result<()> {
     if let Some(dir) = path.parent() {
-        fs::create_dir_all(dir)?;
+        private_dir(dir)?;
     }
     let tmp = path.with_extension("tmp");
-    fs::write(&tmp, contents)?;
+    write_private(&tmp, contents.as_bytes())?;
     fs::rename(tmp, path)
 }
 
@@ -188,6 +227,25 @@ pub fn save_usage(p: &Paths, u: &UsageStore) -> std::io::Result<()> {
 mod tests {
     use super::*;
     use crate::testdata::{install, set_aside, temp};
+
+    #[cfg(unix)]
+    #[test]
+    fn lens_folders_and_files_are_private() {
+        use std::os::unix::fs::PermissionsExt;
+        let dir = std::env::temp_dir().join(format!("lens-config-private-{}", std::process::id()));
+        let p = Paths { config: dir.join("c"), data: dir.join("d") };
+        fs::create_dir_all(&p.data).unwrap();
+        fs::set_permissions(&p.data, fs::Permissions::from_mode(0o755)).unwrap();
+        p.secure().unwrap();
+        let mode = |path: &Path| fs::metadata(path).unwrap().permissions().mode() & 0o777;
+        assert_eq!(mode(&p.config), 0o700);
+        assert_eq!(mode(&p.data), 0o700);
+        save_settings(&p, &Settings::default()).unwrap();
+        save_chains(&p, &lens_actions::default_chains()).unwrap();
+        assert_eq!(mode(&p.settings()), 0o600);
+        assert_eq!(mode(&p.chains()), 0o600);
+        fs::remove_dir_all(dir).ok();
+    }
 
     #[test]
     fn roundtrip_in_temp_home() {

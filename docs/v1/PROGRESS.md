@@ -1,5 +1,18 @@
 # Lens 1.0 progress (newest first)
 
+## 2026-11-23 (cloud session) - 1.1.0 promoted
+
+[#41](https://github.com/qa-p1/Arcade-lens/pull/41) (Link 1.1.0: one action per recognizer, peer actions from Link's
+offers, secrets kept from plugins without `read-secrets`, private files, the pin menu fits, dependency sweep) merged as
+`5c92052`. `v1.1.0-rc.1` passed [Gates](https://github.com/qa-p1/Arcade-lens/actions/runs/45125162927) 12/12 on its
+published files (upgrade from 1.0.1, both desktop suites), and
+[Promote](https://github.com/qa-p1/Arcade-lens/actions/runs/45126224904) made it
+[1.1.0](https://github.com/qa-p1/Arcade-lens/releases/tag/v1.1.0), now the latest release. The AppImage, dmg, setup.exe,
+portable exe and SHA256SUMS.txt have the same SHA-256 digests as rc.1; `manifest.json` and `arcade-release.json` differ
+only in the channel (`test` to `stable`), the tag and the notes link, and `manifest.json.sig` is new.
+
+Not checked here: the pin menu on a real compositor (RD-LENS-4; the owner's visual check). Open: LN-10.
+
 ## 2026-11-22 (cloud session) - install dialog size, System theme on X11, Link 1.0.15
 - D19: the install (and uninstall) dialog opens at its content's height, centred, instead of a page-sized window with a
   large empty area below the buttons. On Linux, "System" follows the desktop portal or, without one, GNOME's and GTK's

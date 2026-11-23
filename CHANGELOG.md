@@ -20,6 +20,7 @@ All notable changes to Arcade Lens. The format follows [Keep a Changelog](https:
 ### Changed
 
 - Lens moves to Arcade Link 1.1.0. The actions of other apps Lens offers on a finding come from Link's shared list of what each installed app can do (best matches first, up to six per app), not from a list built into Lens, so a new Arcade app's actions appear without a Lens update.
+- Dependencies: toml 1, tiny-skia 0.12 with resvg 0.50, global-hotkey 0.10, x11rb 0.14 and compatible updates. eframe stays on 0.33: Lens draws with Arcade Link's design kit, which is on egui 0.33, so egui moves together with Link and Find. The Rust toolchain stays on 1.88 (notify-types and uuid are held at versions that build on it).
 
 ## [1.0.1] - 2026-11-22
 

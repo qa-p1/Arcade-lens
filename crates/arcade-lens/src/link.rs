@@ -85,9 +85,9 @@ pub fn document(settings: &Settings, paths: &Paths) -> arcade_link::manifest::Ma
     }
 }
 
-/// The actions Lens exposes.
+/// The actions Lens exposes: its own five, then one per thing it can find (`lens.recognize:<recognizer>`).
 pub fn actions() -> Vec<Action> {
-    vec![
+    let mut out = vec![
         Action::new("lens.capture", "Select a region on screen", "capture").produces(&["file/image", "screen/region"]).effects(&["opens-ui"]).interactive(true),
         Action::new("lens.capture_and_act", "Arcade Lens", "capture").effects(&["opens-ui"]).interactive(true),
         Action::new("lens.analyze", "Analyze with Lens", "analyze").accepts(&["file/image"]).effects(&["opens-ui"]).interactive(true),
@@ -95,7 +95,89 @@ pub fn actions() -> Vec<Action> {
             .accepts(&["file/image", "text/plain"])
             .produces(&["structured/findings", "text/plain"]),
         Action::new("lens.pin", "Pin", "pin").accepts(&["file/image"]).effects(&["opens-ui"]).interactive(true),
-    ]
+    ];
+    out.extend(RECOGNIZE.iter().map(recognize_action));
+    // Windows and macOS read text with the system's engine; Linux needs Tesseract (a missing one is offered as an
+    // install, never as a broken entry).
+    if cfg!(target_os = "linux") {
+        if let Some(read) = out.iter_mut().find(|a| a.id == format!("{RECOGNIZE_ONE}core.ocr")) {
+            read.requires = vec!["engine:tesseract".into()];
+            if arcade_link::engines::find_tesseract().is_none() {
+                read.available = false;
+                read.reason = Some("Tesseract isn't installed".into());
+            }
+        }
+    }
+    out
+}
+
+/// The prefix of one recognizer's own action.
+pub const RECOGNIZE_ONE: &str = "lens.recognize:";
+
+/// What Lens can find, as other apps offer it. `image_only` recognizers read pixels; the rest read text, so on an
+/// image Lens reads its text first. `job` is shared with other apps that do the same thing (Box's OCR and QR reader).
+struct Recognize {
+    id: &'static str,
+    title: &'static str,
+    image_only: bool,
+    job: Option<&'static str>,
+    rank: u8,
+    keywords: &'static [&'static str],
+}
+
+const RECOGNIZE: &[Recognize] = &[
+    Recognize { id: "core.ocr", title: "Read text", image_only: true, job: Some("image.read-text"), rank: 70, keywords: &["ocr", "copy text", "extract text"] },
+    Recognize {
+        id: "core.codes",
+        title: "Scan QR codes and barcodes",
+        image_only: true,
+        job: Some("image.read-code"),
+        rank: 70,
+        keywords: &["qr", "barcode", "scan"],
+    },
+    Recognize { id: "core.palette", title: "Pick colours", image_only: true, job: None, rank: 45, keywords: &["palette", "colour", "color", "hex"] },
+    Recognize { id: "core.text.url", title: "Find links", image_only: false, job: None, rank: 50, keywords: &["url", "web address"] },
+    Recognize {
+        id: "core.text.contact",
+        title: "Find emails and phone numbers",
+        image_only: false,
+        job: None,
+        rank: 50,
+        keywords: &["email", "phone", "contact"],
+    },
+    Recognize { id: "core.text.datetime", title: "Find dates and times", image_only: false, job: None, rank: 45, keywords: &["date", "time", "calendar"] },
+    Recognize { id: "core.text.address", title: "Find addresses", image_only: false, job: None, rank: 45, keywords: &["address", "map"] },
+    Recognize { id: "core.text.money", title: "Find amounts of money", image_only: false, job: None, rank: 40, keywords: &["currency", "price", "convert"] },
+    Recognize { id: "core.text.units", title: "Find quantities and units", image_only: false, job: None, rank: 40, keywords: &["units", "convert", "measure"] },
+    Recognize { id: "core.text.table", title: "Read a table", image_only: false, job: None, rank: 45, keywords: &["table", "csv", "spreadsheet"] },
+    Recognize { id: "core.text.geo", title: "Find coordinates", image_only: false, job: None, rank: 35, keywords: &["gps", "location", "latitude"] },
+    Recognize { id: "core.text.network", title: "Find IP addresses and domains", image_only: false, job: None, rank: 35, keywords: &["ip", "domain", "host"] },
+    Recognize { id: "core.text.ids", title: "Find hashes and IDs", image_only: false, job: None, rank: 35, keywords: &["hash", "uuid", "checksum"] },
+    Recognize { id: "core.text.path", title: "Find file paths", image_only: false, job: None, rank: 35, keywords: &["path", "folder", "file"] },
+    Recognize { id: "core.text.code", title: "Find code", image_only: false, job: None, rank: 35, keywords: &["code", "snippet", "programming"] },
+    Recognize { id: "core.text.command", title: "Find commands", image_only: false, job: None, rank: 35, keywords: &["command", "terminal", "shell"] },
+    Recognize { id: "core.text.error", title: "Find error messages", image_only: false, job: None, rank: 35, keywords: &["error", "stack trace", "exception"] },
+];
+
+fn recognize_action(r: &Recognize) -> Action {
+    let accepts: &[&str] = if r.image_only { &["file/image"] } else { &["file/image", "text/plain"] };
+    let mut a = Action::new(&format!("{RECOGNIZE_ONE}{}", r.id), r.title, "recognize").accepts(accepts).produces(&["structured/findings", "text/plain"]);
+    a.group = Some("Recognize".into());
+    a.job = r.job.map(str::to_owned);
+    a.keywords = r.keywords.iter().map(|k| k.to_string()).collect();
+    a.rank = accepts.iter().map(|t| (t.to_string(), r.rank)).collect();
+    // Findings are shown, never saved.
+    a.output = Some(arcade_link::manifest::output::NONE.into());
+    a.one_click = true;
+    a
+}
+
+/// A recognizer's own action as the `lens.recognize` request it stands for (`options.recognizers`).
+fn recognize_request(request: InvokeRequest) -> InvokeRequest {
+    let Some(id) = request.action.strip_prefix(RECOGNIZE_ONE).map(str::to_owned) else { return request };
+    let mut options = request.options.as_object().cloned().unwrap_or_default();
+    options.insert("recognizers".into(), json!([id]));
+    InvokeRequest { action: "lens.recognize".into(), options: Value::Object(options), ..request }
 }
 
 /// What the user selected for `lens.capture`.
@@ -315,9 +397,19 @@ fn runtime(paths: &Paths) -> Result<Arc<Runtime>, LinkError> {
 pub fn recognize(paths: &Paths, request: &InvokeRequest, cancel: CancelToken) -> Result<InvokeResult, LinkError> {
     let rt = runtime(paths)?;
     let ocr_only = request.options.get("ocrOnly").and_then(Value::as_bool).unwrap_or(false);
+    // Only these recognizers' findings (`lens.recognize:<id>`); text recognizers on an image read its text first.
+    let chosen: Option<Vec<String>> = if ocr_only {
+        Some(vec!["core.ocr".into()])
+    } else {
+        request.options.get("recognizers").and_then(Value::as_array).map(|ids| ids.iter().filter_map(Value::as_str).map(str::to_owned).collect())
+    };
     let mut settings = (*rt.settings).clone();
-    if ocr_only {
-        settings.disabled_recognizers = rt.registry.recognizers().iter().map(|r| r.descriptor().id).filter(|id| id != "core.ocr").collect();
+    if let Some(chosen) = &chosen {
+        settings.disabled_recognizers =
+            rt.registry.recognizers().iter().map(|r| r.descriptor().id).filter(|id| !chosen.contains(id) && id != "core.ocr").collect();
+        if chosen.iter().all(|id| RECOGNIZE.iter().any(|r| r.id == id && r.image_only && r.id != "core.ocr")) {
+            settings.disabled_recognizers.push("core.ocr".into());
+        }
     }
     let engine = lens_core::Engine::new(rt.registry.clone(), Arc::new(lens_core::recognizer::LocalEnvironment), Arc::new(settings));
     let text_input = request.inputs.iter().find(|c| arcade_link::content::family(&c.kind) == "text");
@@ -333,7 +425,10 @@ pub fn recognize(paths: &Paths, request: &InvokeRequest, cancel: CancelToken) ->
         }
     };
     // The caller's own input (the image, or its text) isn't a finding.
-    let findings = ordered_findings(&report.findings);
+    let mut findings = ordered_findings(&report.findings);
+    if let Some(chosen) = &chosen {
+        findings.retain(|f| chosen.contains(&f.recognizer));
+    }
     let ocr_text: Vec<String> = findings
         .iter()
         .filter(|f| f.recognizer == "core.ocr" && f.capability.as_str() == "text")
@@ -440,6 +535,7 @@ impl Handler for LensHandler {
 
     fn invoke(&self, request: InvokeRequest, ctx: &InvokeContext) -> Result<Reply, LinkError> {
         note_activity(format!("{} used {}", arcade_link::manifest::app_name(&request.context.source), request.action));
+        let request = recognize_request(request);
         match request.action.as_str() {
             "lens.recognize" => {
                 let job = ctx.start_job();
@@ -768,11 +864,31 @@ mod tests {
     }
 
     #[test]
-    fn manifest_lists_the_five_actions() {
+    fn manifest_lists_its_actions_and_one_per_recognizer() {
         let m = manifest(&Settings::default());
         assert_eq!(m.version, VERSION);
         let ids: Vec<&str> = m.actions.iter().map(|a| a.id.as_str()).collect();
-        assert_eq!(ids, ["lens.capture", "lens.capture_and_act", "lens.analyze", "lens.recognize", "lens.pin"]);
+        assert_eq!(ids[..5], ["lens.capture", "lens.capture_and_act", "lens.analyze", "lens.recognize", "lens.pin"]);
+        assert_eq!(ids.len(), 5 + RECOGNIZE.len());
+        // Every published recognizer exists in Lens's registry.
+        let mut registry = lens_core::Registry::new();
+        registry.register_plugin(lens_core::registry::PluginManifest::first_party("core", "Core"), |r| lens_recognizers::register_builtins(r, None)).unwrap();
+        let known: Vec<String> = registry.recognizers().iter().map(|r| r.descriptor().id).collect();
+        // OCR registers only with an engine (`ocr::OcrRecognizer`, id `core.ocr`).
+        for r in RECOGNIZE.iter().filter(|r| r.id != "core.ocr") {
+            assert!(known.iter().any(|k| k == r.id), "{} is not a Lens recognizer", r.id);
+        }
+        let read = m.action("lens.recognize:core.ocr").unwrap();
+        assert_eq!(read.title, "Read text");
+        assert_eq!(read.job.as_deref(), Some("image.read-text"));
+        assert!(read.is_one_click() && read.accepts == ["file/image"]);
+        if cfg!(target_os = "linux") {
+            assert_eq!(read.requires, ["engine:tesseract"]);
+        }
+        assert_eq!(read.rank_for("file/image"), 70);
+        let links = m.action("lens.recognize:core.text.url").unwrap();
+        assert_eq!(links.accepts, ["file/image", "text/plain"]);
+        assert_eq!(links.output.as_deref(), Some("none"));
         assert!(m.action("lens.recognize").is_some_and(|a| !a.interactive));
         assert_eq!(m.launch.invoke.as_deref(), Some(&["--arcade-invoke".to_string()][..]));
     }
@@ -786,6 +902,23 @@ mod tests {
         let findings = r.outputs.iter().find(|c| c.kind == "structured/findings").unwrap().data.clone().unwrap();
         let caps: Vec<&str> = findings.as_array().unwrap().iter().filter_map(|f| f["capability"].as_str()).collect();
         assert!(caps.contains(&"url"), "{caps:?}");
+        std::fs::remove_dir_all(dir).ok();
+    }
+
+    #[test]
+    fn a_recognizers_own_action_returns_only_its_findings() {
+        let dir = std::env::temp_dir().join(format!("lens-link-one-{}", std::process::id()));
+        let paths = Paths { config: dir.join("c"), data: dir.join("d") };
+        let req = recognize_request(
+            InvokeRequest::new("lens.recognize:core.text.url", "t").input(Content::plain("see https://example.com/docs or mail me@example.com")),
+        );
+        assert_eq!(req.action, "lens.recognize");
+        assert_eq!(req.options["recognizers"], json!(["core.text.url"]));
+        let r = recognize(&paths, &req, CancelToken::new()).unwrap();
+        let findings = r.outputs.iter().find(|c| c.kind == "structured/findings").unwrap().data.clone().unwrap();
+        let caps: Vec<&str> = findings.as_array().unwrap().iter().filter_map(|f| f["capability"].as_str()).collect();
+        assert!(caps.contains(&"url"), "{caps:?}");
+        assert!(!caps.contains(&"email"), "{caps:?}");
         std::fs::remove_dir_all(dir).ok();
     }
 

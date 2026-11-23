@@ -277,31 +277,10 @@ pub fn with_cached_peers(
     }
     let cache: PngCache = Arc::new(Mutex::new(None));
     let mut actions = Vec::new();
-    for m in installed.peers(ids::LENS).filter(|m| settings.link.uses(&m.id)) {
-        let mut featured = 0;
-        for a in m.usable_actions() {
-            let show = match m.id.as_str() {
-                ids::LOOK => a.id == "look.preview",
-                ids::CLIPBOARD => a.id == "clipboard.add",
-                ids::WHEEL => a.id == "wheel.add_action",
-                ids::SHELF => a.id == "shelf.add",
-                ids::FIND => a.id == "find.show",
-                ids::BOX => {
-                    if a.preset.is_some() && a.featured_for.iter().any(|t| arcade_link::content::type_matches(t, "file/image")) && featured < 5 {
-                        featured += 1;
-                        true
-                    } else {
-                        a.id == "box.open"
-                    }
-                }
-                _ => false,
-            };
-            if show {
-                let mut action = PeerAction::new(locations, m, a);
-                action.png = cache.clone();
-                actions.push(action);
-            }
-        }
+    for (m, a) in offered(installed, settings, locations) {
+        let mut action = PeerAction::new(locations, m, a);
+        action.png = cache.clone();
+        actions.push(action);
     }
     if let Some(box_app) = installed.get(ids::BOX).filter(|m| settings.link.uses(&m.id)) {
         if let Some(run) = box_app.usable_actions().find(|a| a.id == "box.pipeline.run") {
@@ -361,6 +340,41 @@ pub fn with_cached_peers(
         })?;
     }
     Ok(registry)
+}
+
+/// What Lens finds on screen, as the types other apps' cards name.
+const FOUND_KINDS: [&str; 5] = ["file/image", "text/plain", "text/url", "file/any", "folder/reference"];
+/// The most actions one app adds for one kind of finding, best first, so an app with a hundred tools (Box) can't
+/// push every other app out of the palette.
+const PER_APP_AND_KIND: usize = 6;
+
+/// Other apps' actions to offer on findings, from Link's shared `offers` (their cards, the catalog's `rules`, the
+/// user's `offers.json`) rather than a list kept here. Box's saved pipelines come from `box.pipelines` below.
+fn offered<'a>(installed: &'a arcade_link::registry::Registry, settings: &Settings, locations: &Locations) -> Vec<(&'a Manifest, &'a arcade_link::Action)> {
+    let cards: Vec<Manifest> = installed.peers(ids::LENS).filter(|m| settings.link.uses(&m.id)).cloned().collect();
+    let rules = arcade_link::catalog::Catalog::load(locations).rules;
+    let prefs = arcade_link::offers::Prefs::load(locations);
+    let mut out: Vec<(&Manifest, &arcade_link::Action)> = Vec::new();
+    for kind in FOUND_KINDS {
+        let items = [arcade_link::offers::Item::new(kind)];
+        let mut per_app: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+        for offer in arcade_link::offers::offers(&items, arcade_link::manifest::surface::PALETTE, &cards, &rules, &prefs) {
+            if !offer.enabled || offer.action.starts_with("box.pipeline") {
+                continue;
+            }
+            let count = per_app.entry(offer.app.clone()).or_default();
+            if *count >= PER_APP_AND_KIND {
+                continue;
+            }
+            let Some(m) = installed.get(&offer.app) else { continue };
+            let Some(a) = m.usable_actions().find(|a| a.id == offer.action) else { continue };
+            *count += 1;
+            if !out.iter().any(|(om, oa)| om.id == m.id && oa.id == a.id) {
+                out.push((m, a));
+            }
+        }
+    }
+    out
 }
 
 pub fn preset_wheel_id(action_id: &str) -> String {

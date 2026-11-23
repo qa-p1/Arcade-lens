@@ -4,6 +4,14 @@ All notable changes to Arcade Lens. The format follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
+### Added
+
+- Other Arcade apps, your file manager's menu and the browser extension can use what Lens finds, one action each: "Read text", "Scan QR codes and barcodes", "Pick colours", "Find links", "Find emails and phone numbers", "Find dates and times", "Find addresses", "Read a table" and the rest. Each works on an image (Lens reads its text first when it needs to) and, where it reads text, on selected text, and returns only what it was asked for. On Linux, "Read text" says it needs Tesseract instead of failing.
+
+### Changed
+
+- Lens moves to Arcade Link 1.1.0. The actions of other apps Lens offers on a finding come from Link's shared list of what each installed app can do (best matches first, up to six per app), not from a list built into Lens, so a new Arcade app's actions appear without a Lens update.
+
 ## [1.0.1] - 2026-11-22
 
 ### Changed

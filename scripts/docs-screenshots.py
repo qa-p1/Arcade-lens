@@ -90,6 +90,8 @@ def shoot(binary, out, root, disp, theme):
         (root / d).mkdir(parents=True, exist_ok=True)
     os.chmod(root / "runtime", 0o700)
     (root / "lens/config/settings.toml").write_text(f'appearance = "{theme}"\n')
+    # The pages document Settings, not the one-time welcome.
+    (root / "lens/config/welcomed").write_text("")
     env = dict(os.environ, DISPLAY=disp, HOME=str(root / "home"), ARCADE_LENS_HOME=str(root / "lens"),
                ARCADE_HOME=str(root / "arcade"), XDG_CONFIG_HOME=str(root / "xdg-config"),
                XDG_DATA_HOME=str(root / "xdg-data"), XDG_RUNTIME_DIR=str(root / "runtime"),

@@ -124,6 +124,8 @@ pub enum SettingsRequest {
     GetApp(String),
     /// Start an installed app.
     OpenApp(String),
+    /// Close Settings and start a capture (the first-open welcome).
+    CaptureNow,
     Quit,
 }
 
@@ -158,6 +160,8 @@ pub struct SettingsView {
     pub autostart: bool,
     pub launcher: bool,
     pub tesseract_busy: bool,
+    /// The first time Settings opens on its own, it shows a welcome instead.
+    welcome: bool,
 }
 
 const REVERSE_IMAGE_PRESETS: &[(&str, &str)] = &[
@@ -239,6 +243,7 @@ pub fn chain_problem(chain: &Chain, all: &[Chain], registry: &lens_core::Registr
 
 impl SettingsView {
     pub fn new(rt: Arc<Runtime>) -> SettingsView {
+        let welcome = !rt.paths.config.join(WELCOMED).exists();
         SettingsView {
             settings: (*rt.settings).clone(),
             chains: rt.chains.clone(),
@@ -259,6 +264,7 @@ impl SettingsView {
             autostart: lens_platform::autostart::is_enabled(),
             launcher: lens_platform::autostart::launcher_installed(),
             tesseract_busy: false,
+            welcome,
         }
     }
 
@@ -277,6 +283,7 @@ impl SettingsView {
 
     /// Opens on `section` (the overlay's "Install text recognition").
     pub fn show_section(&mut self, section: Section) {
+        self.welcome = false;
         self.page = Section::ALL.iter().position(|s| *s == section).unwrap_or(0);
     }
 
@@ -316,6 +323,13 @@ impl SettingsView {
         }
         self.keys(&ctx, &mut out);
         let kit = theme::kit();
+        if self.welcome {
+            self.welcome_page(&ctx, &kit, &mut out);
+            if self.closed {
+                self.dismiss_welcome();
+            }
+            return out;
+        }
         let items: Vec<NavItem> = Section::ALL.iter().map(|s| NavItem { label: s.label(), icon: s.icon(), count: None }).collect();
         let brand = super::glyphs::texture(&ctx, crate::link::ME, 16.0);
         kit.sidebar_with_brand(&ctx, "Arcade Lens", crate::link::VERSION, brand, &items, &mut self.page);
@@ -382,6 +396,62 @@ impl SettingsView {
             }
         }
         out
+    }
+
+    /// What Lens does and how to start it, shown once instead of the General page.
+    fn welcome_page(&mut self, ctx: &egui::Context, kit: &Kit, out: &mut Vec<SettingsRequest>) {
+        let shortcut = self.settings.activation_shortcut.clone().filter(|s| !s.is_empty());
+        let wayland_without_shortcuts = lens_platform::display_server() == lens_platform::DisplayServer::Wayland && !lens_platform::hyprland::active();
+        let (mut settings, mut capture) = (false, false);
+        kit.page(ctx, |ui| {
+            ui.add_space(24.0);
+            let glyph = super::glyphs::texture(ui.ctx(), crate::link::ME, 64.0);
+            kit.welcome_head(
+                ui,
+                glyph,
+                "scan",
+                "Arcade Lens is ready",
+                "Select anything on your screen to copy its text, read a QR code, convert a unit or price, look it up, \
+                 pin it or mark it up. It waits in the tray until you need it.",
+            );
+            ui.add_space(20.0);
+            kit.list(ui, |ui| match &shortcut {
+                Some(keys) if !wayland_without_shortcuts => {
+                    kit.row(ui, "Start a capture", "Works from any application. Change it under Shortcuts.", |ui| {
+                        ui.spacing_mut().item_spacing.x = 4.0;
+                        for part in keys.split('+') {
+                            kit.key_chip(ui, &key_label(part));
+                        }
+                    });
+                }
+                _ => {
+                    let how = if wayland_without_shortcuts {
+                        "Use the tray icon, or bind a key to Lens in your desktop's keyboard settings (see Shortcuts)."
+                    } else {
+                        "Use the tray icon, or set a shortcut under Shortcuts."
+                    };
+                    kit.row(ui, "Start a capture", how, |_| {});
+                }
+            });
+            kit.dialog_actions(ui, |ui| {
+                settings = kit.button(ui, "Settings", ButtonKind::Default).clicked();
+                capture = kit.button(ui, "Capture now", ButtonKind::Primary).clicked();
+            });
+        });
+        if settings || capture {
+            self.dismiss_welcome();
+        }
+        if capture {
+            self.closed = true;
+            ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+            out.push(SettingsRequest::CaptureNow);
+        }
+    }
+
+    fn dismiss_welcome(&mut self) {
+        self.welcome = false;
+        let marker = self.rt.paths.config.join(WELCOMED);
+        let _ = std::fs::create_dir_all(&self.rt.paths.config).and_then(|_| std::fs::write(marker, ""));
     }
 
     /// Esc and Ctrl+W close; F1 opens the guide; Ctrl+K filters actions;
@@ -1405,6 +1475,9 @@ pub fn palette_keys() -> Vec<KeyGroup> {
 }
 
 /// Key names as the key chips show them.
+/// Marks that the first-open welcome was seen.
+const WELCOMED: &str = "welcomed";
+
 fn key_label(key: &str) -> String {
     match key {
         "Escape" => "Esc".into(),
@@ -1493,6 +1566,35 @@ mod tests {
                 assert!(!view.recorder.recording);
             }
         });
+    }
+
+    #[test]
+    fn welcome_shows_once_then_settings_open_normally() {
+        let dir = std::env::temp_dir().join(format!("lens-settings-welcome-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let paths = || crate::config::Paths { config: dir.join("config"), data: dir.join("data") };
+        let rt = Arc::new(Runtime::headless(paths()).unwrap());
+        let ctx = egui::Context::default();
+        theme::apply_style(&ctx, "dark");
+
+        let mut view = SettingsView::new(rt.clone());
+        assert!(view.welcome, "a new profile starts with the welcome");
+        let _ = ctx.run(egui::RawInput::default(), |ctx| assert!(view.ui(ctx).is_empty()));
+        assert!(view.welcome && !view.closed);
+        // Closing the window (Esc) counts as having seen it.
+        let _ = ctx.run(key_input(egui::Key::Escape, egui::Modifiers::NONE), |ctx| {
+            view.ui(ctx);
+        });
+        assert!(view.closed && !view.welcome);
+        assert!(dir.join("config").join(WELCOMED).exists());
+        assert!(!SettingsView::new(rt).welcome, "the welcome shows only once");
+
+        // Opening on a page (the overlay's "Install text recognition") skips it.
+        std::fs::remove_dir_all(&dir).unwrap();
+        let mut view = SettingsView::new(Arc::new(Runtime::headless(paths()).unwrap()));
+        view.show_section(Section::TextRecognition);
+        assert!(!view.welcome);
+        let _ = std::fs::remove_dir_all(&dir);
     }
 
     #[test]

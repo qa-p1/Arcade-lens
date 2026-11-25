@@ -201,6 +201,8 @@ struct LensApp {
     solo: bool,
     /// The root window is a full-screen overlay (Wayland).
     fullscreen: bool,
+    /// When to start the capture asked for by the Settings welcome.
+    capture_after: Option<Instant>,
     /// Sets up the initial window; runs on the first frame, once egui knows the GPU's texture limits.
     init: Option<InitWindow>,
 }
@@ -486,6 +488,16 @@ impl LensApp {
                         repaint.request_repaint();
                     });
                 }
+                settings_view::SettingsRequest::CaptureNow => {
+                    if self.solo {
+                        // Settings is its own process here; the background instance captures.
+                        let _ = lens_platform::ipc::send(&self.paths.endpoint(), "capture");
+                    } else {
+                        // Capture once Settings is off the screen, so it isn't in the picture.
+                        self.capture_after = Some(Instant::now() + Duration::from_millis(400));
+                        ctx.request_repaint_after(Duration::from_millis(400));
+                    }
+                }
                 settings_view::SettingsRequest::Quit => {
                     if self.solo {
                         let _ = lens_platform::ipc::send(&self.paths.endpoint(), "quit");
@@ -735,6 +747,15 @@ impl LensApp {
         if !self.solo && !self.root_visible && !self.hidden_once {
             ctx.send_viewport_cmd(ViewportCommand::Visible(false));
             self.hidden_once = true;
+        }
+        if let Some(at) = self.capture_after {
+            let now = Instant::now();
+            if now >= at {
+                self.capture_after = None;
+                self.begin_capture(ctx);
+            } else {
+                ctx.request_repaint_after(at - now);
+            }
         }
         while let Ok(t) = self.triggers.try_recv() {
             match t {
@@ -1497,6 +1518,7 @@ fn start_app(
                 activity: solo,
                 solo,
                 fullscreen,
+                capture_after: None,
                 init: Some(Box::new(init)),
             }))
         }),

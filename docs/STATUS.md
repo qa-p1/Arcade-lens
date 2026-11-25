@@ -1,9 +1,12 @@
-## 2026-11-23: 1.1.0 released
+## 2026-11-25: 1.1.1 released
 
-Current release: [1.1.0](https://github.com/qa-p1/Arcade-lens/releases/tag/v1.1.0), promoted from `v1.1.0-rc.1` after
-Gates passed 12/12 on its published files (upgrade from 1.0.1, Tools' delta update with signature and tampered-chunk
+Current release: [1.1.1](https://github.com/qa-p1/Arcade-lens/releases/tag/v1.1.1), promoted from `v1.1.1-rc.1` after
+Gates passed 12/12 on its published files (upgrade from 1.1.0, Tools' delta update with signature and tampered-chunk
 checks, memory and performance budgets, the Windows installer and macOS dmg smokes, and both desktop suites). Before it:
-1.0.1 (2026-11-22) and 1.0.0 (2026-11-17).
+1.1.0 (2026-11-23), 1.0.1 (2026-11-22) and 1.0.0 (2026-11-17).
+
+1.1.1 adds a welcome the first time Lens opens: what it does, the capture shortcut as keys (or how to start a capture
+where the desktop doesn't allow app shortcuts), and Settings / Capture now.
 
 1.1.0 moved Lens onto Arcade Link 1.1: each recognizer is its own action for other apps, file manager menus and the
 browser extension; the actions Lens offers on a finding come from Link's shared offers list; plugins no longer see

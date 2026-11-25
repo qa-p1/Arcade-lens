@@ -1,5 +1,19 @@
 # Lens 1.0 progress (newest first)
 
+## 2026-11-25 (cloud session) - 1.1.1 promoted
+
+[#44](https://github.com/qa-p1/Arcade-lens/pull/44) (a welcome the first time Lens opens, with the capture shortcut and
+Capture now) merged as `dea8122`. `v1.1.1-rc.1` passed [Gates](https://github.com/qa-p1/Arcade-lens/actions/runs/45608576718)
+12/12 on its published files (upgrade from 1.1.0, both desktop suites), and
+[Promote](https://github.com/qa-p1/Arcade-lens/actions/runs/45609837564) made it
+[1.1.1](https://github.com/qa-p1/Arcade-lens/releases/tag/v1.1.1), now the latest release. The AppImage, dmg, setup.exe,
+portable exe and SHA256SUMS.txt have the same SHA-256 digests as rc.1; `manifest.json` and `arcade-release.json` differ
+only in the channel (`test` to `stable`), the tag and the notes link, and `manifest.json.sig` is new.
+
+Checked by hand before merging (Xvfb and openbox, fresh profile): the welcome shows, Capture now closes the window and
+opens the capture without it in the picture, and the next open goes to Settings › General. Not checked: the welcome on
+Wayland, where Settings runs in its own process and the background instance captures.
+
 ## 2026-11-23 (cloud session) - 1.1.0 promoted
 
 [#41](https://github.com/qa-p1/Arcade-lens/pull/41) (Link 1.1.0: one action per recognizer, peer actions from Link's

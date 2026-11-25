@@ -1,7 +1,7 @@
 {
   "schema": 1,
   "app": "arcade.lens",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "groups": [
     {
       "title": "Global",

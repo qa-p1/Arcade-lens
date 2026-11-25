@@ -4,6 +4,12 @@ All notable changes to Arcade Lens. The format follows [Keep a Changelog](https:
 
 ## [Unreleased]
 
+## [1.1.1] - 2026-11-25
+
+### Added
+
+- The first time you open Lens it says what it does and how to start it: your capture shortcut as keys, or how to start one from the tray on desktops that don't let apps set shortcuts, plus a Capture now button. Settings opens as before from then on, and straight on a page when another window asks for one.
+
 ## [1.1.0] - 2026-11-23
 
 ### Added
